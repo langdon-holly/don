@@ -14,4 +14,12 @@ function form(str) {
 
 function seq() {
   var args = arguments;
+
+  if (args.length == 1) return args[0];
+  else if (args.length == 2) {
+    
+  }
+  else if (args.length > 2) {
+    return seq(Array.prototype.slice.call(args, 0, args.length-1), args[args.length-1]);
+  }
 }
