@@ -15,15 +15,17 @@ function form(str) {
 }
 
 function seq() {
-  var args = arguments;
+  return function(str) {
+    var args = arguments;
 
-  if (args.length == 1) return args[0];
-  else if (args.length == 2) {
-    for (var betweenI; betweenI >= 0; betweenI--) {
-      
+    if (args.length == 1) return args[0];
+    else if (args.length == 2) {
+      for (var betweenI = str.length; betweenI >= 0; betweenI--) {
+        
+      }
     }
-  }
-  else if (args.length > 2) {
-    return seq(args[0], seq.apply(this, Array.prototype.slice.call(args, 1, args.length)));
+    else if (args.length > 2) {
+      return seq(args[0], seq.apply(this, Array.prototype.slice.call(args, 1, args.length)));
+    }
   }
 }
