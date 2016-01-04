@@ -19,9 +19,11 @@ function seq() {
 
   if (args.length == 1) return args[0];
   else if (args.length == 2) {
-    
+    for (var betweenI; betweenI >= 0; betweenI--) {
+      
+    }
   }
   else if (args.length > 2) {
-    return seq(Array.prototype.slice.call(args, 0, args.length-1), args[args.length-1]);
+    return seq(args[0], seq.apply(this, Array.prototype.slice.call(args, 1, args.length)));
   }
 }
