@@ -8,10 +8,7 @@ function expr(str) {
     form,
     list,
     name,
-    ps.mapParser(bracketStr,
-                 function(pt) {
-                   if (pt[1].length == 1) return ['name', pt[1][0]];
-                   return pt;}))(str);}
+    bracketStr)(str);}
 
 function form(str) {
   return ps.mapParser(ps.around(ps.seq(ps.string("("),
