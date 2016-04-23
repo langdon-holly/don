@@ -8,7 +8,7 @@ function expr(str) {
     form,
     list,
     name,
-    bracketStr)(str);}
+    braceStr)(str);}
 
 function form(str) {
   return ps.mapParser(ps.around(ps.seq(ps.string("("),
@@ -25,8 +25,8 @@ function list(str) {
                                 ps.sepBy(exprs, theWs),
                                 ps.seq(ows,
                                        ps.string("]"))),
-                   function(pt) {
-                     return ['list', pt];})(str);}
+                      function(pt) {
+                        return ['list', pt];})(str);}
 
 function theWs(str) {
   return ps.seq(ows, ps.wsChar, ows)(str);}
@@ -35,14 +35,19 @@ function ows(str) {
   return ps.many(ps.or(ps.wsChar, comment))(str);}
 
 function exprs(str) {
-  return ps.sepBy(expr, oComment)(str);}
+  return ps.mapParser(ps.sepBy1(expr, oComment),
+                      function reduceExprs(pt) {
+                        if (pt.length == 1) return pt[0];
+                        return ['form', 
+                                [pt[0],
+                                 reduceExprs(pt.slice(1, pt.length))]];})(str);}
 
 function comment(str) {
-  return ps.seq(ps.string(';'),
-                ps.or(ps.seq(ps.wsChar,
-                             ps.many(ps.charNot(ps.string('\u000A'))),
-                             ps.string('\u000A')),
-                      expr))(str);}
+  return ps.seq(ps.or(ps.string(';'),
+                      ps.string('#')),
+                ps.or(expr, 
+                      ps.seq(ps.many(ps.charNot(ps.string('\u000A'))),
+                             ps.string('\u000A'))))(str);}
 
 function oComment(str) {
   return ps.many(comment)(str);}
@@ -56,7 +61,8 @@ function name(str) {
                                                        ps.string('}'),
                                                        ps.wsChar,
                                                        ps.string('\\'),
-                                                       ps.string(';'))),
+                                                       ps.string(';'),
+                                                       ps.string('#'))),
                                    function concatStrs(arr) {
                                      if (arr.length == 1) return arr[0];
                                      if (arr.length == 2) return arr[0]
@@ -65,7 +71,7 @@ function name(str) {
                                        concatStrs(arr.slice(1, arr.length)))}),
                       function(pt) {return ['name', pt];})(str);}
 
-function bracketStr(str) {
+function braceStr(str) {
 return ps.mapParser(
   ps.around(ps.string('{'),
             ps.many(ps.or(ps.mapParser(ps.before(ps.string('\\'),
@@ -75,7 +81,7 @@ return ps.mapParser(
                                              || pt === '{'
                                              || pt === '}') return [pt];
                                          return ['', pt];}),
-                          ps.mapParser(bracketStr,
+                          ps.mapParser(braceStr,
                                        function(pt) {
                                          var arr0 = pt[1]
                                          var arr1 = ['{'.concat(arr0[0])]
@@ -91,7 +97,7 @@ return ps.mapParser(
                                          return [pt];}))),
             ps.string('}')),
   function(arr) {
-    return ['bracketStr',
+    return ['braceStr',
             _.reduce(arr,
                      function (arr0, arr1) {
                        return arr0.slice(0, arr0.length-1)
@@ -105,6 +111,4 @@ function parseFile(str) {
   if (parsed[0][0]) {
     return [parsed[0], str.slice(parsed[1], str.length)];}
   return [[false]];}
-
-//console.log(parseFile('(+ {2} 2) hello!'));
 

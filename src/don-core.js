@@ -38,16 +38,14 @@ if (!Array.prototype.includes) {
 var exports = module.exports;
 
 function valObj(label, data) {
-  return [true, [[label, data]]];}
+  return [[label, data]];}
 exports.valObj = valObj;
 
 function getInterfaceData(o, targetLabel, implementszes, prevInterfaces) {
   if (prevInterfaces === undefined) prevInterfaces = [];
 
-  if (!o[0]) return [false];
-
   for (var i = 0; i < o[i].length; i++) {
-    var maybeInterfaceData = valInterfaceData(o[1][i],
+    var maybeInterfaceData = valInterfaceData(o[i],
                                               targetLabel,
                                               implementszes,
                                               prevInterfaces);
@@ -87,7 +85,6 @@ function apply(fn, args, implementszes, env) {
   return transformMaybe[1](args, implementszes, env);}
 exports.apply = apply;
 
-
 function fnOfTypes(interfaceList, fn) {
   return valObj(fnLabel,
                 function(args, implementszes, env) {
@@ -99,6 +96,18 @@ function fnOfTypes(interfaceList, fn) {
                     if (!maybeArgData[0]) return [false];
                     argsData.push(maybeArgData[1]);}
                   return fn(argsData, implementszes, env);})}
+
+function parseTreeToAST(pt) {
+  var label = pt[0];
+
+  if (label == 'name') return valObj(strLabel, pt[1]);
+  if (label == 'form') return valObj(listLabel, pt[1].map(parseTreeToAST));
+  if (label == 'list') return valObj(listLabel, [listVar]
+                                                .concat(pt[1]
+                                                        .map(parseTreeToAST)));
+  if (label == 'braceStr') return valObj(ASTBraceStrLabel, pt[1]);
+
+  return Null();}
 
 var macroLabel = {};
 exports.macroLabel = macroLabel;
@@ -118,8 +127,8 @@ exports.strLabel = strLabel;
 var symLabel = {};
 exports.symLabel = symLabel;
 
-var ASTBracketStrLabel = {};
-exports.ASTBracketStrLabel = ASTBracketStrLabel;
+var ASTBraceStrLabel = {};
+exports.ASTBraceStrLabel = ASTBraceStrLabel;
 
 var ASTPrecomputedLabel = {};
 exports.ASTPrecomputedLabel = ASTPrecomputedLabel;
@@ -127,18 +136,21 @@ exports.ASTPrecomputedLabel = ASTPrecomputedLabel;
 var preEvalVar = valObj(symLabel, {});
 exports.preEvalVar = preEvalVar;
 
-var Null = [false];
+var listVar = valObj(symLabel, {});
+exports.listVar = listVar;
+
+var Null = function() {while (true) {}};
 exports.Null = Null;
 
 var eval = valObj(fnLabel, function(args, implementszes, env) {
   var expr = args[0];
-  var env = args[1];
+  if (args.length >= 2) env = args[1];
 
   var maybeForm = getInterfaceData(expr,
                                    listLabel,
                                    implementszes);
   if (maybeForm[0]) {
-    if (maybeForm[1].length < 1) return Null;
+    if (maybeForm[1].length < 1) return Null();
     return mApply(apply(eval,
                         [maybeForm[1][0], env],
                         implementszes,
@@ -157,18 +169,15 @@ var eval = valObj(fnLabel, function(args, implementszes, env) {
   if (maybeStr[0] || maybeSym[0])
     return apply(env, [expr], implementszes, env);
 
-  var maybeBracketStr = getInterfaceData(expr,
-                                         ASTBracketStrLabel,
+  var maybeBraceStr = getInterfaceData(expr,
+                                         ASTBraceStrLabel,
                                          implementszes);
-  if (maybeBracketStr[0])
-    return apply(env,
-                 [apply(apply(env,
-                              [preEvalVar],
-                              implementszes,
-                              env),
-                        [expr],
-                        implementszes,
-                        env)],
+  if (maybeBraceStr[0])
+    return apply(apply(env,
+                       [preEvalVar],
+                       implementszes,
+                       env),
+                 [expr],
                  implementszes,
                  env);
 
@@ -178,7 +187,7 @@ var eval = valObj(fnLabel, function(args, implementszes, env) {
   if (maybePrecomputed[0])
     return maybePrecomputed[1];
 
-  return Null;});
+  return Null();});
 exports.eval = eval;
 
 var initImplementszes = {};
@@ -357,23 +366,28 @@ var initEnv
                  return valObj(fnLabel,
                                function sum(args, implementszes, env) {
                                  if (args.length == 0)
-                                   return valObj(numLabel, 0);
+                                   return valObj(numLabel, [0, 0]);
                                  if (args.length == 1) return args[0];
                                  if (args.length == 2) {
-                                   var maybeNum0 = getInterfaceData(args[0],
-                                                               numLabel,
-                                                               implementszes);
-                                   var maybeNum1 = getInterfaceData(args[1],
-                                                               numLabel,
-                                                               implementszes);
+                                   var maybeNum0 = getInterfaceData(
+                                     args[0],
+                                     numLabel,
+                                     implementszes);
+                                   var maybeNum1 = getInterfaceData(
+                                     args[1],
+                                     numLabel,
+                                     implementszes);
                                    if (!maybeNum0[0] || !maybeNum1[0])
-                                     return Null;
+                                     return Null();
                                    return valObj(numLabel,
-                                                 maybeNum0[1] + maybeNum1[1]);}
+                                                 [maybeNum0[1][0]
+                                                  + maybeNum1[1][0],
+                                                  maybeNum0[1][1]
+                                                  + maybeNum1[1][1]]);}
                                  return args.reduce(sum);});
 
-               return Null;}
+               return Null();}
 
-             return Null;});
+             return Null();});
 exports.initEnv = initEnv;
 
