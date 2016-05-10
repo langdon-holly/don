@@ -43,9 +43,13 @@ function exprs(str) {
                                  reduceExprs(pt.slice(1, pt.length))]];})(str);}
 
 function comment(str) {
-  return ps.seq(ps.or(ps.string(';'),
-                      ps.string('#')),
-                ps.or(expr, 
+  return ps.or(ps.seq(ps.string(';'),
+                      ps.or(expr,
+                            ps.and(
+                              ps.seq(ps.wsChar, ps.many(ps.charNot())),
+                              ps.seq(ps.many(ps.charNot(ps.string('\u000A'))),
+                                     ps.string('\u000A'))))),
+               ps.seq(ps.string('#'),
                       ps.seq(ps.many(ps.charNot(ps.string('\u000A'))),
                              ps.string('\u000A'))))(str);}
 
@@ -107,7 +111,7 @@ return ps.mapParser(
                      [''])];})(str);}
 
 function parseFile(str) {
-  var parsed = ps.longestMatch(expr, str);
+  var parsed = ps.longestMatch(ps.before(ows, exprs), str);
   if (parsed[0][0]) {
     return [parsed[0], str.slice(parsed[1], str.length)];}
   return [[false]];}
