@@ -2,8 +2,8 @@
 
 // Dependencies
 
-var ps = require('./parse.js');
-var parser = require('./don-parse.js');
+var ps = require('./parse2.js');
+var parser = require('./don-parse2.js');
 var _ = require('lodash');
 
 // Polyfill
