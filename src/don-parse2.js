@@ -5,11 +5,7 @@ module.exports = parseFile;
 
 function comment() {
   return ps.or(ps.seq(ps.string(';'),
-                      ps.or(expr,
-                            ps.and(
-                              ps.seq(ps.wsChar, ps.many(ps.charNot())),
-                              ps.seq(ps.many(ps.charNot(ps.string('\u000A'))),
-                                     ps.string('\u000A'))))),
+                      exprs()),
                ps.seq(ps.string('#'),
                       ps.seq(ps.many(ps.charNot(ps.string('\u000A'))),
                              ps.string('\u000A'))));}
@@ -21,7 +17,7 @@ function ows() {return ps.many(ps.or(ps.wsChar, comment()));}
 function theWs() {return ps.seq(ows(), ps.wsChar, ows());}
 
 function exprs() {
-  return ps.mapParser(ps.sepBy1(expr, oComment()),
+  return ps.mapParser(ps.many1(expr),
                       function reduceExprs(pt) {
                         if (pt.length == 1) return pt[0];
                         return ['form', 
@@ -79,8 +75,8 @@ var braceStr = {
                return ['braceStr',
                        _.reduce(arr,
                                 function (arr0, arr1) {
-                                  return arr0.slice(0, arr0.length-1)
-                                    .concat([arr0[arr0.length-1]
+                                  return arr0.slice(0, arr0.length - 1)
+                                    .concat([arr0[arr0.length - 1]
                                       .concat(arr1[0])])
                                     .concat(arr1.slice(1, arr1.length))},
                                 [''])];}).parseChar(chr);},
@@ -109,7 +105,8 @@ var expr = {parseChar: function(chr) {
                            list(),
                            name(),
                            braceStr).parseChar(chr);},
-            result: [false]};
+            result: [false],
+            doomed: false};
 
 function parseFile(str) {
   var parsed = ps.longestMatch(ps.before(ows(), exprs()), str);

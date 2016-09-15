@@ -2,7 +2,6 @@
 
 'use strict';
 
-var parser = require('./don-parse.js');
 var don = require('./don-core.js');
 var program = require('commander');
 var fs = require('fs');

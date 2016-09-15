@@ -3,6 +3,8 @@
 // Dependencies
 
 var _ = require('lodash');
+var memwatch = require('memwatch-next');
+var heapdump = require('heapdump');
 
 // Polyfill
 
@@ -85,6 +87,12 @@ if (!Array.from) {
   }());
 }
 
+// Heap Debugging
+
+memwatch.on('stats', function(info) {
+  console.error(info);
+  heapdump.writeSnapshot();});
+
 // Stuff
 
 var exports = module.exports;
@@ -99,14 +107,17 @@ function seq() {
                                          function(pt) {
                                            return [pt];});
   if (args.length == 2) {
-    var contFirst = {parseChar: function (chr) {
-                       return seq(args[0].parseChar(chr), args[1]);},
-                     result: [false]};
-    return args[0].result ? or(contFirst,
-                               mapParser(args[1],
-                                         function (pt) {
-                                           return [args[0].result, pt];}))
-                          : contFirst;}
+    var contFirst = args[0].doomed || args[1].doomed
+                    ? fail
+                    : {parseChar: function (chr) {
+                                    return seq(args[0].parseChar(chr), args[1]);},
+                       result: [false],
+                       doomed: false};
+    return args[0].result[0] ? or(contFirst,
+                                  mapParser(args[1],
+                                            function (pt) {
+                                              return [args[0].result[1], pt];}))
+                             : contFirst;}
   return mapParser(seq(args[0],
                        seq.apply(this,
                                  Array.from(args).slice(1, args.length))),
@@ -116,22 +127,30 @@ exports.seq = seq;
 function character(chr0) {
   return {parseChar: function (chr1) {
             return chr0 === chr1 ? {parseChar: function () {return fail;},
-                                    result: [true, chr0]}
+                                    result: [true, chr0],
+                                    doomed: false}
                                  : fail},
-          result: [false]};}
+          result: [false],
+          doomed: false};}
 
 function string(str) {
-  return seq.apply(this, str.split('').map(function (chr) {
-    return character(chr);}));}
+  return mapParser(seq.apply(this, str.split('').map(function (chr) {
+                     return character(chr);})),
+                   function concat(arr) {
+                     if (arr.length == 0) return '';
+                     return arr[0]
+                            + concat(arr.slice(1, arr.length));});}
 exports.string = string;
 
 var fail = {parseChar: function() {return fail;},
-            result: [false]};
+            result: [false],
+            doomed: true};
 
 var anything = {parseChar: function(chr) {
                   return mapParser(anything,
                                    function (pt) {return chr + pt;});},
-                result: [true, '']};
+                result: [true, ''],
+                doomed: false};
 
 var wsChar = or(string('\t'),
                 string('\u000A'),
@@ -166,7 +185,8 @@ exports.ws = ws;
 function many(parser) {
   return {parseChar: function(chr) {
             return many1(parser).parseChar(chr);},
-          result: [true, []]};}
+          result: [true, []],
+          doomed: false};}
 exports.many = many;
 
 function many1(parser) {
@@ -174,19 +194,30 @@ function many1(parser) {
                    function (pt) {return [pt[0]].concat(pt[1]);});}
 exports.many1 = many1;
 
+function parse(parser, str) {
+  if (parser.doomed) return [false];
+  if (str.length == 0) return parser.result;
+  return parse(parser.parseChar(str.charAt(0)), str.slice(1, str.length));}
+exports.parse = parse;
+
 function longestMatch(parser, str) {
+  if (parser.doomed) return [[false]];
+
   var toReturn = [[false]];
 
   if (parser.result[0]) toReturn = [parser.result, 0];
-  for (var index = 0; index < str.length; index++) {
+  for (var index = 0; index < str.length && !parser.doomed; index++) {
+    console.log("parsing {" + str.charAt(index) + "}");
     parser = parser.parseChar(str.charAt(index));
     if (parser.result[0]) toReturn = [parser.result, index + 1];}
   return toReturn;}
 exports.longestMatch = longestMatch;
 
 function shortestMatch(parser, str) {
+  if (parser.doomed) return [[false]];
   if (parser.result[0]) return [parser.result, 0];
-  for (var index = 0; index < str.length; index++) {
+
+  for (var index = 0; index < str.length && !parser.doomed; index++) {
     parser = parser.parseChar(str.charAt(index));
     if (parser.result[0]) return [parser.result, index + 1];}
   return [[false]];}
@@ -216,10 +247,12 @@ function opt(parser) {
 exports.opt = opt;
 
 function mapParser(parser, fn) {
+  if (parser.doomed) return fail;
   return {parseChar: function(chr) {
             return mapParser(parser.parseChar(chr), fn);},
           result: parser.result[0] ? [true, fn(parser.result[1])]
-                                   : [false]};}
+                                   : [false],
+          doomed: false};}
 exports.mapParser = mapParser;
 
 function before(parser0, parser1) {
@@ -238,8 +271,10 @@ function around(parser0, parser1, parser2) {
   return before(parser0, after(parser1, parser2));}
 exports.around = around;
 
-function or(parser0, parser1) {
-  var args = arguments;
+function or() {
+  var args = _.filter(arguments, function (parser) {return !parser.doomed;}),
+      parser0 = args[0],
+      parser1 = args[1];
 
   if (args.length == 0) return fail;
   if (args.length == 1) return parser0;
@@ -247,7 +282,8 @@ function or(parser0, parser1) {
                                   return or(parser0.parseChar(chr),
                                             parser1.parseChar(chr));},
                                 result: parser0.result[0] ? parser0.result
-                                                          : parser1.result};
+                                                          : parser1.result,
+                                doomed: false};
   return or(args[0],
             or.apply(this,
                      Array.from(args).slice(1, args.length)));}
@@ -260,13 +296,15 @@ function and(parser0, parser1) {
                                          function() {return [];});
   if (args.length == 1) return mapParser(parser0,
                                          function(pt) {return [pt];});
-  if (args.length == 2)
+  if (args.length == 2) {
+    if (parser0.doomed || parser1.doomed) return fail;
     return {parseChar: function(chr) {
               return and(parser0.parseChar(chr),
                          parser1.parseChar(chr));},
             result: parser0.result[0] && parser1.result[0]
-                    ? [parser0.result, parser1.result]
-                    : [false]};
+                    ? [true, [parser0.result[1], parser1.result[1]]]
+                    : [false],
+            doomed: false};}
   return mapParser(and(parser0,
                        and.apply(this,
                                  Array.from(args).slice(1, args.length))),
@@ -275,19 +313,22 @@ exports.and = and;
 
 function strOfLength(len) {
   return len == 0 ? {parseChar: function() {return fail;},
-                     result: [true, '']}
+                     result: [true, ''],
+                     doomed: false}
                   : {parseChar: function(chr) {
                        return mapParser(strOfLength(len - 1),
                                         function (pt) {
                                           return chr + pt;});},
-                     result: [false]};}
+                     result: [false],
+                     doomed: false};}
 exports.strOfLength = strOfLength;
 
 function not(parser) {
   return {parseChar: function(chr) {
             return mapParser(not(parser.parseChar(chr)),
                              function(pt) {return chr + pt;});},
-          result: parser.result[0] ? [false] : [true, '']}}
+          result: parser.result[0] ? [false] : [true, ''],
+          doomed: false}}
 exports.not = not;
 
 function charNot() {
@@ -297,6 +338,7 @@ function charNot() {
 exports.charNot = charNot;
 
 var nothing = {parseChar: function() {return fail;},
-               result: [true, '']};
+               result: [true, ''],
+               doomed: false};
 exports.nothing = nothing;
 

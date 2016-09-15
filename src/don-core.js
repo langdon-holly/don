@@ -41,79 +41,113 @@ if (!Array.prototype.includes) {
 
 var exports = module.exports;
 
-function valObj(label, data) {
-  return [[label, data]];}
-exports.valObj = valObj;
+//function valObj(label, data) {
+//  return [[label, data]];}
+//exports.valObj = valObj;
 
-function getInterfaceData(o, targetLabel, implementszes, prevInterfaces) {
-  if (prevInterfaces === undefined) prevInterfaces = [];
+//function getInterfaceData(o, targetLabel, implementszes, prevInterfaces) {
+//  if (prevInterfaces === undefined) prevInterfaces = [];
+//
+//  for (var i = 0; i < o.length; i++) {
+//    var maybeInterfaceData = valInterfaceData(o[i],
+//                                              targetLabel,
+//                                              implementszes,
+//                                              prevInterfaces);
+//    if (maybeInterfaceData[0]) return maybeInterfaceData;} 
+//  return [false];}
+//exports.getInterfaceData = getInterfaceData;
+//
+//function valInterfaceData(val, targetLabel, implementszes, prevInterfaces) {
+//  if (prevInterfaces.includes(val[0])) return [false];
+//
+//  if (val[0] === targetLabel) return [true, val[1]];
+//
+//  prevInterfaces.push(val[0]);
+//
+//  var applicableImplementszes = implementszes(val[0]);
+//  for (var i = 0; i < applicableImplementszes.length; i++) {
+//    var maybeInterfaceData = getInterfaceData(applicableImplementszes
+//                                                [i]
+//                                                (val[1]),
+//                                              targetLabel,
+//                                              implementszes,
+//                                              prevInterfaces);
+//    if (maybeInterfaceData[0]) return maybeInterfaceData;}
+//  return [false];}
 
-  for (var i = 0; i < o.length; i++) {
-    var maybeInterfaceData = valInterfaceData(o[i],
-                                              targetLabel,
-                                              implementszes,
-                                              prevInterfaces);
-    if (maybeInterfaceData[0]) return maybeInterfaceData;} 
-  return [false];}
-exports.getInterfaceData = getInterfaceData;
+function mApply(macro, args, env) {
+  if (macro[0] === macroLabel)
+    return macro[1](args, env);
 
-function valInterfaceData(val, targetLabel, implementszes, prevInterfaces) {
-  if (prevInterfaces.includes(val[0])) return [false];
+  args = args.map(function (arg) {
+    return apply(Eval, [arg, env], env);});
 
-  if (val[0] === targetLabel) return [true, val[1]];
+  if (macro[0] === fnLabel)
+    return macro[1](args, env);
 
-  prevInterfaces.push(val[0]);
+  if (macro[0] === listLabel) {
+    if (args.length != 1)
+      return Null("Lists are unary");
+    if (args[0][0] !== intLabel)
+      return Null("Argument to list must be integer");
 
-  var applicableImplementszes = implementszes(val[0]);
-  for (var i = 0; i < applicableImplementszes.length; i++) {
-    var maybeInterfaceData = getInterfaceData(applicableImplementszes
-                                                [i]
-                                                (val[1]),
-                                              targetLabel,
-                                              implementszes,
-                                              prevInterfaces);
-    if (maybeInterfaceData[0]) return maybeInterfaceData;}
-  return [false];}
+    return macro[1][args[0][1]];}
 
-function mApply(macro, args, implementszes, env) {
-  var transformMaybe = getInterfaceData(macro, macroLabel, implementszes);
-  if (!transformMaybe[0]) {
-    console.log("tried to macro apply a non-macro");
-    return Null();}
-
-  return transformMaybe[1](args, implementszes, env);}
+  return Null("Tried to macro-apply a non-macro");}
 exports.mApply = mApply;
 
-function apply(fn, args, implementszes, env) {
-  var transformMaybe = getInterfaceData(fn, fnLabel, implementszes);
-  if (!transformMaybe[0]) {
-    console.log("tried to apply a non-function");
-    return Null();}
+function apply(fn, args, env) {
+  return fn[0] === macroLabel ? mApply(fn,
+                                       args.map(function (arg) {
+                                         return [ASTPrecomputedLabel, arg];}),
+                                       env)
+         : fn[0] === fnLabel ? fn[1](args, env)
+         : fn[0] === listLabel ? function(){
+           if (args.length != 1)
+             return Null("Lists are unary");
+           if (args[0][0] !== intLabel)
+             return Null("Argument to list must be integer");
 
-  return transformMaybe[1](args, implementszes, env);}
+           return fn[1][args[0][1]];}()
+         : Null("Tried to apply a non-macro");}
 exports.apply = apply;
 
 function fnOfTypes(interfaceList, fn) {
-  return valObj(fnLabel,
-                function(args, implementszes, env) {
+  return makeFn(function(args, env) {
                   var argsData = [];
                   for (var i = 0; i < args.length; i++) {
-                    var maybeArgData = getInterfaceData(args[i],
-                                                        interfaceList[i],
-                                                        implementszes);
-                    if (!maybeArgData[0]) return [false];
-                    argsData.push(maybeArgData[1]);}
-                  return fn(argsData, implementszes, env);})}
+                    if (args[i][0] !== interfaceList[i]) return Null();
+                    argsData.push(args[i][1]);}
+                  return fn(argsData, env);})}
+
+function makeFn(fn) {
+  return [fnLabel,
+          fn];}
+
+function makeList() {
+  return [listLabel, Array.from(arguments)];}
+
+function just(val) {
+  return makeList(True,
+                  val);}
+
+function isTrue(val, env) {
+  var trueVal = [symLabel, {}];
+  return apply(val, [trueVal, [symLabel, {}]], env) === trueVal;}
 
 function parseTreeToAST(pt) {
   var label = pt[0];
 
-  if (label == 'name') return valObj(strLabel, pt[1]);
-  if (label == 'form') return valObj(listLabel, pt[1].map(parseTreeToAST));
-  if (label == 'list') return valObj(listLabel, [listVar]
-                                                .concat(pt[1]
-                                                        .map(parseTreeToAST)));
-  if (label == 'braceStr') return valObj(ASTBraceStrLabel, pt[1]);
+  if (label == 'name') return [strLabel, pt[1]];
+  if (label == 'form') return [listLabel, pt[1].map(parseTreeToAST)];
+  if (label == 'list') return [listLabel, [listVar].concat(pt[1]
+                                                             .map(parseTreeToAST))];
+  if (label == 'braceStr') return [listLabel,
+                                   [preEvalVar,
+                                    [ASTPrecomputedLabel,
+                                     [listLabel,
+                                      pt[1].map(function(str) {
+                                                  return [strLabel, str];})]]]];
 
   return Null();}
 
@@ -124,17 +158,20 @@ function parseStr(str) {
   return [true, parseTreeToAST(parsed[0][1])];}
 exports.parse = parseStr;
 
-var macroLabel = {};
-exports.macroLabel = macroLabel;
+function ttyLog() {
+  if (process.stdout.isTTY) console.log.apply(this, arguments);}
 
 var fnLabel = {};
 exports.fnLabel = fnLabel;
 
+var macroLabel = {};
+exports.macroLabel = macroLabel;
+
 var listLabel = {};
 exports.listLabel = listLabel;
 
-var numLabel = {};
-exports.numLabel = numLabel;
+var intLabel = {};
+exports.intLabel = intLabel;
 
 var strLabel = {};
 exports.strLabel = strLabel;
@@ -142,392 +179,423 @@ exports.strLabel = strLabel;
 var symLabel = {};
 exports.symLabel = symLabel;
 
-var ASTBraceStrLabel = {};
-exports.ASTBraceStrLabel = ASTBraceStrLabel;
-
 var ASTPrecomputedLabel = {};
 exports.ASTPrecomputedLabel = ASTPrecomputedLabel;
 
 var unitLabel = {};
 exports.unitLabel = unitLabel;
-var unit = valObj(unitLabel);
+var unit = [unitLabel];
 exports.unit = unit;
 
-var preEvalVar = valObj(symLabel, {});
+var preEvalVar = [symLabel, {}];
 exports.preEvalVar = preEvalVar;
 
-var listVar = valObj(symLabel, {});
+var listVar = [symLabel, {}];
 exports.listVar = listVar;
 
+var ASTBraceStrVar = [symLabel, {}];
+exports.ASTBraceStrVar = ASTBraceStrVar;
+
 var Null = function() {
+  ttyLog.apply(this, arguments);
   throw new Error("diverging…");
   while (true) {}};
 exports.Null = Null;
 
-var Eval = valObj(fnLabel, function(args, implementszes, env) {
+var nothing = makeList(false);
+
+var True = [macroLabel, function(args, env) {
+  if (args.length != 2) return Null("true is binary");
+
+  return apply(Eval,
+               [args[0], env],
+               env);}];
+
+var Eval = makeFn(function(args, env) {
+  if (args.length < 1 || args.length > 2) return Null();
+
   var expr = args[0];
   if (args.length >= 2) env = args[1];
 
-  var maybeForm = getInterfaceData(expr,
-                                   listLabel,
-                                   implementszes);
-  if (maybeForm[0]) {
-    if (maybeForm[1].length < 1) return Null();
+  if (expr[0] === listLabel) {
+    if (expr[1].length < 1) return Null();
     return mApply(apply(Eval,
-                        [maybeForm[1][0], env],
-                        implementszes,
+                        [expr[1][0], env],
                         env),
-                  maybeForm[1]
-                    .slice(1, maybeForm[1].length),
-                  implementszes,
+                  expr[1]
+                    .slice(1, expr[1].length),
                   env);}
 
-  var maybeStr = getInterfaceData(expr,
-                                  strLabel,
-                                  implementszes);
-  var maybeSym = getInterfaceData(expr,
-                                  symLabel,
-                                  implementszes);
-  if (maybeStr[0] || maybeSym[0])
-    return apply(env, [expr], implementszes, env);
+  if (expr[0] === strLabel || expr[0] === symLabel) {
+    return apply(env, [expr], env);
+    return Null("variable not found in environment");}
 
-  var maybeBraceStr = getInterfaceData(expr,
-                                       ASTBraceStrLabel,
-                                       implementszes);
-  if (maybeBraceStr[0])
-    return apply(apply(env,
-                       [preEvalVar],
-                       implementszes,
-                       env),
-                 [expr],
-                 implementszes,
-                 env);
-
-  var maybePrecomputed = getInterfaceData(expr,
-                                          ASTPrecomputedLabel,
-                                          implementszes);
-  if (maybePrecomputed[0])
-    return maybePrecomputed[1];
+  if (expr[0] === ASTPrecomputedLabel)
+    return expr[1];
 
   return Null();});
 exports.Eval = Eval;
 
 var topEval = function(ast) {
-  return apply(Eval, [ast], initImplementszes, initEnv);}
+  return apply(Eval, [ast], initEnv);}
 exports.topEval = topEval;
 
-var initImplementszes = function(Interface) {
-if (Interface === listLabel)
-  return [function(list) {
-    return fnOfTypes([numLabel],
-                     function(args, implementszes, env) {
-                       return list[args[0]];});}];
-if (Interface === fnLabel)
- return [function(fn) {
-   return valObj(macroLabel,
-                 function(args, implementszes, env) {
-                   return fn(args.map(function(arg) {
-                                        return apply(Eval,
-                                                     [arg, env],
-                                                     implementszes,
-                                                     env);}),
-                             implementszes,
-                             env);});}];
-return [];}
-exports.initImplementszes = initImplementszes;
+//var initImplementszes = function(Interface) {
+//if (Interface === listLabel)
+//  return [function(list) {
+//    return fnOfTypes([intLabel],
+//                     function(args, env) {
+//                       return list[args];});}];
+//if (Interface === fnLabel)
+// return [function(fn) {
+//   return valObj(macroLabel,
+//                 function(args, env) {
+//                   return fn(args.map(function(arg) {
+//                                        return apply(Eval,
+//                                                     [arg, env],
+//                                                     env);}),
+//                             env);});}];
+//return [];}
+//exports.initImplementszes = initImplementszes;
 
 var initEnv
-  = valObj(fnLabel,
-           function(args, implementszes, env) {
+  = makeFn(function(args, env) {
              var Var = args[0];
 
-             var maybeStr = getInterfaceData(Var,
-                                             strLabel,
-                                             implementszes);
-             if (maybeStr[0]) {
+             if (Var[0] === strLabel) {
                var thisIsDumb = function () {
-                 function default0(pt) {
-                   if (pt[0]) return pt[1];
-                     return 0;}
+//                 function default0(pt) {
+//                   if (pt[0]) return pt[1];
+//                     return 0;}
+//
+//                 function default1(pt) {
+//                   if (pt[0]) return pt[1];
+//                     return 1;}
+//
+//                 function multParts(pt) {
+//                   return pt[0] * pt[1];}
+//
+//                 function addParts(pt) {
+//                   return pt[0] + pt[1];}
+//
+//                 function digitToNum(chr) {
+//                   if (chr === '0') return 0;
+//                   if (chr === '1') return 1;
+//                   if (chr === '2') return 2;
+//                   if (chr === '3') return 3;
+//                   if (chr === '4') return 4;
+//                   if (chr === '5') return 5;
+//                   if (chr === '6') return 6;
+//                   if (chr === '7') return 7;
+//                   if (chr === '8') return 8;
+//                   if (chr === '9') return 9;
+//                   if (chr === 'A' || chr === 'a') return 10;
+//                   if (chr === 'B' || chr === 'b') return 11;
+//                   if (chr === 'C' || chr === 'c') return 12;
+//                   if (chr === 'D' || chr === 'd') return 13;
+//                   if (chr === 'E' || chr === 'e') return 14;
+//                   if (chr === 'F' || chr === 'f') return 15;}
+//
+//                 function digitsToNum(base) {
+//                   return function(digits) {
+//                            if (digits.length == 0) return 0;
+//                            if (digits.length == 1)
+//                              return digitToNum(digits[0]);
+//                            return digitsToNum(base)(digits.slice(
+//                                                       0,
+//                                                       digits.length - 1))
+//                                   * base
+//                                   + digitToNum(digits[digits.length - 1]);};}
+//
+//                 function fracDigitsToNum(base) {
+//                   return function(digits) {
+//                     return digitsToNum(1 / base)(digits.reverse()) / base};}
+//
+//                 function digit(base) {
+//                   if (base == 2) return ps.or(ps.string('0'),
+//                                               ps.string('1'));
+//                   if (base == 8) return ps.or(digit(2),
+//                                               ps.string('2'),
+//                                               ps.string('3'),
+//                                               ps.string('4'),
+//                                               ps.string('5'),
+//                                               ps.string('6'),
+//                                               ps.string('7'));
+//                   if (base == 10) return ps.or(digit(8),
+//                                                ps.string('8'),
+//                                                ps.string('9'));
+//                   if (base == 16) return ps.or(digit(10),
+//                                                ps.string('A'),
+//                                                ps.string('a'),
+//                                                ps.string('B'),
+//                                                ps.string('b'),
+//                                                ps.string('C'),
+//                                                ps.string('c'),
+//                                                ps.string('D'),
+//                                                ps.string('d'),
+//                                                ps.string('E'),
+//                                                ps.string('e'),
+//                                                ps.string('F'),
+//                                                ps.string('f'));}
+//
+//                 function digits(base) {
+//                   return ps.many1(digit(base));}
+//
+//                 var signParser = ps.mapParser(ps.or(ps.string('+'),
+//                                                     ps.string('-')),
+//                                               function (pt) {
+//                                                 return pt === '+' ? 1
+//                                                                   : -1;});
+//
+//                 var numPartParserBase = function(base) {
+//                   return ps.or(
+//                     ps.mapParser(
+//                       digits(base),
+//                       digitsToNum(base)),
+//                     ps.mapParser(
+//                       ps.seq(
+//                         ps.mapParser(
+//                           ps.opt(
+//                             ps.mapParser(
+//                               digits(base),
+//                               digitsToNum(base))),
+//                           default0),
+//                         ps.before(
+//                           ps.string('.'),
+//                           ps.mapParser(
+//                             digits(base),
+//                             fracDigitsToNum(base)))),
+//                       addParts));};
+//
+//                 var urealParserBase = function(base) {
+//                   var prefix = base == 2 ? ps.string('0b') :
+//                                base == 8 ? ps.string('0o') :
+//                                base == 16 ? ps.string('0x') :
+//                                             ps.or(ps.nothing,
+//                                                   ps.string('0d'));
+//
+//                   return ps.before(prefix,
+//                                    ps.mapParser(
+//                                      ps.seq(
+//                                        numPartParserBase(base),
+//                                        ps.mapParser(
+//                                          ps.opt(
+//                                            ps.mapParser(
+//                                              ps.before(
+//                                                ps.or(ps.string('e'),
+//                                                      ps.string('E')),
+//                                                ps.mapParser(
+//                                                  ps.seq(
+//                                                    ps.mapParser(
+//                                                      ps.opt(signParser),
+//                                                      default1),
+//                                                    numPartParserBase(base)),
+//                                                  multParts)),
+//                                              function (pt) {
+//                                                return Math.pow(base, pt);})),
+//                                          default1)),
+//                                      multParts));}
+//
+//                 var urealParser = ps.or(urealParserBase(2),
+//                                         urealParserBase(8),
+//                                         urealParserBase(10),
+//                                         urealParserBase(16));
+//
+//                 var realParser = ps.mapParser(ps.seq(ps.mapParser(
+//                                                        ps.opt(signParser),
+//                                                        default1),
+//                                                      urealParser),
+//                                               multParts);
+//
+//                 var numParser
+//                   = ps.or(ps.mapParser(realParser,
+//                                        function (pt) {
+//                                          return [pt, 0];}),
+//                           ps.after(ps.seq(realParser,
+//                                           ps.mapParser(
+//                                             ps.seq(
+//                                               signParser,
+//                                               ps.mapParser(
+//                                                 ps.opt(urealParser),
+//                                                 default1)),
+//                                             multParts)),
+//                                    ps.string('i')),
+//                           ps.mapParser(ps.after(ps.mapParser(
+//                                                   ps.seq(
+//                                                     ps.mapParser(
+//                                                       ps.opt(signParser),
+//                                                       default1),
+//                                                     ps.mapParser(
+//                                                       ps.opt(urealParser),
+//                                                       default1)),
+//                                                   multParts),
+//                                                 ps.string('i')),
+//                                        function (pt) {
+//                                          return [0, pt];}));
 
-                 function default1(pt) {
-                   if (pt[0]) return pt[1];
-                     return 1;}
+//                 if (maybeStr[1].charAt(0) === '"')
+//                   return valObj(strLabel,
+//                                 maybeStr[1].slice(1, maybeStr[1].length));
 
-                 function multParts(pt) {
-                   return pt[0] * pt[1];}
+//                 var varParts = maybeStr[1].split(':');
+//                 if (varParts.length >= 2) {
+//                   return _.reduce(varParts.slice(1, varParts.length),
+//                                   function(fn, argument) {
+//                                     return apply(fn,
+//                                                  [valObj(strLabel,
+//                                                          argument)],
+//                                                  env);},
+//                                   apply(env,
+//                                         [valObj(strLabel, varParts[0])],
+//                                         env));}
 
-                 function digitToNum(chr) {
-                   if (chr === '0') return 0;
-                   if (chr === '1') return 1;
-                   if (chr === '2') return 2;
-                   if (chr === '3') return 3;
-                   if (chr === '4') return 4;
-                   if (chr === '5') return 5;
-                   if (chr === '6') return 6;
-                   if (chr === '7') return 7;
-                   if (chr === '8') return 8;
-                   if (chr === '9') return 9;
-                   if (chr === 'A' || chr === 'a') return 10;
-                   if (chr === 'B' || chr === 'b') return 11;
-                   if (chr === 'C' || chr === 'c') return 12;
-                   if (chr === 'D' || chr === 'd') return 13;
-                   if (chr === 'E' || chr === 'e') return 14;
-                   if (chr === 'F' || chr === 'f') return 15;}
+                 if (Var[1] === '+')
+                   return makeFn(function sum(args, env) {
+                     args.map(function (arg) {
+                       if (arg[0] !== intLabel) return Null();});
+                     if (args.length == 0)
+                       return [intLabel, 0];
+                     if (args.length == 1) return args[0];
+                     if (args.length == 2) {
+                       return [intLabel,
+                               args[0][1]
+                               + args[1][1]];}
+                     return args.reduce(sum);});
 
-                 function digitsToNum(base) {
-                   return function(digits) {
-                            if (digits.length == 0) return 0;
-                            if (digits.length == 1)
-                              return digitToNum(digits[0]);
-                            return digitsToNum(base)(digits.slice(
-                                                       0,
-                                                       digits.length - 1))
-                                   * base
-                                   + digitToNum(digits[digits.length - 1]);};}
+                 if (Var[1] === '-')
+                   return makeFn(function difference(args, env) {
+                     args.map(function (arg) {
+                       if (arg[0] !== intLabel) return Null();});
+                     if (args.length == 0)
+                       return [intLabel, 0];
+                     if (args.length == 1)
+                       return [intLabel, -args[0][1]];
+                     if (args.length == 2) {
+                       return [intLabel,
+                                     args[0][1]
+                                     - args[1][1]];}
+                     return args.reduce(sum);});
 
-                 function fracDigitsToNum(base) {
-                   return function(digits) {
-                     return digitsToNum(1 / base)(reverse(digits)) / base};}
+                 if (Var[1] === "environment") return env;
 
-                 function digits(base) {
-                   if (base == 2) return ps.or(ps.string('0'),
-                                               ps.string('1'));
-                   if (base == 8) return ps.or(digits(2),
-                                               ps.string('2'),
-                                               ps.string('3'),
-                                               ps.string('4'),
-                                               ps.string('5'),
-                                               ps.string('6'),
-                                               ps.string('7'));
-                   if (base == 10) return ps.or(digits(8),
-                                                ps.string('8'),
-                                                ps.string('9'));
-                   if (base == 16) return ps.or(digits(10),
-                                                ps.string('A'),
-                                                ps.string('a'),
-                                                ps.string('B'),
-                                                ps.string('b'),
-                                                ps.string('C'),
-                                                ps.string('c'),
-                                                ps.string('D'),
-                                                ps.string('d'),
-                                                ps.string('E'),
-                                                ps.string('e'),
-                                                ps.string('F'),
-                                                ps.string('f'));}
+                 if (Var[1] === "print")
+                   return makeFn(function(args, env) {
+                     if (args.length != 1)
+                       return Null("print is unary");
 
-                 var signParser = ps.mapParser(ps.or(ps.string('+'),
-                                                     ps.string('-')),
-                                               function (pt) {
-                                                 return pt === '+' ? 1
-                                                                  : -1;});
+                     if (args[0][0] !== strLabel)
+                       return Null(
+                         "print's argument should be a string");
 
-                 var numPartParserBase = function(base) {
-                   return ps.or(
-                     ps.mapParser(
-                       digits(base),
-                       digitsToNum(base)),
-                     ps.mapParser(
-                       ps.seq(
-                         ps.mapParser(
-                           ps.opt(
-                             ps.mapParser(
-                               digits(base),
-                               digitsToNum(base))),
-                           default0),
-                         ps.before(
-                           ps.string('.'),
-                           ps.mapParser(
-                             digits(base),
-                             fracDigitsToNum(base)))),
-                       function (pt) {
-                         return pt[0] + pt[1];}));};
-
-                 var urealParserBase = function(base) {
-                   var prefix = base == 2 ? ps.string('0b') :
-                                base == 8 ? ps.string('0o') :
-                                base == 16 ? ps.string('0x') :
-                                             ps.or(ps.nothing,
-                                                   ps.string('0d'));
-
-                   return ps.before(prefix,
-                                    ps.mapParser(
-                                      ps.seq(
-                                        numPartParserBase(base),
-                                        ps.mapParser(
-                                          ps.before(
-                                            ps.or(ps.string('e'),
-                                                  ps.string('E')),
-                                            ps.mapParser(
-                                              ps.seq(
-                                                ps.mapParser(
-                                                  ps.opt(signParser),
-                                                  default1),
-                                                numPartParserBase(base)),
-                                              multParts)),
-                                          function (pt) {
-                                            return base^pt})),
-                                      multParts));}
-
-                 var urealParser = ps.or(urealParserBase(2),
-                                         urealParserBase(8),
-                                         urealParserBase(10),
-                                         urealParserBase(16));
-
-                 var realParser = ps.mapParser(ps.seq(ps.mapParser(
-                                                        ps.opt(signParser),
-                                                        default1),
-                                                      urealParser),
-                                               multParts);
-
-                 var numParser
-                   = ps.or(ps.mapParser(realParser,
-                                        function (pt) {
-                                          return [pt, 0];}),
-                           ps.after(ps.seq(realParser,
-                                           ps.mapParser(
-                                             ps.seq(
-                                               signParser,
-                                               ps.mapParser(
-                                                 ps.opt(urealParser),
-                                                 default1)),
-                                             multParts)),
-                                    ps.string('i')),
-                           ps.mapParser(ps.after(ps.mapParser(
-                                                   ps.seq(
-                                                     ps.mapParser(
-                                                       ps.opt(signParser),
-                                                       default1),
-                                                     ps.mapParser(
-                                                       ps.opt(urealParser),
-                                                       default1)),
-                                                   multParts),
-                                                 ps.string('i'))),
-                                        function (pt) {
-                                          return [0, pt];});
-
-                 if (maybeStr[1].charAt(0) === '"')
-                   return valObj(strLabel,
-                                 maybeStr[1].slice(1, maybeStr[1].length));
-
-                 var varParts = maybeStr[1].split(':');
-                 if (varParts.length >= 2) {
-                   return _.reduce(varParts.slice(1, varParts.length),
-                                   function(fn, argument) {
-                                     return apply(fn,
-                                                  [valObj(strLabel,
-                                                          argument)],
-                                                  implementszes,
-                                                  env);},
-                                   apply(env,
-                                         [valObj(strLabel, varParts[0])],
-                                         implementszes,
-                                         env));}
-
-                 if (maybeStr[1] === '+')
-                   return valObj(fnLabel,
-                                 function sum(args, implementszes, env) {
-                                   if (args.length == 0)
-                                     return valObj(numLabel, [0, 0]);
-                                   if (args.length == 1) return args[0];
-                                   if (args.length == 2) {
-                                     var maybeNum0 = getInterfaceData(
-                                       args[0],
-                                       numLabel,
-                                       implementszes);
-                                     var maybeNum1 = getInterfaceData(
-                                       args[1],
-                                       numLabel,
-                                       implementszes);
-                                     if (!maybeNum0[0] || !maybeNum1[0])
-                                       return Null();
-                                     return valObj(numLabel,
-                                                   [maybeNum0[1][0]
-                                                    + maybeNum1[1][0],
-                                                    maybeNum0[1][1]
-                                                    + maybeNum1[1][1]]);}
-                                   return args.reduce(sum);});
-
-                 if (maybeStr[1] === "environment") return env;
-
-                 if (maybeStr[1] === "say")
-                   return valObj(fnLabel, function(args, implementszes, env) {
-                     if (args.length != 1) return Null();
-
-                     var maybeStr = getInterfaceData(args[0],
-                                                     strLabel,
-                                                     implementszes);
-                     if (!maybeStr[0]) return Null();
-
-                     console.log(maybeStr[1]);
+                     process.stdout.write(args[0][1]);
 
                      return unit;});
 
-                 if (maybeStr[1] === "->str")
-                   return valObj(
-                     fnLabel,
-                     function toString(args, implementszes, env) {
+                 if (Var[1] === "->str")
+                   return makeFn(
+                     function toString(args, env) {
                        if (args.length != 1) return Null();
 
-                       var maybeStr = getInterfaceData(args[0],
-                                                       strLabel,
-                                                       implementszes);
-                       if (maybeStr[0]) return args[0];
+                       var arg = args[0];
 
-                       var maybeNum = getInterfaceData(args[0],
-                                                       numLabel,
-                                                       implementszes);
-                       if (maybeNum[0])
-                         return valObj(strLabel, maybeNum[1].toString());
+                       if (arg[0] === strLabel)
+                         return [strLabel, '{' + arg[1] + '}'];
 
-                       var maybeList = getInterfaceData(args[0],
-                                                        listLabel,
-                                                        implementszes);
-                       if (maybeList[0])
-                         return valObj(
-                           strLabel,
-                           '[' + maybeList[1].map(function (o) {
-                             return toString([o],
-                                             implementszes,
-                                             env);}).join(' ') + ']');
+                       if (arg[0] === intLabel)
+                         return [strLabel, arg[1].toString()];
+
+                       if (arg[0] === listLabel)
+                         return [strLabel,
+                                 '['
+                                 + arg[1].map(function (o) {
+                                   return toString([o],
+                                                   env)[1];}).join(' ')
+                                 + ']'];
 
                        return Null();});
 
-                 var maybeNum = numParser(maybeStr[1]);
-                 if (maybeNum[0]) return valObj(numLabel, maybeNum[1]);
+                 if (Var[1] === "str->unicode")
+                   return makeFn(
+                     function(args, env) {
+                       if (args.length != 1) return Null();
+                       if (args[0][0] !== strLabel) return Null();
 
-                 console.log("couldn't find {"
-                             + maybeStr[1]
-                             + "} in environment");
+                       var codepoints = [];
+                       for (var i = 0; i < args[0][1].length; i++) {
+                         var codepoint = args[0][1].codePointAt(i);
+                         if (codepoint !== undefined)
+                           codepoints.push(codepoint);}
+
+                       return [listLabel,
+                               codepoints.map(function(codepoint) {
+                                 return [intLabel, codepoint];})];});
+
+                 if (Var[1] === "unicode->str")
+                   return makeFn(function(args, env) {
+                     if (args.length != 1) return Null();
+                     if (args[0][0] !== listLabel) return Null();
+
+                     return [strLabel,
+                             String
+                             .fromCodePoint
+                             .apply(this,
+                                    args[0][1].map(function (codepoint) {
+                                      return codepoint[1];}))];});
+
+                 if (Var[1] === "length")
+                   return makeFn(function(args, env) {
+                     if (args.length != 1) return Null();
+
+                     if (args[0][0] === listLabel)
+                       return args[0][1].length;
+                     return Null("invalid argument for length");});
+
+                 if (Var[1] === "true")
+                   return True;
+
+                 if (Var[1] === "false")
+                   return [macroLabel, function(args, env) {
+                     if (args.length != 2) return Null("false is binary");
+
+                     return apply(Eval,
+                                  [args[1], env],
+                                  env);}];
+
+                 if (/^(\-|\+)?[0-9]+$/.test(Var[1]))
+                   return [intLabel, parseInt(Var[1], 10)];
+
                  return Null();};
                return thisIsDumb();}
 
-             var maybeSym = getInterfaceData(Var,
-                                             symLabel,
-                                             implementszes);
+             if (Var[0] === symLabel) {
 
-             if (maybeSym[0]) {
                if (Var === preEvalVar)
-                 return valObj(fnLabel, function(args, implementszes, env) {
+                 return makeFn(function(args, env) {
                    if (args.length != 1) return Null();
 
-                   var maybeBraceStr = getInterfaceData(args[0],
-                                                        ASTBraceStrLabel,
-                                                        implementszes);
-                   if (!maybeBraceStr[0]) return Null();
+                   if (args[0][0] !== listLabel) return Null();
 
-                   return valObj(
-                     strLabel,
-                     _.reduce(maybeBraceStr[1], function(str0, str1) {
-                       return str0 + str1;}));});
+                   return [strLabel,
+                           _.reduce(_.map(args[0][1],
+                                          function(str) {
+                                            if (str[0] !== strLabel) return Null();
+                                            return str[1];}),
+                                    function(str0, str1) {
+                                      return str0 + str1;})];});
 
                if (Var === listVar)
-                 return valObj(fnLabel, function(args, implementszes, env) {
-                   return valObj(listLabel, args);});
+                 return makeFn(function(args, env) {
+                   return [listLabel, args];});
+
+               if (Var === ASTBraceStrVar)
+                 return makeFn(function(args, env) {
+                   if (args[0][0] !== listLabel) return Null();
+                   return [strLabel, args[0][1].join('')];});
 
                return Null();}
 
              return Null();});
 exports.initEnv = initEnv;
+
+Error.stackTraceLimit = Infinity;
 

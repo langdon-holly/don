@@ -1,5 +1,5 @@
 #!/usr/bin/env don
 
-;(say {a})say:h
-say:j
+(print ->str(str->unicode {}))
+#(print ->str{hello})
 
