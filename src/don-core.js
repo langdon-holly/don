@@ -2,8 +2,8 @@
 
 // Dependencies
 
-var ps = require('./parse2.js');
-var parser = require('./don-parse2.js');
+var ps = require('./parse.js');
+var parser = require('./don-parse.js');
 var _ = require('lodash');
 
 // Polyfill
@@ -140,20 +140,24 @@ function parseTreeToAST(pt) {
 
   if (label == 'name') return [strLabel, pt[1]];
   if (label == 'form') return [listLabel, pt[1].map(parseTreeToAST)];
-  if (label == 'list') return [listLabel, [listVar].concat(pt[1]
-                                                             .map(parseTreeToAST))];
-  if (label == 'braceStr') return [listLabel,
-                                   [preEvalVar,
-                                    [ASTPrecomputedLabel,
-                                     [listLabel,
-                                      pt[1].map(function(str) {
-                                                  return [strLabel, str];})]]]];
+  if (label == 'list') return [listLabel,
+                               [listVar].concat(pt[1]
+                                                  .map(parseTreeToAST))];
+  if (label == 'braceStr')
+    return [listLabel,
+            [braceStrEvalVar,
+             [listLabel,
+              [preEvalVar,
+               [ASTPrecomputedLabel,
+                [listLabel,
+                 pt[1].map(function(str) {
+                             return [strLabel, str];})]]]]]];
 
   return Null();}
 
 function parseStr(str) {
   var parsed = parser(str);
-  if (!parsed[0][0]) return [false];
+  if (!parsed[0][0]) return [false, parsed[0][1]];
 
   return [true, parseTreeToAST(parsed[0][1])];}
 exports.parse = parseStr;
@@ -189,6 +193,9 @@ exports.unit = unit;
 
 var preEvalVar = [symLabel, {}];
 exports.preEvalVar = preEvalVar;
+
+var braceStrEvalVar = [symLabel, {}];
+exports.braceStrEvalVar = braceStrEvalVar;
 
 var listVar = [symLabel, {}];
 exports.listVar = listVar;
@@ -449,6 +456,9 @@ var initEnv
 //                                         [valObj(strLabel, varParts[0])],
 //                                         env));}
 
+                 if (Var[1][0] === '"')
+                   return [strLabel, Var[1].slice(1, Var[1].length)];
+
                  if (Var[1] === '+')
                    return makeFn(function sum(args, env) {
                      args.map(function (arg) {
@@ -591,6 +601,8 @@ var initEnv
                  return makeFn(function(args, env) {
                    if (args[0][0] !== listLabel) return Null();
                    return [strLabel, args[0][1].join('')];});
+
+               if (Var === braceStrEvalVar) return Eval;
 
                return Null();}
 

@@ -1,5 +1,4 @@
 #!/usr/bin/env don
 
-(print ->str(str->unicode {}))
-#(print ->str{hello})
+(print \"hello)
 
