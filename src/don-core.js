@@ -145,13 +145,11 @@ function parseTreeToAST(pt) {
                                                   .map(parseTreeToAST))];
   if (label == 'braceStr')
     return [listLabel,
-            [braceStrEvalVar,
-             [listLabel,
-              [preEvalVar,
-               [ASTPrecomputedLabel,
-                [listLabel,
-                 pt[1].map(function(str) {
-                             return [strLabel, str];})]]]]]];
+            [preEvalVar,
+             [ASTPrecomputedLabel,
+              [listLabel,
+               pt[1].map(function(str) {
+                           return [strLabel, str];})]]]];
 
   return Null();}
 
