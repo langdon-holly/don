@@ -162,10 +162,27 @@ function many(parser) {
           futureSuccess: parser.futureSuccess};}
 exports.many = many;
 
+function manyCount(fn, start) {
+  start = start || 0;
+
+  return {parseChar: function(chr) {
+            return many1(fn, start).parseChar(chr);},
+          result: [true, []],
+          noMore: fn(start).noMore,
+          futureSuccess: fn(start).futureSuccess};}
+exports.manyCount = manyCount;
+
 function many1(parser) {
   return mapParser(seq(and(not(nothing), parser), many(parser)),
                    function(pt) {return [pt[0][1]].concat(pt[1]);});}
 exports.many1 = many1;
+
+function many1Count(fn, start) {
+  start = start || 0;
+
+  return mapParser(seq(and(not(nothing), fn(start)), manyCount(fn, start + 1)),
+                   function(pt) {return [pt[0][1]].concat(pt[1]);});}
+exports.many1Count = many1Count;
 
 function parse(parser, str) {
   if (doomed(parser)) return [false];
