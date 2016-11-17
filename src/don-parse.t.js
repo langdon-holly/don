@@ -53,9 +53,3 @@ var parser = ps.seq(ps.and(donParse.expr,
   console.log(testList[0]);
   if (ps.doomed(parser)) console.log("doomed");}*/
 
-/*console.log();
-
-console.log(ps.parse(ps.recurseRight(ps.or(ps.string("1+"), ps.nothing),
-                                    ps.string("1")),
-                     "1+1+1"));*/
-

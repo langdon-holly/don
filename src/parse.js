@@ -6,6 +6,7 @@ var _ = require('lodash');
 
 // Polyfill
 
+// from https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/from
 // Production steps of ECMA-262, Edition 6, 22.1.2.1
 // Reference: https://people.mozilla.org/~jorendorff/es6-draft.html#sec-array.from
 if (!Array.from) {
@@ -435,8 +436,8 @@ function doomed(parser) {
   return !parser.result[0] && parser.noMore;}
 exports.doomed = doomed;
 
-function recurseLeft(recursive, nonrecursive) {
-  return mapParser(recursive.result[0]
+function recurseLeft(recursive, nonrecursive, emptyCriteria) {
+  return mapParser(recursive.result[0] && emptyCriteria
                    ? seq(opt(nonrecursive), many(recursive))
                    : seq(mapParser(nonrecursive,
                                    function(pt) {return [true, pt];}),
@@ -448,8 +449,8 @@ function recurseLeft(recursive, nonrecursive) {
                             .concat(pt[1]);});}
 exports.recurseLeft = recurseLeft;
 
-function recurseRight(recursive, nonrecursive) {
-  return mapParser(recursive.result[0]
+function recurseRight(recursive, nonrecursive, emptyCriteria) {
+  return mapParser(recursive.result[0] && emptyCriteria
                    ? seq(many(recursive), opt(nonrecursive))
                    : seq(many(recursive),
                          mapParser(nonrecursive,
@@ -459,4 +460,76 @@ function recurseRight(recursive, nonrecursive) {
                                           ? [pt[1][1]]
                                           : []));});}
 exports.recurseRight = recurseRight;
+
+function recurse(inTermsOfThis, optimistic) {
+  optimistic = optimistic || false;
+
+  function makeThis(matches) {
+    if (doomed(matches.parser)) return fail;
+
+    function findCharIndex(chr) {
+      var index = matches.characters.length;
+      for (var i = 0; i < matches.characters.length; i++) {
+        if (matches.characters[i].character === chr) {
+          index = i;
+          break;}}
+      return index;}
+
+    return {parseChar: function(chr) {
+                         var index = findCharIndex(chr);
+                         var newMatches = matches.characters[index].match;
+
+                         // if chr has not been parsed yet
+                         if (index == matches.characters.length) {
+                           matches.characters.push(
+                             { character: chr,
+                               match: { parser: optimistic ? string('') : fail,
+                                        characters: []}});
+                           newMatches = matches.characters[index].match;
+                           newMatches.parsers.parser
+                             = matches.parsers
+                                      .parser
+                                      .parseChar(chr);
+                           newMatches.parsers.parsed
+                             = true;}
+
+                         // if chr is in the middle of being parsed
+                         if (!matches.characters[index].match.parsers.parsed) {
+                           newMatches.parsers.defaultParser
+                             = matches
+                               .parsers
+                               .defaultParser
+                               .parseChar(chr);
+                           newMatches.parsers.undefaultParser
+                             = matches
+                               .parsers
+                               .undefaultParser
+                               .parseChar(chr);
+                           matches.characters[index].match.parsers.primaryParser
+                             = 'default';}
+
+                         return makeThis(matches.characters[index].match);},
+            result:
+              matches.parsers.primaryParser === 'parser'
+              ? matches.parsers.parser.result
+              : matches.parsers.parsed
+                ? matches.parsers.parser.result[0]
+                  === matches.parsers.defaultParser.result[0]
+                  ? matches.parsers.parser.result
+                  : function() {
+                      throw new Error("recursive parser contradicts itself");}()
+                : matches.parsers.defaultParser.result,
+            noMore: false,
+            futureSuccess: false};}
+
+  var defaultEmpty = inTermsOfThis(optimistic ? anything : fail);
+  var undefaultEmpty = inTermsOfThis(optimistic ? fail : anything);
+  var matches = { parser: defaultEmpty,
+                  characters: []};
+  var This = makeThis(matches);
+  var otherThis = inTermsOfThis(This);
+  matches.parsers.parser = otherThis;
+
+  return This;}
+exports.recurse = recurse;
 

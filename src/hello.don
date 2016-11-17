@@ -1,4 +1,4 @@
 #!/usr/bin/env don
 
-(print \"hello)
+(print ->str(+ 7 12))
 

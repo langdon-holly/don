@@ -2,4 +2,5 @@
 * better syntax-error message
 * strings are lists
 * continuations
+* package.json
 
