@@ -140,6 +140,21 @@ function string(str) {
                             + concat(arr.slice(1, arr.length));});}
 exports.string = string;
 
+function ciString(str) {
+  return
+    mapParser(
+      seq.apply(
+        this,
+        str.toUpperCase()
+           .split('')
+           .map(function (chr) {
+                  return character(chr.toUpperCase());})),
+      function concat(arr) {
+        if (arr.length == 0) return '';
+        return arr[0]
+               + concat(arr.slice(1, arr.length));});}
+exports.ciString = ciString;
+
 var fail = {parseChar: function() {return fail;},
             result: [false],
             noMore: true,
@@ -344,31 +359,42 @@ var nothing = {parseChar: function() {return fail;},
                futureSuccess: false};
 exports.nothing = nothing;
 
-var wsChar = or(string('\t'),
-                string('\u000A'),
-                string('\u000B'),
-                string('\f'),
-                string('\r'),
-                string(' '),
-                string('\u0085'),
-                string('\u00A0'),
-                string('\u1680'),
-                string('\u2000'),
-                string('\u2001'),
-                string('\u2002'),
-                string('\u2003'),
-                string('\u2004'),
-                string('\u2005'),
-                string('\u2006'),
-                string('\u2007'),
-                string('\u2008'),
-                string('\u2009'),
-                string('\u200A'),
-                string('\u2028'),
-                string('\u2029'),
-                string('\u202F'),
-                string('\u205F'),
-                string('\u3000'));
+var hSpaceChar = or(string('\t'),
+                    string(' '),
+                    string('\u00A0'),
+                    string('\u1680'),
+                    string('\u2000'),
+                    string('\u2001'),
+                    string('\u2002'),
+                    string('\u2003'),
+                    string('\u2004'),
+                    string('\u2005'),
+                    string('\u2006'),
+                    string('\u2007'),
+                    string('\u2008'),
+                    string('\u2009'),
+                    string('\u200A'),
+                    string('\u202F'),
+                    string('\u205F'),
+                    string('\u3000'));
+exports.hSpaceChar = hSpaceChar;
+
+var hSpace = many1(hSpaceChar);
+exports.hSpace = hSpace;
+
+var vSpaceChar = or(string('\u000A'),
+                    string('\u000B'),
+                    string('\f'),
+                    string('\r'),
+                    string('\u0085'),
+                    string('\u2028'),
+                    string('\u2029'));
+exports.vSpaceChar = vSpaceChar;
+
+var vSpace = many1(vSpaceChar);
+exports.vSpace = vSpace;
+
+var wsChar = or(hSpaceChar, vSpaceChar);
 exports.wsChar = wsChar;
 
 var ws = many1(wsChar);
