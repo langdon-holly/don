@@ -297,6 +297,18 @@ function around(parser0, parser1, parser2) {
   return before(parser0, after(parser1, parser2));}
 exports.around = around;
 
+function between(parser0, parser1) {
+  if (arguments.length == 0) return nothing;
+  if (arguments.length == 1)
+    return mapParser(parser0, function(pt) {return [];});
+  if (arguments.length == 2)
+    return mapParser(before(parser0, parser1), function(pt) {return [pt];});
+  return mapParser(seq(between(parser0, parser1),
+                       between.apply(this,
+                                     Array.prototype.slice.call(arguments, 2))),
+                   _.flatten);}
+exports.between = between;
+
 function or() {
   var args = _.filter(arguments, function (parser) {return !doomed(parser);}),
       parser0 = args[0],
