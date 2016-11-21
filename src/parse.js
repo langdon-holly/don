@@ -131,6 +131,19 @@ function character(chr0) {
           noMore: false,
           futureSuccess: false};}
 
+function ciCharacter(chr0) {
+  chr0 = chr0.toUpperCase();
+  return {parseChar: function (chr1) {
+            var chr2 = chr1.toUpperCase();
+            return chr0 === chr2 ? {parseChar: function () {return fail;},
+                                    result: [true, chr1],
+                                    noMore: true,
+                                    futureSuccess: false}
+                                 : fail},
+          result: [false],
+          noMore: false,
+          futureSuccess: false};}
+
 function string(str) {
   return mapParser(seq.apply(this, str.split('').map(function (chr) {
                      return character(chr);})),
@@ -141,18 +154,12 @@ function string(str) {
 exports.string = string;
 
 function ciString(str) {
-  return
-    mapParser(
-      seq.apply(
-        this,
-        str.toUpperCase()
-           .split('')
-           .map(function (chr) {
-                  return character(chr.toUpperCase());})),
-      function concat(arr) {
-        if (arr.length == 0) return '';
-        return arr[0]
-               + concat(arr.slice(1, arr.length));});}
+  return mapParser(seq.apply(this, str.split('').map(function (chr) {
+                     return ciCharacter(chr);})),
+                   function concat(arr) {
+                     if (arr.length == 0) return '';
+                     return arr[0]
+                            + concat(arr.slice(1, arr.length));});}
 exports.ciString = ciString;
 
 var fail = {parseChar: function() {return fail;},
@@ -181,7 +188,7 @@ function manyCount(fn, start) {
   start = start || 0;
 
   return {parseChar: function(chr) {
-            return many1(fn, start).parseChar(chr);},
+            return many1Count(fn, start).parseChar(chr);},
           result: [true, []],
           noMore: fn(start).noMore,
           futureSuccess: fn(start).futureSuccess};}
@@ -229,17 +236,29 @@ function shortestMatch(parser, str) {
   return [[false], index];}
 exports.shortestMatch = shortestMatch;
 
+function sepByCount(elemFn, sepFn, atLeast1) {
+  if (!atLeast1) return or(mapParser(nothing,
+                                     function(pt) {
+                                       return [];}),
+                           sepByCount(elemFn, sepFn, true));
+
+  return mapParser(seq(elemFn(0),
+                       manyCount(function(index) {
+                                   return before(sepFn(index), elemFn(index));},
+                                 1)),
+                   function(pt) {
+                     return [pt[0]].concat(pt[1])});}
+exports.sepByCount = sepByCount;
+
 function sepBy(element, separator) {
-  return or(mapParser(nothing,
-                      function(pt) {
-                        return [];}),
-            sepBy1(element, separator));}
+  return sepByCount(function() {return element;},
+                    function() {return separator;});}
 exports.sepBy = sepBy;
 
 function sepBy1(element, separator) {
-  return mapParser(seq(element, many(before(separator, element))),
-                   function(pt) {
-                     return [pt[0]].concat(pt[1])});}
+  return sepByCount(function() {return element;},
+                    function() {return separator;},
+                    true);}
 exports.sepBy1 = sepBy1;
 
 function opt(parser) {
