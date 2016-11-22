@@ -282,6 +282,28 @@ function mapParser(parser, fn) {
           futureSuccess: parser.futureSuccess};}
 exports.mapParser = mapParser;
 
+function maybeMap(parser, fn) {
+  if (doomed(parser)) return fail;
+  return {parseChar: function(chr) {
+            return mapParser(parser.parseChar(chr), fn);},
+          result: parser.result[0] ? fn(parser.result[1])
+                                   : [false],
+          noMore: parser.noMore,
+          futureSuccess: parser.futureSuccess};}
+exports.maybeMap = maybeMap;
+
+function assert(parser, fn) {
+  if (doomed(parser)) return fail;
+  return {parseChar: function(chr) {
+            return mapParser(parser.parseChar(chr), fn);},
+          result: parser.result[0] ? fn(parser.result[1])
+                                     ? parser.result
+                                     : [false]
+                                   : [false],
+          noMore: parser.noMore,
+          futureSuccess: parser.futureSuccess};}
+exports.assert = assert;
+
 function before(parser0, parser1) {
   return mapParser(seq(parser0, parser1),
                    function(arr) {
