@@ -207,10 +207,14 @@ function many1Count(fn, start) {
                    function(pt) {return [pt[0][1]].concat(pt[1]);});}
 exports.many1Count = many1Count;
 
-function parse(parser, str) {
-  if (doomed(parser)) return [false];
+function parse(parser, str, startIndex) {
+  startIndex = startIndex || -1;
+
+  if (doomed(parser)) return [false, Math.max(startIndex, 0)];
   if (str.length == 0) return parser.result;
-  return parse(parser.parseChar(str.charAt(0)), str.slice(1, str.length));}
+  return parse(parser.parseChar(str.charAt(0)),
+               str.slice(1),
+               startIndex + 1);}
 exports.parse = parse;
 
 function longestMatch(parser, str) {
@@ -396,7 +400,7 @@ function not(parser) {
   return {parseChar: function(chr) {
             return mapParser(not(parser.parseChar(chr)),
                              function(pt) {return chr + pt;});},
-          result: parser.result[0] ? [false] : [true],
+          result: parser.result[0] ? [false] : [true, ''],
           noMore: parser.futureSuccess,
           futureSuccess: parser.noMore}}
 exports.not = not;
