@@ -1,0 +1,25 @@
+{
+  "name": "don-lang",
+  "version": "0.0.0",
+  "description": "the don programming language",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/langdon-holly/don.git"
+  },
+  "keywords": [
+    "lisp"
+  ],
+  "author": "Langdon Holly <langdonzh@gmail.com>",
+  "license": "SEE LICENSE IN LICENSE.TXT",
+  "bugs": {
+    "url": "https://github.com/langdon-holly/don/issues"
+  },
+  "homepage": "https://github.com/langdon-holly/don#readme",
+  "dependencies": {
+    "commander": "^2.9.0",
+    "lodash": "4.x.x >=4.17.2"
+  }
+}
