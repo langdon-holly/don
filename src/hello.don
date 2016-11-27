@@ -1,5 +1,5 @@
 #!/usr/bin/env don
 
-(print ->str\
+(print ->str\#
        (+ 7 12))
 

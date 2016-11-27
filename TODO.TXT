@@ -2,7 +2,6 @@
 * better syntax-error message
 * strings are lists
 * continuations
-* unspace
 * new brace-string syntax
 * heredocs
 
