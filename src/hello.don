@@ -1,4 +1,5 @@
 #!/usr/bin/env don
 
-(print ->str(+ 7 12))
+(print ->str\
+       (+ 7 12))
 

@@ -10,7 +10,8 @@ function comment() {
                                 exprs()),
                          ps.seq(ps.string('#'),
                                 ps.seq(ps.many(ps.charNot(ps.string('\u000A'))),
-                                       ps.string('\u000A')))).parseChar(chr);},
+                                       ps.string('\u000A'))),
+                         ps.seq(ps.string('\\'), ows())).parseChar(chr);},
           result: [false],
           noMore: false,
           futureSuccess: false};}
@@ -25,14 +26,20 @@ function exprs() {
   return {parseChar: function(chr) {
             return ps.mapParser(
                         ps.or(ps.mapParser(expr, function(pt) {return [pt];}),
-                              ps.seq(ps.mapParser(name(),
-                                                  function(pt) {
-                                                    return [pt];}),
-                                     ps.and(exprs(), ps.not(nameBegin))),
-                              ps.seq(ps.and(expr, ps.not(nameBegin)),
-                                     ps.and(exprs(), nameBegin)),
-                              ps.seq(ps.and(expr, ps.not(nameBegin)),
-                                     ps.and(exprs(), ps.not(nameBegin)))),
+                              ps.between(ps.nothing,
+                                         ps.mapParser(name(),
+                                                      function(pt) {
+                                                        return [pt];}),
+                                         oComment(),
+                                         ps.and(exprs(), ps.not(nameBegin))),
+                              ps.between(ps.nothing,
+                                         ps.and(expr, ps.not(nameBegin)),
+                                         oComment(),
+                                         ps.and(exprs(), nameBegin)),
+                              ps.between(ps.nothing,
+                                         ps.and(expr, ps.not(nameBegin)),
+                                         oComment(),
+                                         ps.and(exprs(), ps.not(nameBegin)))),
                         function(pt) {
                           if (pt.length == 1) return pt[0];
                           return ['form', 
