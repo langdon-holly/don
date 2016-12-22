@@ -144,14 +144,21 @@ function parseTreeToAST(pt) {
                                [listVar].concat(pt[1]
                                                   .map(parseTreeToAST))];
   if (label == 'braceStr')
-    return [listLabel,
-            [preEvalVar,
-             [ASTPrecomputedLabel,
-              [listLabel,
-               pt[1].map(function(str) {
-                           return [strLabel, str];})]]]];
+    return [ listLabel,
+             [ preEvalVar,
+               [ ASTPrecomputedLabel,
+                 [ listLabel,
+                   pt
+                   [1]
+                   .map
+                   (function(elem) {
+                      return [ASTBraceStrElemLabel,
+                              elem[0] === 'form'
+                              ? ['form', parseTreeToAST(elem)]
+                              : elem];})]]]];
+  if (label === 'heredoc') return [ASTPrecomputedLabel, [strLabel, pt[1]]];
 
-  return Null();}
+  return Null('unknown parse-tree type "' + label);}
 
 function parseStr(str) {
   var parsed = parser(str);
@@ -183,6 +190,9 @@ exports.symLabel = symLabel;
 
 var ASTPrecomputedLabel = {};
 exports.ASTPrecomputedLabel = ASTPrecomputedLabel;
+
+var ASTBraceStrElemLabel = {};
+exports.ASTBraceStrElemLabel = ASTBraceStrElemLabel;
 
 var unitLabel = {};
 exports.unitLabel = unitLabel;
@@ -572,7 +582,9 @@ var initEnv
                  if (/^(\-|\+)?[0-9]+$/.test(Var[1]))
                    return [intLabel, parseInt(Var[1], 10)];
 
-                 return Null();};
+                 return Null
+                        ( 'string variable not found in environment: "'
+                          + Var[1]);};
                return thisIsDumb();}
 
              if (Var[0] === symLabel) {
@@ -583,13 +595,36 @@ var initEnv
 
                    if (args[0][0] !== listLabel) return Null();
 
-                   return [strLabel,
-                           _.reduce(_.map(args[0][1],
-                                          function(str) {
-                                            if (str[0] !== strLabel) return Null();
-                                            return str[1];}),
-                                    function(str0, str1) {
-                                      return str0 + str1;})];});
+                   return [ strLabel,
+                            _
+                            .reduce
+                            ( _
+                              .map
+                              ( args[0][1],
+                                function(elem) {
+                                  if (elem[0] !== ASTBraceStrElemLabel)
+                                    return Null();
+                                  return elem[1];}),
+                              function(soFar, elem) {
+                                var toAppend;
+                                if (elem[0] === 'str') toAppend = elem[1];
+                                else if (elem[0] === 'escape') {
+                                  var
+                                    evaled
+                                  = apply
+                                    (Eval, [[strLabel, elem[1]], env]);
+                                  if (evaled[0] !== strLabel) return Null();
+                                  toAppend = evaled[1];}
+                                else if (elem[0] === 'form') {
+                                  var
+                                    evaled
+                                  = apply
+                                    (Eval, [elem[1], env]);
+                                  if (evaled[0] !== strLabel) return Null();
+                                  toAppend = evaled[1];}
+                                else return Null();
+                                return soFar + toAppend;},
+                              '')];});
 
                if (Var === listVar)
                  return makeFn(function(args, env) {

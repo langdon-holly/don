@@ -100,13 +100,13 @@ function seq() {
                                          function(pt) {
                                            return [pt];});
   if (args.length == 2) {
-    var contFirst = doomed(args[0]) || doomed(args[1])
+    var contFirst = args[0].noMore || doomed(args[1])
                     ? fail
                     : {parseChar:
                          function (chr) {
                            return seq(args[0].parseChar(chr), args[1]);},
                        result: [false],
-                       noMore: args[0].noMore && args[1].noMore,
+                       noMore: false,
                        futureSuccess: args[0].futureSuccess
                                       && (args[1].result[0]
                                           || alwaysSuccessful(args[1]))};
@@ -120,6 +120,28 @@ function seq() {
                                  Array.from(args).slice(1, args.length))),
                    function(arr) {return [arr[0]].concat(arr[1]);});}
 exports.seq = seq;
+
+function then(parser, fn) {
+  var args = arguments;
+
+  if (args.length == 0) throw new Error("then needs at least 1 argument");
+  if (args.length == 1) return parser;
+  if (args.length == 2) {
+    var contFirst = parser.noMore
+                    ? fail
+                    : {parseChar:
+                         function (chr) {
+                           return then(parser.parseChar(chr), fn);},
+                       result: [false],
+                       noMore: false,
+                       futureSuccess: false};
+    return parser.result[0] ? or(contFirst,
+                                 fn(parser.result[1]))
+                            : contFirst;}
+  return then(then.apply(this,
+                         Array.from(args).slice(-1)),
+              args[args.length - 1]);}
+exports.then = then;
 
 function character(chr0) {
   return {parseChar: function (chr1) {
@@ -308,6 +330,16 @@ function assert(parser, fn) {
           futureSuccess: parser.futureSuccess};}
 exports.assert = assert;
 
+function shortest(parser) {
+  return {parseChar: function(chr) {
+            return parser.result[0]
+                   ? fail
+                   : shortest(parser.parseChar(chr));},
+          result: parser.result,
+          noMore: parser.noMore || parser.result[0],
+          futureSuccess: false};}
+exports.shortest = shortest;
+
 function before(parser0, parser1) {
   return mapParser(seq(parser0, parser1),
                    function(arr) {
@@ -461,6 +493,10 @@ exports.ws = ws;
 function doomed(parser) {
   return !parser.result[0] && parser.noMore;}
 exports.doomed = doomed;
+
+function alwaysSuccessful(parser) {
+  return parser.result[0] && parser.futureSuccess;}
+exports.alwaysSuccessful = alwaysSuccessful;
 
 function recurseLeft(recursive, nonrecursive, emptyCriteria) {
   return mapParser(recursive.result[0] && emptyCriteria

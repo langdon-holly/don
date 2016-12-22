@@ -1,5 +1,4 @@
 #!/usr/bin/env don
 
-(print ->str\#
-       (+ 7 12))
+(print {{->str (+ 3 2)}`a`kad\\\"hello})
 

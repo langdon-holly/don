@@ -55,6 +55,7 @@ var nameChar = ps.charNot(ps.string('('),
                           ps.string(']'),
                           ps.string('{'),
                           ps.string('}'),
+                          ps.string('`'),
                           ps.wsChar,
                           ps.string('\\'),
                           ps.string(';'),
@@ -73,52 +74,84 @@ function name() {
                                                             arr.length)))}),
                       function(pt) {return ['name', pt];});}
 
+var heredoc
+= ps.mapParser(
+    ps.then(
+      ps.around(
+        ps.string('`'),
+        ps.many(ps.or(ps.charNot(ps.string('`'), ps.string('\\')),
+                      ps.before(ps.string('\\'),
+                                ps.or(ps.string('`'), ps.string('\\'))))),
+        ps.string('`')),
+      function(endStr) {
+        return ps.shortest(
+                 ps.after(
+                   ps.anything,
+                   ps.seq.apply(
+                     this,
+                     endStr.map(function(chr) {return ps.string(chr);}))));}),
+    function(pt) {return ['heredoc', pt];});
+
 var braceStr = {
   parseChar: function(chr) {
     return ps.mapParser(
              ps.around(
                ps.string('{'),
-               ps.many(ps.or(ps.mapParser(ps.before(ps.string('\\'),
+               ps.many(ps.or(ps.mapParser(ps.charNot(ps.string('{'),
+                                                     ps.string('}'),
+                                                     ps.string('\\'),
+                                                     ps.string('`')),
+                                          function(pt) {
+                                            return ['str', pt];}),
+                             ps.mapParser(ps.before(ps.string('\\'),
                                                     ps.charNot()),
                                           function(pt) {
                                             if (pt === '\\'
                                                 || pt === '{'
-                                                || pt === '}') return [pt];
-                                            return ['', pt];}),
-                             ps.mapParser(braceStr,
+                                                || pt === '}'
+                                                || pt === '`')
+                                              return ['str', pt];
+                                            return ['escape', pt];}),
+                             ps.mapParser(ps.around(ps.string('{'),
+                                                    listContents(),
+                                                    ps.string('}')),
+                                          function(pt) {return ['form', pt];}),
+                             ps.mapParser(heredoc,
                                           function(pt) {
-                                            var arr0 = pt[1]
-                                            var arr1 = ['{'.concat(arr0[0])]
-                                              .concat(arr0.slice(1,
-                                                                 arr0.length));
-                                            return arr1.slice(0, arr1.length-1)
-                                              .concat([arr1[arr1.length-1]
-                                                .concat('}')]);}),
-                             ps.mapParser(ps.charNot(ps.string('{'),
-                                                     ps.string('}'),
-                                                     ps.string('\\')),
-                                          function(pt) {
-                                            return [pt];}))),
+                                            return ['str', pt[1]];}))),
                ps.string('}')),
              function(arr) {
+               var toReturn = [];
+               _
+               .forEach
+               ( arr,
+                 function(elem) {
+                   if
+                     ( toReturn.length == 0
+                       || elem[0] === 'form'
+                       || elem[0] === 'escape')
+                     {toReturn.push(elem); return;}
+                   var last = _.last(toReturn);
+                   if
+                     (last[0] === 'str' || last[0] === 'escape')
+                     {last[1] = last[1] + elem[1]; return;}
+                   toReturn.push(elem);});
+
                return ['braceStr',
-                       _.reduce(arr,
-                                function (arr0, arr1) {
-                                  return arr0.slice(0, arr0.length - 1)
-                                    .concat([arr0[arr0.length - 1]
-                                      .concat(arr1[0])])
-                                    .concat(arr1.slice(1, arr1.length))},
-                                [''])];}).parseChar(chr);},
+                       toReturn];}).parseChar(chr);},
   result: [false],
   noMore: false,
   futureSuccess: false}
 
+function
+  listContents
+  ()
+  {return ps.around(ows(), ps.sepBy(exprs(), theWs()), ows());}
+
 function form() {
-  return ps.mapParser(ps.around(ps.seq(ps.string("("),
-                                       ows()),
-                                ps.sepBy(exprs(), theWs()),
-                                ps.seq(ows(),
-                                       ps.string(")"))),
+  return ps.mapParser(ps.around(ps.string("("),
+                                listContents(),
+                                ps.string(")")),
                       function(pt) {
                         return ['form', pt];});}
 
@@ -135,7 +168,8 @@ var expr = {parseChar: function(chr) {
               return ps.or(form(),
                            list(),
                            name(),
-                           braceStr).parseChar(chr);},
+                           braceStr,
+                           heredoc).parseChar(chr);},
             result: [false],
             noMore: false,
             futureSuccess: false};
