@@ -2,7 +2,7 @@
 
 // Dependencies
 
-var ps = require('./parse.js');
+var ps = require('list-parsing');
 var parser = require('./don-parse.js');
 var _ = require('lodash');
 

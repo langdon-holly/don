@@ -1,5 +1,5 @@
 var donParse = require('./don-parse.js');
-var ps = require('./parse.js');
+var ps = require('list-parsing');
 
 console.log("parse \"(1 2 3)\":");
 console.log(donParse("(1 2 3)"));

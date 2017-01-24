@@ -1,5 +1,5 @@
 var _ = require('lodash');
-var ps = require('./parse.js');
+var ps = require('list-parsing');
 
 module.exports = parseFile;
 
