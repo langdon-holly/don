@@ -51,12 +51,11 @@ function mApply(macro, arg, env) {
     return macro[1](arg, env);
 
   if (macro[0] === listLabel) {
-    if (arg.length != 1)
-      return Null("Lists are unary");
-    if (arg[0][0] !== intLabel)
+    if (arg[0] !== intLabel)
       return Null("Argument to list must be integer");
-
-    return macro[1][arg[0][1]];}
+    if (arg[1] < 0 || arg[1] >= macro[1].length)
+      return Null("Array index out of bounds");
+    return macro[1][arg[1]];}
 
   return Null("Tried to macro-apply a non-macro");}
 exports.mApply = mApply;
@@ -67,12 +66,11 @@ function apply(fn, arg, env) {
                                        env)
          : fn[0] === fnLabel ? fn[1](arg, env)
          : fn[0] === listLabel ? function(){
-           if (arg.length != 1)
-             return Null("Lists are unary");
-           if (arg[0][0] !== intLabel)
+           if (arg[0] !== intLabel)
              return Null("Argument to list must be integer");
-
-           return fn[1][arg[0][1]];}()
+           if (arg[1] < 0 || arg[1] >= fn[1].length)
+             return Null("Array index out of bounds");
+           return fn[1][arg[1]];}()
          : Null("Tried to apply a non-macro");}
 exports.apply = apply;
 
