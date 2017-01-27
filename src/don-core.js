@@ -41,40 +41,6 @@ if (!Array.prototype.includes) {
 
 var exports = module.exports;
 
-//function valObj(label, data) {
-//  return [[label, data]];}
-//exports.valObj = valObj;
-
-//function getInterfaceData(o, targetLabel, implementszes, prevInterfaces) {
-//  if (prevInterfaces === undefined) prevInterfaces = [];
-//
-//  for (var i = 0; i < o.length; i++) {
-//    var maybeInterfaceData = valInterfaceData(o[i],
-//                                              targetLabel,
-//                                              implementszes,
-//                                              prevInterfaces);
-//    if (maybeInterfaceData[0]) return maybeInterfaceData;} 
-//  return [false];}
-//exports.getInterfaceData = getInterfaceData;
-//
-//function valInterfaceData(val, targetLabel, implementszes, prevInterfaces) {
-//  if (prevInterfaces.includes(val[0])) return [false];
-//
-//  if (val[0] === targetLabel) return [true, val[1]];
-//
-//  prevInterfaces.push(val[0]);
-//
-//  var applicableImplementszes = implementszes(val[0]);
-//  for (var i = 0; i < applicableImplementszes.length; i++) {
-//    var maybeInterfaceData = getInterfaceData(applicableImplementszes
-//                                                [i]
-//                                                (val[1]),
-//                                              targetLabel,
-//                                              implementszes,
-//                                              prevInterfaces);
-//    if (maybeInterfaceData[0]) return maybeInterfaceData;}
-//  return [false];}
-
 function mApply(macro, arg, env) {
   if (macro[0] === macroLabel)
     return macro[1](arg, env);
@@ -255,28 +221,11 @@ var topEval = function(ast) {
   return apply(apply(Eval, ast, initEnv), initEnv, initEnv);}
 exports.topEval = topEval;
 
-//var initImplementszes = function(Interface) {
-//if (Interface === listLabel)
-//  return [function(list) {
-//    return fnOfTypes([intLabel],
-//                     function(arg, env) {
-//                       return list[arg];});}];
-//if (Interface === fnLabel)
-// return [function(fn) {
-//   return valObj(macroLabel,
-//                 function(arg, env) {
-//                   return fn(arg.map(function(arg) {
-//                                        return apply(Eval,
-//                                                     makeList(arg, env),
-//                                                     env);}),
-//                             env);});}];
-//return [];}
-//exports.initImplementszes = initImplementszes;
-
 var initEnv
   = makeFn(function(Var, env) {
              if (Var[0] === strLabel) {
                var thisIsDumb = function () {
+
 //                 function default0(pt) {
 //                   if (pt[0]) return pt[1];
 //                     return 0;}
