@@ -75,50 +75,46 @@ var exports = module.exports;
 //    if (maybeInterfaceData[0]) return maybeInterfaceData;}
 //  return [false];}
 
-function mApply(macro, args, env) {
+function mApply(macro, arg, env) {
   if (macro[0] === macroLabel)
-    return macro[1](args, env);
+    return macro[1](arg, env);
 
-  args = args.map(function (arg) {
-    return apply(Eval, [arg, env], env);});
+  arg = apply(apply(Eval, arg, env), env, env);
 
   if (macro[0] === fnLabel)
-    return macro[1](args, env);
+    return macro[1](arg, env);
 
   if (macro[0] === listLabel) {
-    if (args.length != 1)
+    if (arg.length != 1)
       return Null("Lists are unary");
-    if (args[0][0] !== intLabel)
+    if (arg[0][0] !== intLabel)
       return Null("Argument to list must be integer");
 
-    return macro[1][args[0][1]];}
+    return macro[1][arg[0][1]];}
 
   return Null("Tried to macro-apply a non-macro");}
 exports.mApply = mApply;
 
-function apply(fn, args, env) {
+function apply(fn, arg, env) {
   return fn[0] === macroLabel ? mApply(fn,
-                                       args.map(function (arg) {
-                                         return [ASTPrecomputedLabel, arg];}),
+                                       [ASTPrecomputedLabel, arg],
                                        env)
-         : fn[0] === fnLabel ? fn[1](args, env)
+         : fn[0] === fnLabel ? fn[1](arg, env)
          : fn[0] === listLabel ? function(){
-           if (args.length != 1)
+           if (arg.length != 1)
              return Null("Lists are unary");
-           if (args[0][0] !== intLabel)
+           if (arg[0][0] !== intLabel)
              return Null("Argument to list must be integer");
 
-           return fn[1][args[0][1]];}()
+           return fn[1][arg[0][1]];}()
          : Null("Tried to apply a non-macro");}
 exports.apply = apply;
 
-function fnOfTypes(interfaceList, fn) {
-  return makeFn(function(args, env) {
-                  var argsData = [];
-                  for (var i = 0; i < args.length; i++) {
-                    if (args[i][0] !== interfaceList[i]) return Null();
-                    argsData.push(args[i][1]);}
-                  return fn(argsData, env);})}
+function fnOfType(type, fn) {
+  return makeFn(function(arg, env) {
+                  if (arg[0] !== type
+                  ) return Null("typed function received garbage");
+                  return fn(arg[1], env);})}
 
 function makeFn(fn) {
   return [fnLabel,
@@ -133,16 +129,18 @@ function just(val) {
 
 function isTrue(val, env) {
   var trueVal = [symLabel, {}];
-  return apply(val, [trueVal, [symLabel, {}]], env) === trueVal;}
+  return apply(val, makeList(trueVal, [symLabel, {}]), env) === trueVal;}
 
 function parseTreeToAST(pt) {
   var label = pt[0];
 
   if (label == 'name') return [strLabel, pt[1]];
-  if (label == 'form') return [listLabel, pt[1].map(parseTreeToAST)];
-  if (label == 'list') return [listLabel,
-                               [listVar].concat(pt[1]
-                                                  .map(parseTreeToAST))];
+  if (label == 'call') return [listLabel, pt[1].map(parseTreeToAST)];
+  if (label == 'list') return [ listLabel,
+                                [ listVar,
+                                  [ listLabel,
+                                    pt[1]
+                                    .map(parseTreeToAST)]]];
   if (label == 'braceStr')
     return [ listLabel,
              [ preEvalVar,
@@ -153,8 +151,8 @@ function parseTreeToAST(pt) {
                    .map
                    (function(elem) {
                       return [ASTBraceStrElemLabel,
-                              elem[0] === 'form'
-                              ? ['form', parseTreeToAST(elem)]
+                              elem[0] === 'expr'
+                              ? ['expr', parseTreeToAST(elem[1])]
                               : elem];})]]]];
   if (label === 'heredoc') return [ASTPrecomputedLabel, [strLabel, pt[1]]];
 
@@ -217,66 +215,66 @@ var Null = function() {
   while (true) {}};
 exports.Null = Null;
 
-var nothing = makeList(false);
+var False
+= [ macroLabel
+  , function(arg0, env
+    ){ return [fnLabel, function(arg1, env) {return arg1;}];}];
 
-var True = [macroLabel, function(args, env) {
-  if (args.length != 2) return Null("true is binary");
+var True
+= [ fnLabel
+  , function(arg0, env
+    ){ return [macroLabel, function(arg1, env) {return arg0;}];}];
 
-  return apply(Eval,
-               [args[0], env],
-               env);}];
+var nothing = makeList(False);
 
-var Eval = makeFn(function(args, env) {
-  if (args.length < 1 || args.length > 2) return Null();
+var Eval
+= makeFn
+  ( function(expr
+    ){
+      return makeFn
+             ( function(env
+               ){
+                 if (expr[0] === listLabel) {
+                   return _
+                          .reduce
+                          ( expr[1]
+                          , function(val, arg
+                            ) {return mApply(val, arg, env);}
+                          , makeFn(function (arg, env) {return arg;}));}
 
-  var expr = args[0];
-  if (args.length >= 2) env = args[1];
+                 if (expr[0] === strLabel || expr[0] === symLabel)
+                   return apply(env, expr, env);
 
-  if (expr[0] === listLabel) {
-    if (expr[1].length < 1) return Null();
-    return mApply(apply(Eval,
-                        [expr[1][0], env],
-                        env),
-                  expr[1]
-                    .slice(1, expr[1].length),
-                  env);}
+                 if (expr[0] === ASTPrecomputedLabel)
+                   return expr[1];
 
-  if (expr[0] === strLabel || expr[0] === symLabel) {
-    return apply(env, [expr], env);
-    return Null("variable not found in environment");}
-
-  if (expr[0] === ASTPrecomputedLabel)
-    return expr[1];
-
-  return Null();});
+                 return Null();});});
 exports.Eval = Eval;
 
 var topEval = function(ast) {
-  return apply(Eval, [ast], initEnv);}
+  return apply(apply(Eval, ast, initEnv), initEnv, initEnv);}
 exports.topEval = topEval;
 
 //var initImplementszes = function(Interface) {
 //if (Interface === listLabel)
 //  return [function(list) {
 //    return fnOfTypes([intLabel],
-//                     function(args, env) {
-//                       return list[args];});}];
+//                     function(arg, env) {
+//                       return list[arg];});}];
 //if (Interface === fnLabel)
 // return [function(fn) {
 //   return valObj(macroLabel,
-//                 function(args, env) {
-//                   return fn(args.map(function(arg) {
+//                 function(arg, env) {
+//                   return fn(arg.map(function(arg) {
 //                                        return apply(Eval,
-//                                                     [arg, env],
+//                                                     makeList(arg, env),
 //                                                     env);}),
 //                             env);});}];
 //return [];}
 //exports.initImplementszes = initImplementszes;
 
 var initEnv
-  = makeFn(function(args, env) {
-             var Var = args[0];
-
+  = makeFn(function(Var, env) {
              if (Var[0] === strLabel) {
                var thisIsDumb = function () {
 //                 function default0(pt) {
@@ -457,65 +455,72 @@ var initEnv
 //                   return _.reduce(varParts.slice(1, varParts.length),
 //                                   function(fn, argument) {
 //                                     return apply(fn,
-//                                                  [valObj(strLabel,
-//                                                          argument)],
+//                                                  valObj(strLabel,
+//                                                         argument),
 //                                                  env);},
 //                                   apply(env,
-//                                         [valObj(strLabel, varParts[0])],
+//                                         valObj(strLabel, varParts[0]),
 //                                         env));}
 
                  if (Var[1][0] === '"')
                    return [strLabel, Var[1].slice(1, Var[1].length)];
 
                  if (Var[1] === '+')
-                   return makeFn(function sum(args, env) {
-                     args.map(function (arg) {
-                       if (arg[0] !== intLabel) return Null();});
-                     if (args.length == 0)
-                       return [intLabel, 0];
-                     if (args.length == 1) return args[0];
-                     if (args.length == 2) {
-                       return [intLabel,
-                               args[0][1]
-                               + args[1][1]];}
-                     return args.reduce(sum);});
+                   return fnOfType
+                          ( listLabel
+                          , function
+                            (args
+                            , env
+                            ){
+                              return _.reduce
+                                     ( args
+                                     , function (arg0, arg1
+                                       ){
+                                         if (arg1[0] !== intLabel)
+                                           return Null();
+                                         return [ intLabel,
+                                                  arg0[1]
+                                                  + arg1[1]];}
+                                     , [intLabel, 0]);});
 
                  if (Var[1] === '-')
-                   return makeFn(function difference(args, env) {
-                     args.map(function (arg) {
-                       if (arg[0] !== intLabel) return Null();});
-                     if (args.length == 0)
-                       return [intLabel, 0];
-                     if (args.length == 1)
-                       return [intLabel, -args[0][1]];
-                     if (args.length == 2) {
-                       return [intLabel,
-                                     args[0][1]
-                                     - args[1][1]];}
-                     return args.reduce(sum);});
+                   return fnOfType
+                          ( listLabel
+                          , function
+                            (args
+                            , env
+                            ){
+                              if (args.length === 0) return [intLabel, -1];
+
+                              if (args[0][0] !== intLabel) return Null();
+                              if (args.length === 1)
+                                return [intLabel, -args[0][1]];
+
+                              return _.reduce
+                                     ( args
+                                     , function (arg0, arg1
+                                       ){
+                                         if (arg1[0] !== intLabel)
+                                           return Null();
+                                         return [ intLabel,
+                                                  arg0[1]
+                                                  - arg1[1]];}
+                                     , args[0]);});
 
                  if (Var[1] === "environment") return env;
 
                  if (Var[1] === "print")
-                   return makeFn(function(args, env) {
-                     if (args.length != 1)
-                       return Null("print is unary");
+                   return makeFn(function(arg, env) {
+                     if (arg[0] !== strLabel)
+                       return Null("print's argument should be a string");
 
-                     if (args[0][0] !== strLabel)
-                       return Null(
-                         "print's argument should be a string");
-
-                     process.stdout.write(args[0][1]);
+                     process.stdout.write(arg[1]);
 
                      return unit;});
 
                  if (Var[1] === "->str")
                    return makeFn(
-                     function toString(args, env) {
-                       if (args.length != 1) return Null();
-
-                       var arg = args[0];
-
+                     function toString(arg, env) {
                        if (arg[0] === strLabel)
                          return [strLabel, '{' + arg[1] + '}'];
 
@@ -526,7 +531,7 @@ var initEnv
                          return [strLabel,
                                  '['
                                  + arg[1].map(function (o) {
-                                   return toString([o],
+                                   return toString(o,
                                                    env)[1];}).join(' ')
                                  + ']'];
 
@@ -534,13 +539,12 @@ var initEnv
 
                  if (Var[1] === "str->unicode")
                    return makeFn(
-                     function(args, env) {
-                       if (args.length != 1) return Null();
-                       if (args[0][0] !== strLabel) return Null();
+                     function(arg, env) {
+                       if (arg[0] !== strLabel) return Null();
 
                        var codepoints = [];
-                       for (var i = 0; i < args[0][1].length; i++) {
-                         var codepoint = args[0][1].codePointAt(i);
+                       for (var i = 0; i < arg[1].length; i++) {
+                         var codepoint = arg[1].codePointAt(i);
                          if (codepoint !== undefined)
                            codepoints.push(codepoint);}
 
@@ -549,35 +553,28 @@ var initEnv
                                  return [intLabel, codepoint];})];});
 
                  if (Var[1] === "unicode->str")
-                   return makeFn(function(args, env) {
-                     if (args.length != 1) return Null();
-                     if (args[0][0] !== listLabel) return Null();
+                   return makeFn(function(arg, env) {
+                     if (arg[0] !== listLabel) return Null();
 
                      return [strLabel,
                              String
                              .fromCodePoint
                              .apply(this,
-                                    args[0][1].map(function (codepoint) {
+                                    arg[1].map(function (codepoint) {
+                                      if (codepoint[0] !== intLabel
+                                      ) return Null();
                                       return codepoint[1];}))];});
 
                  if (Var[1] === "length")
-                   return makeFn(function(args, env) {
-                     if (args.length != 1) return Null();
-
-                     if (args[0][0] === listLabel)
-                       return args[0][1].length;
-                     return Null("invalid argument for length");});
+                   return fnOfType
+                          ( listLabel
+                          , function(arg, env) {return list.length;});
 
                  if (Var[1] === "true")
                    return True;
 
                  if (Var[1] === "false")
-                   return [macroLabel, function(args, env) {
-                     if (args.length != 2) return Null("false is binary");
-
-                     return apply(Eval,
-                                  [args[1], env],
-                                  env);}];
+                   return False;
 
                  if (/^(\-|\+)?[0-9]+$/.test(Var[1]))
                    return [intLabel, parseInt(Var[1], 10)];
@@ -590,50 +587,54 @@ var initEnv
              if (Var[0] === symLabel) {
 
                if (Var === preEvalVar)
-                 return makeFn(function(args, env) {
-                   if (args.length != 1) return Null();
-
-                   if (args[0][0] !== listLabel) return Null();
-
-                   return [ strLabel,
-                            _
-                            .reduce
-                            ( _
-                              .map
-                              ( args[0][1],
-                                function(elem) {
-                                  if (elem[0] !== ASTBraceStrElemLabel)
-                                    return Null();
-                                  return elem[1];}),
-                              function(soFar, elem) {
-                                var toAppend;
-                                if (elem[0] === 'str') toAppend = elem[1];
-                                else if (elem[0] === 'escape') {
-                                  var
-                                    evaled
-                                  = apply
-                                    (Eval, [[strLabel, elem[1]], env]);
-                                  if (evaled[0] !== strLabel) return Null();
-                                  toAppend = evaled[1];}
-                                else if (elem[0] === 'form') {
-                                  var
-                                    evaled
-                                  = apply
-                                    (Eval, [elem[1], env]);
-                                  if (evaled[0] !== strLabel) return Null();
-                                  toAppend = evaled[1];}
-                                else return Null();
-                                return soFar + toAppend;},
-                              '')];});
+                 return fnOfType
+                        ( listLabel
+                        , function(arg, env) {
+                            return [ strLabel,
+                                     _
+                                     .reduce
+                                     ( _
+                                       .map
+                                       ( arg,
+                                         function(elem) {
+                                           if(
+                                             elem[0] !== ASTBraceStrElemLabel)
+                                             return Null();
+                                           return elem[1];}),
+                                       function(soFar, elem) {
+                                         var toAppend;
+                                         if (elem[0] === 'str')
+                                           toAppend = elem[1];
+                                         else if (elem[0] === 'expr') {
+                                           var
+                                             evaled
+                                           = apply
+                                             ( apply(Eval, elem[1], env)
+                                             , env
+                                             , env);
+                                           if (evaled[0] !== strLabel)
+                                             return Null();
+                                           toAppend = evaled[1];}
+                                         else return Null();
+                                         return soFar + toAppend;},
+                                       '')];});
 
                if (Var === listVar)
-                 return makeFn(function(args, env) {
-                   return [listLabel, args];});
+                 return [macroLabel, function(arg, env) {
+                   if (arg[0] !== listLabel) return Null();
+                   return [ listLabel
+                          , arg[1].map
+                            ( function(elem)
+                              { return apply
+                                       ( apply(Eval, elem, env)
+                                       , env
+                                       , env);})];}];
 
                if (Var === ASTBraceStrVar)
-                 return makeFn(function(args, env) {
-                   if (args[0][0] !== listLabel) return Null();
-                   return [strLabel, args[0][1].join('')];});
+                 return fnOfType
+                        ( listLabel
+                        , function(arg, env
+                          ){ return [strLabel, arg.join('')];});
 
                if (Var === braceStrEvalVar) return Eval;
 

@@ -1,4 +1,6 @@
 #!/usr/bin/env don
 
-(print {{->str (+ 3 2)}`a`kad\\\"hello})
+\print\->str\str->unicode "hi
+
+\print{| \->str\+[5 3]|`a`kad|||"hello|}
 
