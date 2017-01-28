@@ -1,5 +1,4 @@
 * better syntax-error message
-* strings are lists
 * continuations
 * concurrency
 * cells

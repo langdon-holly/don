@@ -95,10 +95,27 @@ function isTrue(val, env) {
   var trueVal = [symLabel, {}];
   return apply(val, makeList(trueVal, [symLabel, {}]), env) === trueVal;}
 
+function isString(val) {
+  return val[0] === listLabel
+         && _.every(val[1], function(elem) {return elem[0] === charLabel;});}
+
+function strVal(list) {
+  if (list[0] !== listLabel) return Null();
+  return list[1].reduce
+         ( function(soFar, chr) {return soFar + charToStr(chr);}
+         , '');}
+
+function stringIs(list, str) {
+  return strVal(list) === str;}
+
+function charToStr(Char)
+{ if (Char[0] !== charLabel) return Null()
+; return String.fromCodePoint(Char[1])}
+
 function parseTreeToAST(pt) {
   var label = pt[0];
 
-  if (label == 'name') return [strLabel, pt[1]];
+  if (label == 'char') return [charLabel, pt[1]];
   if (label == 'call') return [listLabel, pt[1].map(parseTreeToAST)];
   if (label == 'list') return [ listLabel,
                                 [ listVar,
@@ -118,7 +135,8 @@ function parseTreeToAST(pt) {
                               elem[0] === 'expr'
                               ? ['expr', parseTreeToAST(elem[1])]
                               : elem];})]]]];
-  if (label === 'heredoc') return [ASTPrecomputedLabel, [strLabel, pt[1]]];
+  if (label === 'heredoc')
+    return [ASTPrecomputedLabel, [listLabel, pt[1].map(parseTreeToAST)]];
 
   return Null('unknown parse-tree type "' + label);}
 
@@ -144,8 +162,8 @@ exports.listLabel = listLabel;
 var intLabel = {};
 exports.intLabel = intLabel;
 
-var strLabel = {};
-exports.strLabel = strLabel;
+var charLabel = {};
+exports.charLabel = charLabel;
 
 var symLabel = {};
 exports.symLabel = symLabel;
@@ -169,9 +187,6 @@ exports.braceStrEvalVar = braceStrEvalVar;
 
 var listVar = [symLabel, {}];
 exports.listVar = listVar;
-
-var ASTBraceStrVar = [symLabel, {}];
-exports.ASTBraceStrVar = ASTBraceStrVar;
 
 var Null = function() {
   ttyLog.apply(this, arguments);
@@ -199,6 +214,7 @@ var Eval
              ( function(env
                ){
                  if (expr[0] === listLabel) {
+                   if (expr[1][0][0] === charLabel) return apply(env, expr, env);
                    return _
                           .reduce
                           ( expr[1]
@@ -206,11 +222,11 @@ var Eval
                             ) {return mApply(val, arg, env);}
                           , makeFn(function (arg, env) {return arg;}));}
 
-                 if (expr[0] === strLabel || expr[0] === symLabel)
-                   return apply(env, expr, env);
+                 if (expr[0] === ASTPrecomputedLabel) return expr[1];
 
-                 if (expr[0] === ASTPrecomputedLabel)
-                   return expr[1];
+                 if (expr[0] === symLabel) return apply(env, expr, env);
+
+                 if (expr[0] === charLabel) return Null();
 
                  return Null();});});
 exports.Eval = Eval;
@@ -221,7 +237,56 @@ exports.topEval = topEval;
 
 var initEnv
   = makeFn(function(Var, env) {
-             if (Var[0] === strLabel) {
+             if (Var[0] === symLabel) {
+               if (Var === preEvalVar)
+                 return fnOfType
+                        ( listLabel
+                        , function(arg, env) {
+                            return [ listLabel,
+                                     _
+                                     .reduce
+                                     ( _
+                                       .map
+                                       ( arg,
+                                         function(elem) {
+                                           if(
+                                             elem[0] !== ASTBraceStrElemLabel)
+                                             return Null();
+                                           return elem[1];}),
+                                       function(soFar, elem) {
+                                         var toAppend;
+                                         if (elem[0] === 'str')
+                                           toAppend = elem[1].map(function(chr) {return [charLabel, chr.codePointAt(0)];});
+                                         else if (elem[0] === 'expr') {
+                                           var
+                                             evaled
+                                           = apply
+                                             ( apply(Eval, elem[1], env)
+                                             , env
+                                             , env);
+                                           if (evaled[0] !== listLabel)
+                                             return Null();
+                                           toAppend = evaled[1];}
+                                         else return Null();
+                                         return soFar.concat(toAppend);},
+                                       [])];});
+
+               if (Var === listVar)
+                 return [macroLabel, function(arg, env) {
+                   if (arg[0] !== listLabel) return Null();
+                   return [ listLabel
+                          , arg[1].map
+                            ( function(elem)
+                              { return apply
+                                       ( apply(Eval, elem, env)
+                                       , env
+                                       , env);})];}];
+
+               if (Var === braceStrEvalVar) return Eval;
+
+               return Null();}
+
+             if (isString(Var)) {
                var thisIsDumb = function () {
 
 //                 function default0(pt) {
@@ -409,10 +474,10 @@ var initEnv
 //                                         valObj(strLabel, varParts[0]),
 //                                         env));}
 
-                 if (Var[1][0] === '"')
-                   return [strLabel, Var[1].slice(1, Var[1].length)];
+                 if (Var[1][0][1] === '"'.codePointAt(0))
+                   return [listLabel, Var[1].slice(1, Var[1].length)];
 
-                 if (Var[1] === '+')
+                 if (stringIs(Var, '+'))
                    return fnOfType
                           ( listLabel
                           , function
@@ -430,7 +495,7 @@ var initEnv
                                                   + arg1[1]];}
                                      , [intLabel, 0]);});
 
-                 if (Var[1] === '-')
+                 if (stringIs(Var, '-'))
                    return fnOfType
                           ( listLabel
                           , function
@@ -454,138 +519,88 @@ var initEnv
                                                   - arg1[1]];}
                                      , args[0]);});
 
-                 if (Var[1] === "environment") return env;
+                 if (stringIs(Var, "environment")) return env;
 
-                 if (Var[1] === "print")
+                 if (stringIs(Var, "print"))
                    return makeFn(function(arg, env) {
-                     if (arg[0] !== strLabel)
+                     if (!isString(arg))
                        return Null("print's argument should be a string");
 
-                     process.stdout.write(arg[1]);
+                     process.stdout.write(strVal(arg));
 
                      return unit;});
 
-                 if (Var[1] === "->str")
+                 if (stringIs(Var, "->str"))
                    return makeFn(
                      function toString(arg, env) {
-                       if (arg[0] === strLabel)
-                         return [strLabel, '{' + arg[1] + '}'];
+                       if (arg[0] === charLabel)
+                         return [ listLabel
+                                , [ [charLabel, "'".codePointAt(0)]
+                                  , arg
+                                  , [charLabel, "'".codePointAt(0)]]];
 
                        if (arg[0] === intLabel)
-                         return [strLabel, arg[1].toString()];
+                         return [ listLabel
+                                , arg[1].toString().split('').map
+                                  ( function(chr)
+                                    {return [charLabel, chr.codePointAt(0)]})];
 
                        if (arg[0] === listLabel)
-                         return [strLabel,
-                                 '['
-                                 + arg[1].map(function (o) {
-                                   return toString(o,
-                                                   env)[1];}).join(' ')
-                                 + ']'];
+                         return [ listLabel,
+                                  [[charLabel, '['.codePointAt(0)]].concat
+                                  ( _.reduce
+                                    ( arg[1].map
+                                      (function (o) {return toString(o, env)[1];})
+                                    , function(soFar, elem, idx)
+                                      {return idx === 0
+                                              ? elem
+                                              : soFar.concat
+                                                ( [[ charLabel
+                                                     , ' '.codePointAt(0)]]
+                                                , elem);}
+                                    , undefined)
+                                  , [[charLabel, ']'.codePointAt(0)]])];
 
                        return Null();});
 
-                 if (Var[1] === "str->unicode")
+                 if (stringIs(Var, "str->unicode"))
                    return makeFn(
                      function(arg, env) {
-                       if (arg[0] !== strLabel) return Null();
-
-                       var codepoints = [];
-                       for (var i = 0; i < arg[1].length; i++) {
-                         var codepoint = arg[1].codePointAt(i);
-                         if (codepoint !== undefined)
-                           codepoints.push(codepoint);}
-
+                       if (!isString(arg)) return Null();
                        return [listLabel,
-                               codepoints.map(function(codepoint) {
-                                 return [intLabel, codepoint];})];});
+                               arg[1].map(function(Char) {
+                                 return [intLabel, Char[1]];})];});
 
-                 if (Var[1] === "unicode->str")
+                 if (stringIs(Var, "unicode->str"))
                    return makeFn(function(arg, env) {
                      if (arg[0] !== listLabel) return Null();
 
-                     return [strLabel,
-                             String
-                             .fromCodePoint
-                             .apply(this,
-                                    arg[1].map(function (codepoint) {
-                                      if (codepoint[0] !== intLabel
-                                      ) return Null();
-                                      return codepoint[1];}))];});
+                     return [ listLabel,
+                              arg[1].map(function (codepoint) {
+                                if (codepoint[0] !== intLabel
+                                ) return Null();
+                                return [ charLabel
+                                       , codepoint[1]];})];});
 
-                 if (Var[1] === "length")
+                 if (stringIs(Var, "length"))
                    return fnOfType
                           ( listLabel
                           , function(arg, env) {return list.length;});
 
-                 if (Var[1] === "true")
+                 if (stringIs(Var, "true"))
                    return True;
 
-                 if (Var[1] === "false")
+                 if (stringIs(Var, "false"))
                    return False;
 
-                 if (/^(\-|\+)?[0-9]+$/.test(Var[1]))
-                   return [intLabel, parseInt(Var[1], 10)];
+                 var varStr = strVal(Var);
+                 if (/^(\-|\+)?[0-9]+$/.test(varStr))
+                   return [intLabel, parseInt(varStr, 10)];
 
                  return Null
                         ( 'string variable not found in environment: "'
                           + Var[1]);};
                return thisIsDumb();}
-
-             if (Var[0] === symLabel) {
-
-               if (Var === preEvalVar)
-                 return fnOfType
-                        ( listLabel
-                        , function(arg, env) {
-                            return [ strLabel,
-                                     _
-                                     .reduce
-                                     ( _
-                                       .map
-                                       ( arg,
-                                         function(elem) {
-                                           if(
-                                             elem[0] !== ASTBraceStrElemLabel)
-                                             return Null();
-                                           return elem[1];}),
-                                       function(soFar, elem) {
-                                         var toAppend;
-                                         if (elem[0] === 'str')
-                                           toAppend = elem[1];
-                                         else if (elem[0] === 'expr') {
-                                           var
-                                             evaled
-                                           = apply
-                                             ( apply(Eval, elem[1], env)
-                                             , env
-                                             , env);
-                                           if (evaled[0] !== strLabel)
-                                             return Null();
-                                           toAppend = evaled[1];}
-                                         else return Null();
-                                         return soFar + toAppend;},
-                                       '')];});
-
-               if (Var === listVar)
-                 return [macroLabel, function(arg, env) {
-                   if (arg[0] !== listLabel) return Null();
-                   return [ listLabel
-                          , arg[1].map
-                            ( function(elem)
-                              { return apply
-                                       ( apply(Eval, elem, env)
-                                       , env
-                                       , env);})];}];
-
-               if (Var === ASTBraceStrVar)
-                 return fnOfType
-                        ( listLabel
-                        , function(arg, env
-                          ){ return [strLabel, arg.join('')];});
-
-               if (Var === braceStrEvalVar) return Eval;
-
-               return Null();}
 
              return Null();});
 exports.initEnv = initEnv;

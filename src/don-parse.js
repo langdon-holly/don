@@ -47,17 +47,11 @@ var nameBegin = ps.seq(nameChar, ps.anything);
 
 function name() {
   return ps.mapParser
-         ( ps.mapParser
-           ( ps.after(ps.many1(nameChar), ps.opt(ps.wsChar)),
-             function concatStrs
-             (arr
-             ) {
-               if (arr.length == 1) return arr[0];
-               if (arr.length == 2
-               ) return arr[0]
-                        .concat(arr[1]);
-               return arr[0].concat( concatStrs(arr.slice(1, arr.length)))}),
-           function(pt) {return ['name', pt];});}
+         ( ps.after(ps.many1(nameChar), ps.opt(ps.wsChar)),
+           function(pt)
+           {return [ 'call'
+                   , pt.map
+                     (function(chr) {return ['char', chr.codePointAt(0)];})];});}
 
 var heredoc
 = ps.mapParser(
@@ -75,7 +69,7 @@ var heredoc
                    ps.seq.apply(
                      this,
                      endStr.map(function(chr) {return ps.string(chr);}))));}),
-    function(pt) {return ['heredoc', pt];});
+    function(pt) {return ['heredoc', pt.split('').map(function(chr) {return ['char', chr.codePointAt(0)]})];});
 
 var braceStr = {
   parseElem: function(chr) {
@@ -87,13 +81,13 @@ var braceStr = {
                  ( ps.mapParser(
                      ps.charNot(ps.string('|')),
                      function(pt) {
-                       return ['str', pt];}),
+                       return ['str', [pt]];}),
                    ps.before(
                      ps.string('|'),
                      ps.or(
                        ps.mapParser(
                          ps.string('|'),
-                         function() {return ['str', '|'];}),
+                         function() {return ['str', ['|']];}),
                        ps.before(
                          ows(),
                          ps.mapParser(
@@ -114,7 +108,7 @@ var braceStr = {
                    var last = _.last(toReturn);
                    if
                      (last[0] === 'str')
-                     {last[1] = last[1] + elem[1]; return;}
+                     {last[1].push(elem[1][0]); return;}
                    toReturn.push(elem);});
 
                return ['braceStr',
