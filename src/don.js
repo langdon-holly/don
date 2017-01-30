@@ -25,7 +25,7 @@ fs.readFile(program.args[0], 'utf8', function(err, data) {
   var parsed = don.parse(data);
 
   if (parsed[0]) {
-    don.topEval(parsed[1]);
+    don.topEval.apply(this, parsed.slice(1));
     process.exit(0);}
   else {
     var lineCol = indexToLineColumn(parsed[1], data);

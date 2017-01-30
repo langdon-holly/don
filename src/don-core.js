@@ -142,9 +142,9 @@ function parseTreeToAST(pt) {
 
 function parseStr(str) {
   var parsed = parser(str);
-  if (!parsed[0][0]) return [false, parsed[0][1]];
+  if (!parsed[0]) return parsed;
 
-  return [true, parseTreeToAST(parsed[0][1])];}
+  return [true, parseTreeToAST(parsed[1]), parsed[2]];}
 exports.parse = parseStr;
 
 function ttyLog() {

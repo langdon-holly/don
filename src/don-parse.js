@@ -11,7 +11,8 @@ function comment() {
                          ps.seq(ps.string('#'),
                                 ps.seq(ps.many(ps.charNot(ps.string('\u000A'))),
                                        ps.string('\u000A')))).parseElem(chr);},
-          result: [false],
+          match: false,
+          result: undefined,
           noMore: false,
           futureSuccess: false};}
 
@@ -113,7 +114,8 @@ var braceStr = {
 
                return ['braceStr',
                        toReturn];}).parseElem(chr);},
-  result: [false],
+  match: false,
+  result: undefined,
   noMore: false,
   futureSuccess: false}
 
@@ -143,13 +145,14 @@ var expr = {parseElem: function(chr) {
                            call(),
                            braceStr,
                            heredoc).parseElem(chr);},
-            result: [false],
+            match: false,
+            result: undefined,
             noMore: false,
             futureSuccess: false};
 
 function parseFile(str) {
   var parsed = ps.longestMatch(ps.before(ows(), expr), str);
-  if (parsed[0][0]) {
-    return [parsed[0], str.slice(parsed[1], str.length)];}
-  return [[false, parsed[1]]];}
+  if (parsed[0]) {
+    return [true, parsed[1], str.slice(parsed[2], str.length)];}
+  return parsed;}
 
