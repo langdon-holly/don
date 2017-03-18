@@ -20,7 +20,7 @@
   "homepage": "https://github.com/langdon-holly/don#readme",
   "dependencies": {
     "commander": "^2.9.0",
-    "list-parsing": ">=0.0.2",
+    "list-parsing": ">=0.1.0",
     "lodash": "^4.17.2"
   }
 }
