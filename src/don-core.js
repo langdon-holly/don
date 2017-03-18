@@ -541,7 +541,7 @@ var initEnv
 
                        if (arg[0] === intLabel)
                          return [ listLabel
-                                , arg[1].toString().split('').map
+                                , _.toArray(arg[1].toString()).map
                                   ( function(chr)
                                     {return [charLabel, chr.codePointAt(0)]})];
 
