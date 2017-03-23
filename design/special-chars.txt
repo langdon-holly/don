@@ -1,0 +1,20 @@
+Allowed special characters:
+
+whitespace    used
+`             used
+~           unused
+@           unused
+#             used
+$           unused
+(             used
+)             used
+[             used
+]             used
+{             used
+}             used
+\             used
+|             used
+;             used
+"             used
+,           unused
+
