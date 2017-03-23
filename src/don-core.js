@@ -112,6 +112,11 @@ function charToStr(Char)
 { if (Char[0] !== charLabel) return Null()
 ; return String.fromCodePoint(Char[1])}
 
+function strToChars(str)
+{ return [ listLabel
+         , Array.from(str).map
+           (function(chr) {return [charLabel, chr.codePointAt(0)];})];}
+
 function parseTreeToAST(pt) {
   var label = pt[0];
 
@@ -137,6 +142,8 @@ function parseTreeToAST(pt) {
                               : elem];})]]]];
   if (label === 'heredoc')
     return [ASTPrecomputedLabel, [listLabel, pt[1].map(parseTreeToAST)]];
+
+  if (label === 'quote') return [ASTPrecomputedLabel, parseTreeToAST(pt[1])];
 
   return Null('unknown parse-tree type "' + label);}
 
@@ -208,27 +215,26 @@ var nothing = makeList(False);
 
 var Eval
 = makeFn
-  ( function(expr
-    ){
-      return makeFn
-             ( function(env
-               ){
-                 if (expr[0] === listLabel) {
-                   if (expr[1][0][0] === charLabel) return apply(env, expr, env);
-                   return _
-                          .reduce
-                          ( expr[1]
-                          , function(val, arg
-                            ) {return mApply(val, arg, env);}
-                          , makeFn(function (arg, env) {return arg;}));}
+  ( function(expr)
+      { return makeFn
+               ( function(env)
+                   { if (expr[0] === listLabel) {
+                       if (expr[1][0][0] === charLabel)
+                         return apply(env, expr, env);
+                       return _
+                              .reduce
+                              ( expr[1]
+                              , function(val, arg)
+                                  {return mApply(val, arg, env);}
+                              , makeFn(function (arg, env) {return arg;}));}
 
-                 if (expr[0] === ASTPrecomputedLabel) return expr[1];
+                     if (expr[0] === ASTPrecomputedLabel) return expr[1];
 
-                 if (expr[0] === symLabel) return apply(env, expr, env);
+                     if (expr[0] === symLabel) return apply(env, expr, env);
 
-                 if (expr[0] === charLabel) return Null();
+                     if (expr[0] === charLabel) return Null();
 
-                 return Null();});});
+                     return Null();});});
 exports.Eval = Eval;
 
 var topEval = function(ast) {
@@ -236,373 +242,413 @@ var topEval = function(ast) {
 exports.topEval = topEval;
 
 var initEnv
-  = makeFn(function(Var, env) {
-             if (Var[0] === symLabel) {
-               if (Var === preEvalVar)
-                 return fnOfType
-                        ( listLabel
-                        , function(arg, env) {
-                            return [ listLabel,
-                                     _
-                                     .reduce
-                                     ( _
-                                       .map
-                                       ( arg,
-                                         function(elem) {
-                                           if(
-                                             elem[0] !== ASTBraceStrElemLabel)
-                                             return Null();
-                                           return elem[1];}),
-                                       function(soFar, elem) {
-                                         var toAppend;
-                                         if (elem[0] === 'str')
-                                           toAppend = elem[1].map(function(chr) {return [charLabel, chr.codePointAt(0)];});
-                                         else if (elem[0] === 'expr') {
-                                           var
-                                             evaled
-                                           = apply
-                                             ( apply(Eval, elem[1], env)
-                                             , env
-                                             , env);
-                                           if (evaled[0] !== listLabel)
-                                             return Null();
-                                           toAppend = evaled[1];}
-                                         else return Null();
-                                         return soFar.concat(toAppend);},
-                                       [])];});
+= makeFn
+  ( function(Var, env) {
+      if (Var[0] === symLabel) {
+        if (Var === preEvalVar)
+          return fnOfType
+                 ( listLabel
+                 , function(arg, env) {
+                     return [ listLabel,
+                              _
+                              .reduce
+                              ( _
+                                .map
+                                ( arg,
+                                  function(elem) {
+                                    if(
+                                      elem[0] !== ASTBraceStrElemLabel)
+                                      return Null();
+                                    return elem[1];}),
+                                function(soFar, elem) {
+                                  var toAppend;
+                                  if (elem[0] === 'str')
+                                    toAppend
+                                    = elem[1].map
+                                      ( function(chr)
+                                          {return [ charLabel
+                                                  , chr.codePointAt(0)];});
+                                  else if (elem[0] === 'expr') {
+                                    var
+                                      evaled
+                                    = apply
+                                      ( apply(Eval, elem[1], env)
+                                      , env
+                                      , env);
+                                    if (evaled[0] !== listLabel)
+                                      return Null();
+                                    toAppend = evaled[1];}
+                                  else return Null();
+                                  return soFar.concat(toAppend);},
+                                [])];});
 
-               if (Var === listVar)
-                 return [macroLabel, function(arg, env) {
-                   if (arg[0] !== listLabel) return Null();
-                   return [ listLabel
-                          , arg[1].map
-                            ( function(elem)
-                              { return apply
-                                       ( apply(Eval, elem, env)
-                                       , env
-                                       , env);})];}];
+        if (Var === listVar)
+          return [macroLabel, function(arg, env) {
+            if (arg[0] !== listLabel) return Null();
+            return [ listLabel
+                   , arg[1].map
+                     ( function(elem)
+                       { return apply
+                                ( apply(Eval, elem, env)
+                                , env
+                                , env);})];}];
 
-               if (Var === braceStrEvalVar) return Eval;
+        if (Var === braceStrEvalVar) return Eval;
 
-               return Null();}
+        return Null();}
 
-             if (isString(Var)) {
-               var thisIsDumb = function () {
+      if (isString(Var)) {
+        var thisIsDumb = function () {
 
-//                 function default0(pt) {
-//                   if (pt[0]) return pt[1];
-//                     return 0;}
+//          function default0(pt) {
+//            if (pt[0]) return pt[1];
+//              return 0;}
 //
-//                 function default1(pt) {
-//                   if (pt[0]) return pt[1];
-//                     return 1;}
+//          function default1(pt) {
+//            if (pt[0]) return pt[1];
+//              return 1;}
 //
-//                 function multParts(pt) {
-//                   return pt[0] * pt[1];}
+//          function multParts(pt) {
+//            return pt[0] * pt[1];}
 //
-//                 function addParts(pt) {
-//                   return pt[0] + pt[1];}
+//          function addParts(pt) {
+//            return pt[0] + pt[1];}
 //
-//                 function digitToNum(chr) {
-//                   if (chr === '0') return 0;
-//                   if (chr === '1') return 1;
-//                   if (chr === '2') return 2;
-//                   if (chr === '3') return 3;
-//                   if (chr === '4') return 4;
-//                   if (chr === '5') return 5;
-//                   if (chr === '6') return 6;
-//                   if (chr === '7') return 7;
-//                   if (chr === '8') return 8;
-//                   if (chr === '9') return 9;
-//                   if (chr === 'A' || chr === 'a') return 10;
-//                   if (chr === 'B' || chr === 'b') return 11;
-//                   if (chr === 'C' || chr === 'c') return 12;
-//                   if (chr === 'D' || chr === 'd') return 13;
-//                   if (chr === 'E' || chr === 'e') return 14;
-//                   if (chr === 'F' || chr === 'f') return 15;}
+//          function digitToNum(chr) {
+//            if (chr === '0') return 0;
+//            if (chr === '1') return 1;
+//            if (chr === '2') return 2;
+//            if (chr === '3') return 3;
+//            if (chr === '4') return 4;
+//            if (chr === '5') return 5;
+//            if (chr === '6') return 6;
+//            if (chr === '7') return 7;
+//            if (chr === '8') return 8;
+//            if (chr === '9') return 9;
+//            if (chr === 'A' || chr === 'a') return 10;
+//            if (chr === 'B' || chr === 'b') return 11;
+//            if (chr === 'C' || chr === 'c') return 12;
+//            if (chr === 'D' || chr === 'd') return 13;
+//            if (chr === 'E' || chr === 'e') return 14;
+//            if (chr === 'F' || chr === 'f') return 15;}
 //
-//                 function digitsToNum(base) {
-//                   return function(digits) {
-//                            if (digits.length == 0) return 0;
-//                            if (digits.length == 1)
-//                              return digitToNum(digits[0]);
-//                            return digitsToNum(base)(digits.slice(
-//                                                       0,
-//                                                       digits.length - 1))
-//                                   * base
-//                                   + digitToNum(digits[digits.length - 1]);};}
+//          function digitsToNum(base) {
+//            return function(digits) {
+//                     if (digits.length == 0) return 0;
+//                     if (digits.length == 1)
+//                       return digitToNum(digits[0]);
+//                     return digitsToNum(base)(digits.slice(
+//                                                0,
+//                                                digits.length - 1))
+//                            * base
+//                            + digitToNum(digits[digits.length - 1]);};}
 //
-//                 function fracDigitsToNum(base) {
-//                   return function(digits) {
-//                     return digitsToNum(1 / base)(digits.reverse()) / base};}
+//          function fracDigitsToNum(base) {
+//            return function(digits) {
+//              return digitsToNum(1 / base)(digits.reverse()) / base};}
 //
-//                 function digit(base) {
-//                   if (base == 2) return ps.or(ps.string('0'),
-//                                               ps.string('1'));
-//                   if (base == 8) return ps.or(digit(2),
-//                                               ps.string('2'),
-//                                               ps.string('3'),
-//                                               ps.string('4'),
-//                                               ps.string('5'),
-//                                               ps.string('6'),
-//                                               ps.string('7'));
-//                   if (base == 10) return ps.or(digit(8),
-//                                                ps.string('8'),
-//                                                ps.string('9'));
-//                   if (base == 16) return ps.or(digit(10),
-//                                                ps.string('A'),
-//                                                ps.string('a'),
-//                                                ps.string('B'),
-//                                                ps.string('b'),
-//                                                ps.string('C'),
-//                                                ps.string('c'),
-//                                                ps.string('D'),
-//                                                ps.string('d'),
-//                                                ps.string('E'),
-//                                                ps.string('e'),
-//                                                ps.string('F'),
-//                                                ps.string('f'));}
+//          function digit(base) {
+//            if (base == 2) return ps.or(ps.string('0'),
+//                                        ps.string('1'));
+//            if (base == 8) return ps.or(digit(2),
+//                                        ps.string('2'),
+//                                        ps.string('3'),
+//                                        ps.string('4'),
+//                                        ps.string('5'),
+//                                        ps.string('6'),
+//                                        ps.string('7'));
+//            if (base == 10) return ps.or(digit(8),
+//                                         ps.string('8'),
+//                                         ps.string('9'));
+//            if (base == 16) return ps.or(digit(10),
+//                                         ps.string('A'),
+//                                         ps.string('a'),
+//                                         ps.string('B'),
+//                                         ps.string('b'),
+//                                         ps.string('C'),
+//                                         ps.string('c'),
+//                                         ps.string('D'),
+//                                         ps.string('d'),
+//                                         ps.string('E'),
+//                                         ps.string('e'),
+//                                         ps.string('F'),
+//                                         ps.string('f'));}
 //
-//                 function digits(base) {
-//                   return ps.many1(digit(base));}
+//          function digits(base) {
+//            return ps.many1(digit(base));}
 //
-//                 var signParser = ps.mapParser(ps.or(ps.string('+'),
-//                                                     ps.string('-')),
-//                                               function (pt) {
-//                                                 return pt === '+' ? 1
-//                                                                   : -1;});
+//          var signParser = ps.mapParser(ps.or(ps.string('+'),
+//                                              ps.string('-')),
+//                                        function (pt) {
+//                                          return pt === '+' ? 1
+//                                                            : -1;});
 //
-//                 var numPartParserBase = function(base) {
-//                   return ps.or(
-//                     ps.mapParser(
-//                       digits(base),
-//                       digitsToNum(base)),
-//                     ps.mapParser(
-//                       ps.seq(
-//                         ps.mapParser(
-//                           ps.opt(
+//          var numPartParserBase = function(base) {
+//            return ps.or(
+//              ps.mapParser(
+//                digits(base),
+//                digitsToNum(base)),
+//              ps.mapParser(
+//                ps.seq(
+//                  ps.mapParser(
+//                    ps.opt(
+//                      ps.mapParser(
+//                        digits(base),
+//                        digitsToNum(base))),
+//                    default0),
+//                  ps.before(
+//                    ps.string('.'),
+//                    ps.mapParser(
+//                      digits(base),
+//                      fracDigitsToNum(base)))),
+//                addParts));};
+//
+//          var urealParserBase = function(base) {
+//            var prefix = base == 2 ? ps.string('0b') :
+//                         base == 8 ? ps.string('0o') :
+//                         base == 16 ? ps.string('0x') :
+//                                      ps.or(ps.nothing,
+//                                            ps.string('0d'));
+//
+//            return ps.before(prefix,
 //                             ps.mapParser(
-//                               digits(base),
-//                               digitsToNum(base))),
-//                           default0),
-//                         ps.before(
-//                           ps.string('.'),
-//                           ps.mapParser(
-//                             digits(base),
-//                             fracDigitsToNum(base)))),
-//                       addParts));};
+//                               ps.seq(
+//                                 numPartParserBase(base),
+//                                 ps.mapParser(
+//                                   ps.opt(
+//                                     ps.mapParser(
+//                                       ps.before(
+//                                         ps.or(ps.string('e'),
+//                                               ps.string('E')),
+//                                         ps.mapParser(
+//                                           ps.seq(
+//                                             ps.mapParser(
+//                                               ps.opt(signParser),
+//                                               default1),
+//                                             numPartParserBase(base)),
+//                                           multParts)),
+//                                       function (pt) {
+//                                         return Math.pow(base, pt);})),
+//                                   default1)),
+//                               multParts));}
 //
-//                 var urealParserBase = function(base) {
-//                   var prefix = base == 2 ? ps.string('0b') :
-//                                base == 8 ? ps.string('0o') :
-//                                base == 16 ? ps.string('0x') :
-//                                             ps.or(ps.nothing,
-//                                                   ps.string('0d'));
+//          var urealParser = ps.or(urealParserBase(2),
+//                                  urealParserBase(8),
+//                                  urealParserBase(10),
+//                                  urealParserBase(16));
 //
-//                   return ps.before(prefix,
+//          var realParser = ps.mapParser(ps.seq(ps.mapParser(
+//                                                 ps.opt(signParser),
+//                                                 default1),
+//                                               urealParser),
+//                                        multParts);
+//
+//          var numParser
+//            = ps.or(ps.mapParser(realParser,
+//                                 function (pt) {
+//                                   return [pt, 0];}),
+//                    ps.after(ps.seq(realParser,
 //                                    ps.mapParser(
 //                                      ps.seq(
-//                                        numPartParserBase(base),
+//                                        signParser,
 //                                        ps.mapParser(
-//                                          ps.opt(
-//                                            ps.mapParser(
-//                                              ps.before(
-//                                                ps.or(ps.string('e'),
-//                                                      ps.string('E')),
-//                                                ps.mapParser(
-//                                                  ps.seq(
-//                                                    ps.mapParser(
-//                                                      ps.opt(signParser),
-//                                                      default1),
-//                                                    numPartParserBase(base)),
-//                                                  multParts)),
-//                                              function (pt) {
-//                                                return Math.pow(base, pt);})),
+//                                          ps.opt(urealParser),
 //                                          default1)),
-//                                      multParts));}
-//
-//                 var urealParser = ps.or(urealParserBase(2),
-//                                         urealParserBase(8),
-//                                         urealParserBase(10),
-//                                         urealParserBase(16));
-//
-//                 var realParser = ps.mapParser(ps.seq(ps.mapParser(
-//                                                        ps.opt(signParser),
-//                                                        default1),
-//                                                      urealParser),
-//                                               multParts);
-//
-//                 var numParser
-//                   = ps.or(ps.mapParser(realParser,
-//                                        function (pt) {
-//                                          return [pt, 0];}),
-//                           ps.after(ps.seq(realParser,
-//                                           ps.mapParser(
-//                                             ps.seq(
-//                                               signParser,
-//                                               ps.mapParser(
-//                                                 ps.opt(urealParser),
-//                                                 default1)),
-//                                             multParts)),
-//                                    ps.string('i')),
-//                           ps.mapParser(ps.after(ps.mapParser(
-//                                                   ps.seq(
-//                                                     ps.mapParser(
-//                                                       ps.opt(signParser),
-//                                                       default1),
-//                                                     ps.mapParser(
-//                                                       ps.opt(urealParser),
-//                                                       default1)),
-//                                                   multParts),
-//                                                 ps.string('i')),
-//                                        function (pt) {
-//                                          return [0, pt];}));
+//                                      multParts)),
+//                             ps.string('i')),
+//                    ps.mapParser(ps.after(ps.mapParser(
+//                                            ps.seq(
+//                                              ps.mapParser(
+//                                                ps.opt(signParser),
+//                                                default1),
+//                                              ps.mapParser(
+//                                                ps.opt(urealParser),
+//                                                default1)),
+//                                            multParts),
+//                                          ps.string('i')),
+//                                 function (pt) {
+//                                   return [0, pt];}));
 
-//                 if (maybeStr[1].charAt(0) === '"')
-//                   return valObj(strLabel,
-//                                 maybeStr[1].slice(1, maybeStr[1].length));
+//          if (maybeStr[1].charAt(0) === '"')
+//            return valObj(strLabel,
+//                          maybeStr[1].slice(1, maybeStr[1].length));
 
-//                 var varParts = maybeStr[1].split(':');
-//                 if (varParts.length >= 2) {
-//                   return _.reduce(varParts.slice(1, varParts.length),
-//                                   function(fn, argument) {
-//                                     return apply(fn,
-//                                                  valObj(strLabel,
-//                                                         argument),
-//                                                  env);},
-//                                   apply(env,
-//                                         valObj(strLabel, varParts[0]),
-//                                         env));}
+//          var varParts = maybeStr[1].split(':');
+//          if (varParts.length >= 2) {
+//            return _.reduce(varParts.slice(1, varParts.length),
+//                            function(fn, argument) {
+//                              return apply(fn,
+//                                           valObj(strLabel,
+//                                                  argument),
+//                                           env);},
+//                            apply(env,
+//                                  valObj(strLabel, varParts[0]),
+//                                  env));}
 
-                 if (Var[1][0][1] === '"'.codePointAt(0))
-                   return [listLabel, Var[1].slice(1, Var[1].length)];
+          //if (Var[1][0][1] === '"'.codePointAt(0))
+          //  return [listLabel, Var[1].slice(1, Var[1].length)];
 
-                 if (stringIs(Var, '+'))
-                   return fnOfType
-                          ( listLabel
-                          , function
-                            (args
-                            , env
-                            ){
-                              return _.reduce
-                                     ( args
-                                     , function (arg0, arg1
-                                       ){
-                                         if (arg1[0] !== intLabel)
-                                           return Null();
-                                         return [ intLabel,
-                                                  arg0[1]
-                                                  + arg1[1]];}
-                                     , [intLabel, 0]);});
+          if (stringIs(Var, 'fn'))
+            return makeFn
+                   ( function(param)
+                     { return makeFn
+                              ( function(body, env)
+                                { return makeFn
+                                         ( function(arg)
+                                           { var newEnv
+                                             = makeFn
+                                               ( function(Var)
+                                                 { if
+                                                     ( Var[0] === param[0]
+                                                       &&
+                                                         ( Var[1]
+                                                           === param[1]
+                                                           ||
+                                                             isString(param)
+                                                             && isString(Var)
+                                                             && strVal(param)
+                                                                === strVal
+                                                                    (Var)))
+                                                     return arg;
+                                                   return apply
+                                                          ( env
+                                                          , Var
+                                                          , env);});
 
-                 if (stringIs(Var, '-'))
-                   return fnOfType
-                          ( listLabel
-                          , function
-                            (args
-                            , env
-                            ){
-                              if (args.length === 0) return [intLabel, -1];
+                                             return apply
+                                                    ( apply
+                                                      ( Eval
+                                                      , body
+                                                      , newEnv)
+                                                    , newEnv
+                                                    , newEnv);});});});
 
-                              if (args[0][0] !== intLabel) return Null();
-                              if (args.length === 1)
-                                return [intLabel, -args[0][1]];
+          if (stringIs(Var, '+'))
+            return fnOfType
+                   ( listLabel
+                   , function
+                     ( args
+                     , env
+                     ){
+                       return _.reduce
+                              ( args
+                              , function (arg0, arg1
+                                ){
+                                  if (arg1[0] !== intLabel)
+                                    return Null();
+                                  return [ intLabel,
+                                           arg0[1]
+                                           + arg1[1]];}
+                              , [intLabel, 0]);});
 
-                              return _.reduce
-                                     ( args
-                                     , function (arg0, arg1
-                                       ){
-                                         if (arg1[0] !== intLabel)
-                                           return Null();
-                                         return [ intLabel,
-                                                  arg0[1]
-                                                  - arg1[1]];}
-                                     , args[0]);});
+          if (stringIs(Var, '-'))
+            return fnOfType
+                   ( listLabel
+                   , function
+                     (args
+                     , env
+                     ){
+                       if (args.length === 0) return [intLabel, -1];
 
-                 if (stringIs(Var, "environment")) return env;
+                       if (args[0][0] !== intLabel) return Null();
+                       if (args.length === 1)
+                         return [intLabel, -args[0][1]];
 
-                 if (stringIs(Var, "print"))
-                   return makeFn(function(arg, env) {
-                     if (!isString(arg))
-                       return Null("print's argument should be a string");
+                       return _.reduce
+                              ( args
+                              , function (arg0, arg1
+                                ){
+                                  if (arg1[0] !== intLabel)
+                                    return Null();
+                                  return [ intLabel,
+                                           arg0[1]
+                                           - arg1[1]];}
+                              , args[0]);});
 
-                     process.stdout.write(strVal(arg));
+          if (stringIs(Var, "environment")) return env;
 
-                     return unit;});
+          if (stringIs(Var, "print"))
+            return makeFn(function(arg, env) {
+              if (!isString(arg))
+                return Null("print's argument should be a string");
 
-                 if (stringIs(Var, "->str"))
-                   return makeFn(
-                     function toString(arg, env) {
-                       if (arg[0] === charLabel)
-                         return [ listLabel
-                                , [ [charLabel, "'".codePointAt(0)]
-                                  , arg
-                                  , [charLabel, "'".codePointAt(0)]]];
+              process.stdout.write(strVal(arg));
 
-                       if (arg[0] === intLabel)
-                         return [ listLabel
-                                , _.toArray(arg[1].toString()).map
-                                  ( function(chr)
-                                    {return [charLabel, chr.codePointAt(0)]})];
+              return unit;});
 
-                       if (arg[0] === listLabel)
-                         return [ listLabel,
-                                  [[charLabel, '['.codePointAt(0)]].concat
-                                  ( _.reduce
-                                    ( arg[1].map
-                                      (function (o) {return toString(o, env)[1];})
-                                    , function(soFar, elem, idx)
-                                      {return idx === 0
-                                              ? elem
-                                              : soFar.concat
-                                                ( [[ charLabel
-                                                     , ' '.codePointAt(0)]]
-                                                , elem);}
-                                    , undefined)
-                                  , [[charLabel, ']'.codePointAt(0)]])];
+          if (stringIs(Var, "->str"))
+            return makeFn(
+              function toString(arg, env) {
+                if (arg[0] === charLabel)
+                  return [ listLabel
+                         , [ [charLabel, "'".codePointAt(0)]
+                           , arg
+                           , [charLabel, "'".codePointAt(0)]]];
 
-                       return Null();});
+                if (arg[0] === intLabel)
+                  return [ listLabel
+                         , _.toArray(arg[1].toString()).map
+                           ( function(chr)
+                             {return [charLabel, chr.codePointAt(0)]})];
 
-                 if (stringIs(Var, "str->unicode"))
-                   return makeFn(
-                     function(arg, env) {
-                       if (!isString(arg)) return Null();
-                       return [listLabel,
-                               arg[1].map(function(Char) {
-                                 return [intLabel, Char[1]];})];});
+                if (arg[0] === listLabel)
+                  return [ listLabel,
+                           [[charLabel, '['.codePointAt(0)]].concat
+                           ( _.reduce
+                             ( arg[1].map
+                               (function (o) {return toString(o, env)[1];})
+                             , function(soFar, elem, idx)
+                               {return idx === 0
+                                       ? elem
+                                       : soFar.concat
+                                         ( [[ charLabel
+                                              , ' '.codePointAt(0)]]
+                                         , elem);}
+                             , undefined)
+                           , [[charLabel, ']'.codePointAt(0)]])];
 
-                 if (stringIs(Var, "unicode->str"))
-                   return makeFn(function(arg, env) {
-                     if (arg[0] !== listLabel) return Null();
+                return strToChars("Um... " + arg.toString());});
 
-                     return [ listLabel,
-                              arg[1].map(function (codepoint) {
-                                if (codepoint[0] !== intLabel
-                                ) return Null();
-                                return [ charLabel
-                                       , codepoint[1]];})];});
+          if (stringIs(Var, "str->unicode"))
+            return makeFn(
+              function(arg, env) {
+                if (!isString(arg)) return Null();
+                return [listLabel,
+                        arg[1].map(function(Char) {
+                          return [intLabel, Char[1]];})];});
 
-                 if (stringIs(Var, "length"))
-                   return fnOfType
-                          ( listLabel
-                          , function(arg, env) {return list.length;});
+          if (stringIs(Var, "unicode->str"))
+            return makeFn(function(arg, env) {
+              if (arg[0] !== listLabel) return Null();
 
-                 if (stringIs(Var, "true"))
-                   return True;
+              return [ listLabel,
+                       arg[1].map(function (codepoint) {
+                         if (codepoint[0] !== intLabel
+                         ) return Null();
+                         return [ charLabel
+                                , codepoint[1]];})];});
 
-                 if (stringIs(Var, "false"))
-                   return False;
+          if (stringIs(Var, "length"))
+            return fnOfType
+                   ( listLabel
+                   , function(arg, env) {return list.length;});
 
-                 var varStr = strVal(Var);
-                 if (/^(\-|\+)?[0-9]+$/.test(varStr))
-                   return [intLabel, parseInt(varStr, 10)];
+          if (stringIs(Var, "true"))
+            return True;
 
-                 return Null
-                        ( 'string variable not found in environment: "'
-                          + Var[1]);};
-               return thisIsDumb();}
+          if (stringIs(Var, "false"))
+            return False;
 
-             return Null();});
+          var varStr = strVal(Var);
+          if (/^(\-|\+)?[0-9]+$/.test(varStr))
+            return [intLabel, parseInt(varStr, 10)];
+
+          return Null
+                 ( 'string variable not found in environment: "'
+                   + strVal(Var));};
+        return thisIsDumb();}
+
+      return Null();});
 exports.initEnv = initEnv;
 
 Error.stackTraceLimit = Infinity;

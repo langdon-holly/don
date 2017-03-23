@@ -42,7 +42,8 @@ var nameChar = ps.elemNot(ps.string('('),
                           ps.string('\\'),
                           ps.string('|'),
                           ps.string(';'),
-                          ps.string('#'))
+                          ps.string('#'),
+                          ps.string('"'))
 
 var nameBegin = ps.seq(nameChar, ps.anything);
 
@@ -140,13 +141,21 @@ function list() {
                       function(pt) {
                         return ['list', pt];});}
 
+function quote()
+{ return ps.map
+         ( ps.before
+           ( ps.seq(ps.string('"'), ows())
+           , expr)
+         , function(pt) {return ['quote', pt];});}
+
 var expr = {parseElem: function(elem) {
               return ps.or(parenCall(),
                            list(),
                            name(),
                            call(),
                            braceStr,
-                           heredoc).parseElem(elem);},
+                           heredoc,
+                           quote()).parseElem(elem);},
             match: false,
             result: undefined,
             noMore: false,
