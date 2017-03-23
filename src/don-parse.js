@@ -51,9 +51,10 @@ function name() {
   return ps.map
          ( ps.after(ps.many1(nameChar), ps.opt(ps.wsChar)),
            function(pt)
-           {return [ 'call'
-                   , pt.map
-                     (function(chr) {return ['char', chr.codePointAt(0)];})];});}
+           { return [ 'quoted-list'
+                    , pt.map
+                      ( function(chr)
+                          {return ['char', chr.codePointAt(0)];})];});}
 
 var heredoc
 = ps.map(

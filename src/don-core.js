@@ -118,15 +118,21 @@ function parseTreeToAST(pt) {
   var label = pt[0];
 
   if (label == 'char') return [charLabel, pt[1]];
-  if (label == 'call') return [listLabel, pt[1].map(parseTreeToAST)];
-  if (label == 'list') return [ listLabel
+  if (label == 'call')
+    return _.reduce
+           ( pt[1]
+           , function(applied, arg)
+               { return [ callLabel
+                        , [applied, parseTreeToAST(arg)]];}
+           , [ASTPrecomputedLabel, makeFn(function(arg){return arg;})]);
+  if (label == 'list') return [ callLabel
                               , [ listVar
                                 , [ ASTPrecomputedLabel
                                   , [ listLabel
                                     , pt[1]
                                       .map(parseTreeToAST)]]]];
   if (label == 'braceStr')
-    return [ listLabel,
+    return [ callLabel,
              [ preEvalVar,
                [ ASTPrecomputedLabel,
                  [ listLabel,
@@ -142,6 +148,8 @@ function parseTreeToAST(pt) {
     return [ASTPrecomputedLabel, [listLabel, pt[1].map(parseTreeToAST)]];
 
   if (label === 'quote') return [ASTPrecomputedLabel, parseTreeToAST(pt[1])];
+
+  if (label === 'quoted-list') return [listLabel, pt[1].map(parseTreeToAST)];
 
   return Null('unknown parse-tree type "' + label);}
 
@@ -184,6 +192,9 @@ exports.unitLabel = unitLabel;
 var unit = [unitLabel];
 exports.unit = unit;
 
+var callLabel = {};
+exports.callLabel = callLabel;
+
 var preEvalVar = [symLabel, {}];
 exports.preEvalVar = preEvalVar;
 
@@ -216,30 +227,26 @@ var Eval
   ( function(expr)
       { return makeFn
                ( function(env)
-                   { if (expr[0] === listLabel) {
-                       if (expr[1].length > 0 && expr[1][0][0] === charLabel)
-                         return apply(env, expr, env);
-                       return _
-                              .reduce
-                              ( expr[1]
-                              , function(val, arg)
-                                  //{return mApply(val, arg, env);}
-                                  { return apply
-                                           ( val
-                                           , apply
-                                             ( apply(Eval, arg, env)
-                                             , env
-                                             , env)
-                                           , env);}
-                              , makeFn(function (arg, env) {return arg;}));}
+                   { if (expr[0] === callLabel)
+                       return apply
+                              ( apply
+                                ( apply(Eval, expr[1][0], env)
+                                , env
+                                , env)
+                              , apply
+                                ( apply(Eval, expr[1][1], env)
+                                , env
+                                , env)
+                              , env);
 
                      if (expr[0] === ASTPrecomputedLabel) return expr[1];
 
                      if (expr[0] === symLabel) return apply(env, expr, env);
 
-                     if (expr[0] === charLabel) return Null();
+                     if (isString(expr))
+                       return apply(env, expr, env);
 
-                     return Null();});});
+                     return Null(expr);});});
 exports.Eval = Eval;
 
 var topEval = function(ast) {
