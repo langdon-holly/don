@@ -41,43 +41,40 @@ if (!Array.prototype.includes) {
 
 var exports = module.exports;
 
-function mApply(macro, arg, env) {
-  if (macro[0] === macroLabel)
-    return macro[1](arg, env);
-
-  arg = apply(apply(Eval, arg, env), env, env);
-
-  if (macro[0] === fnLabel)
-    return macro[1](arg, env);
-
-  if (macro[0] === listLabel) {
-    if (arg[0] !== intLabel)
-      return Null("Argument to list must be integer");
-    if (arg[1] < 0 || arg[1] >= macro[1].length)
-      return Null("Array index out of bounds");
-    return macro[1][arg[1]];}
-
-  return Null("Tried to macro-apply a non-macro");}
-exports.mApply = mApply;
+//function mApply(macro, arg, env) {
+//  if (macro[0] === macroLabel)
+//    return macro[1](arg, env);
+//
+//  arg = apply(apply(Eval, arg, env), env, env);
+//
+//  if (macro[0] === fnLabel)
+//    return macro[1](arg, env);
+//
+//  if (macro[0] === listLabel) {
+//    if (arg[0] !== intLabel)
+//      return Null("Argument to list must be integer");
+//    if (arg[1] < 0 || arg[1] >= macro[1].length)
+//      return Null("Array index out of bounds");
+//    return macro[1][arg[1]];}
+//
+//  return Null("Tried to macro-apply a non-macro");}
+//exports.mApply = mApply;
 
 function apply(fn, arg, env) {
-  return fn[0] === macroLabel ? mApply(fn,
-                                       [ASTPrecomputedLabel, arg],
-                                       env)
-         : fn[0] === fnLabel ? fn[1](arg, env)
+  return fn[0] === fnLabel ? fn[1](arg, env)
          : fn[0] === listLabel ? function(){
            if (arg[0] !== intLabel)
              return Null("Argument to list must be integer");
            if (arg[1] < 0 || arg[1] >= fn[1].length)
              return Null("Array index out of bounds");
            return fn[1][arg[1]];}()
-         : Null("Tried to apply a non-macro");}
+         : Null("Tried to apply a non-function");}
 exports.apply = apply;
 
 function fnOfType(type, fn) {
   return makeFn(function(arg, env) {
-                  if (arg[0] !== type
-                  ) return Null("typed function received garbage");
+                  if (arg[0] !== type)
+                    return Null("typed function received garbage");
                   return fn(arg[1], env);})}
 
 function makeFn(fn) {
@@ -122,11 +119,12 @@ function parseTreeToAST(pt) {
 
   if (label == 'char') return [charLabel, pt[1]];
   if (label == 'call') return [listLabel, pt[1].map(parseTreeToAST)];
-  if (label == 'list') return [ listLabel,
-                                [ listVar,
-                                  [ listLabel,
-                                    pt[1]
-                                    .map(parseTreeToAST)]]];
+  if (label == 'list') return [ listLabel
+                              , [ listVar
+                                , [ ASTPrecomputedLabel
+                                  , [ listLabel
+                                    , pt[1]
+                                      .map(parseTreeToAST)]]]];
   if (label == 'braceStr')
     return [ listLabel,
              [ preEvalVar,
@@ -160,8 +158,8 @@ function ttyLog() {
 var fnLabel = {};
 exports.fnLabel = fnLabel;
 
-var macroLabel = {};
-exports.macroLabel = macroLabel;
+//var macroLabel = {};
+//exports.macroLabel = macroLabel;
 
 var listLabel = {};
 exports.listLabel = listLabel;
@@ -202,14 +200,14 @@ var Null = function() {
 exports.Null = Null;
 
 var False
-= [ macroLabel
-  , function(arg0, env
-    ){ return [fnLabel, function(arg1, env) {return arg1;}];}];
+= makeFn
+  ( function(consequent, env)
+      {return makeFn(function(alternative, env) {return alternative;});});
 
 var True
-= [ fnLabel
-  , function(arg0, env
-    ){ return [macroLabel, function(arg1, env) {return arg0;}];}];
+= makeFn
+  ( function(consequent, env)
+      {return makeFn(function(alternative, env) {return consequent;});});
 
 var nothing = makeList(False);
 
@@ -219,13 +217,20 @@ var Eval
       { return makeFn
                ( function(env)
                    { if (expr[0] === listLabel) {
-                       if (expr[1][0][0] === charLabel)
+                       if (expr[1].length > 0 && expr[1][0][0] === charLabel)
                          return apply(env, expr, env);
                        return _
                               .reduce
                               ( expr[1]
                               , function(val, arg)
-                                  {return mApply(val, arg, env);}
+                                  //{return mApply(val, arg, env);}
+                                  { return apply
+                                           ( val
+                                           , apply
+                                             ( apply(Eval, arg, env)
+                                             , env
+                                             , env)
+                                           , env);}
                               , makeFn(function (arg, env) {return arg;}));}
 
                      if (expr[0] === ASTPrecomputedLabel) return expr[1];
@@ -283,15 +288,16 @@ var initEnv
                                 [])];});
 
         if (Var === listVar)
-          return [macroLabel, function(arg, env) {
-            if (arg[0] !== listLabel) return Null();
-            return [ listLabel
-                   , arg[1].map
-                     ( function(elem)
-                       { return apply
-                                ( apply(Eval, elem, env)
-                                , env
-                                , env);})];}];
+          return fnOfType
+                 ( listLabel
+                 , function(arg, env)
+                     { return [ listLabel
+                              , arg.map
+                                ( function(elem)
+                                  { return apply
+                                           ( apply(Eval, elem, env)
+                                           , env
+                                           , env);})];});
 
         if (Var === braceStrEvalVar) return Eval;
 
@@ -604,7 +610,7 @@ var initEnv
                                          ( [[ charLabel
                                               , ' '.codePointAt(0)]]
                                          , elem);}
-                             , undefined)
+                             , [])
                            , [[charLabel, ']'.codePointAt(0)]])];
 
                 return strToChars("Um... " + arg.toString());});
