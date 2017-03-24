@@ -667,6 +667,20 @@ var initEnv
                    ( listLabel
                    , function(arg, env) {return [intLabel, arg.length];});
 
+          if (stringIs(Var, "->list"))
+            return fnOfType
+                   ( fnLabel
+                   , function(fn)
+                       { return fnOfType
+                                ( intLabel
+                                , function(length, env)
+                                    { if (length < 0) return Null();
+
+                                      var toReturn = [];
+                                      for (var i = 0; i < length; i++)
+                                        {toReturn.push(fn([intLabel, i], env));}
+                                      return [listLabel, toReturn];});});
+
           if (stringIs(Var, "true")) return True;
 
           if (stringIs(Var, "false")) return False;
