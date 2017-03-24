@@ -1,0 +1,18 @@
+(fn param body)
+(+ array-of-int)
+(- array-of-int)
+(< int0 int1)
+(= int0 int1)
+environment
+(eval expr env)
+(print str?)
+(->str o)
+(str->unicode str)
+(unicode->str array-of-ints)
+(length arr)
+(->list fn length)
+(true consequent alternative)
+(false consequent alternative)
+unit
+/^(\-|\+)?[0-9]+$/
+
