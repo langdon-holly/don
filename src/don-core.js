@@ -667,11 +667,11 @@ var initEnv
                    ( listLabel
                    , function(arg, env) {return [intLabel, arg.length];});
 
-          if (stringIs(Var, "true"))
-            return True;
+          if (stringIs(Var, "true")) return True;
 
-          if (stringIs(Var, "false"))
-            return False;
+          if (stringIs(Var, "false")) return False;
+
+          if (stringIs(Var, "unit")) return unit;
 
           var varStr = strVal(Var);
           if (/^(\-|\+)?[0-9]+$/.test(varStr))
