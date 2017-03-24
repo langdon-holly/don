@@ -3,7 +3,7 @@
 #\print\->str(\str->unicode "hi 1)
 
 # function function fn test
-\print
+\print (< \length[0 5] 3 "lt "ge)
 (fn "2*
   "(fn "*3
      "(2* *3 5)

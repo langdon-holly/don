@@ -578,7 +578,27 @@ var initEnv
                                            - arg1[1]];}
                               , args[0]);});
 
+          if (stringIs(Var, '<'))
+            return fnOfType
+                   ( intLabel
+                   , function(arg0)
+                       { return fnOfType
+                                ( intLabel
+                                , function(arg1)
+                                    {return arg0 < arg1 ? True : False;});});
+
+          if (stringIs(Var, '='))
+            return fnOfType
+                   ( intLabel
+                   , function(arg0)
+                       { return fnOfType
+                                ( intLabel
+                                , function(arg1)
+                                    {return arg0 == arg1 ? True : False;});});
+
           if (stringIs(Var, "environment")) return env;
+
+          if (stringIs(Var, "eval")) return Eval;
 
           if (stringIs(Var, "print"))
             return makeFn(function(arg, env) {
@@ -645,7 +665,7 @@ var initEnv
           if (stringIs(Var, "length"))
             return fnOfType
                    ( listLabel
-                   , function(arg, env) {return list.length;});
+                   , function(arg, env) {return [intLabel, arg.length];});
 
           if (stringIs(Var, "true"))
             return True;
