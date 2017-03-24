@@ -3,8 +3,7 @@
 #\print\->str(\str->unicode "hi 1)
 
 # function function fn test
-;\print
-\->str
+\print
 (fn "2*
   "(fn "*3
      "(2* *3 5)

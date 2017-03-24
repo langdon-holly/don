@@ -582,10 +582,11 @@ var initEnv
 
           if (stringIs(Var, "print"))
             return makeFn(function(arg, env) {
-              if (!isString(arg))
-                return Null("print's argument should be a string");
-
-              process.stdout.write(strVal(arg));
+              if (isString(arg)) return process.stdout.write(strVal(arg));
+              else
+                process.stdout.write
+                ( strVal
+                  (apply(apply(initEnv, strToChars('->str'), env), arg, env)));
 
               return unit;});
 
