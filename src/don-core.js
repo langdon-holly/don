@@ -510,7 +510,7 @@ var initEnv
                                          ( function(arg)
                                            { var newEnv
                                              = makeFn
-                                               ( function(Var)
+                                               ( function(Var, envEnv)
                                                  { if
                                                      ( Var[0] === param[0]
                                                        &&
@@ -526,7 +526,7 @@ var initEnv
                                                    return apply
                                                           ( env
                                                           , Var
-                                                          , env);});
+                                                          , envEnv);});
 
                                              return apply
                                                     ( apply
@@ -575,8 +575,7 @@ var initEnv
                                     return Null();
                                   return [ intLabel,
                                            arg0[1]
-                                           - arg1[1]];}
-                              , args[0]);});
+                                           - arg1[1]];});});
 
           if (stringIs(Var, '<'))
             return fnOfType
@@ -596,7 +595,7 @@ var initEnv
                                 , function(arg1)
                                     {return arg0 == arg1 ? True : False;});});
 
-          if (stringIs(Var, "environment")) return env;
+          if (stringIs(Var, "env")) return env;
 
           if (stringIs(Var, "eval")) return Eval;
 

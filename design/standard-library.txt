@@ -3,7 +3,7 @@
 (- array-of-int)
 (< int0 int1)
 (= int0 int1)
-environment
+(env var)
 (eval expr env)
 (print str?)
 (->str o)
