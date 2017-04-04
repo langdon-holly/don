@@ -4,17 +4,20 @@ var ps = require('list-parsing');
 module.exports = parseFile;
 
 function comment() {
-  return {parseElem: function(elem) {
-            return ps.or(ps.seq(ps.string(';'),
-                                ows(),
-                                expr),
-                         ps.seq(ps.string('#'),
-                                ps.seq(ps.many(ps.elemNot(ps.string('\u000A'))),
-                                       ps.string('\u000A')))).parseElem(elem);},
-          match: false,
-          result: undefined,
-          noMore: false,
-          futureSuccess: false};}
+  return ps.name
+         ( { parseElem: function(elem) {
+               return ps.or
+                      ( ps.seq(ps.string(';'), ows(), expr)
+                      , ps.seq
+                        ( ps.string('#')
+                        , ps.seq
+                          ( ps.many(ps.elemNot(ps.string('\u000A')))
+                          , ps.string('\u000A')))).parseElem(elem);},
+             match: false,
+             result: undefined,
+             noMore: false,
+             futureSuccess: false}
+         , "comment");}
 
 function oComment() {return ps.many(comment());}
 
@@ -76,52 +79,67 @@ var heredoc
     {return [ 'heredoc'
             , pt.map(function(chr) {return ['char', chr.codePointAt(0)]})];});
 
-var braceStr = {
-  parseElem: function(elem) {
-    return ps.map
-           ( ps.around
-             ( ps.string('{'),
-               ps.many
-               ( ps.or
-                 ( ps.map(
-                     ps.elemNot(ps.string('|')),
-                     function(pt) {
-                       return ['str', [pt]];}),
-                   ps.before(
-                     ps.string('|'),
-                     ps.or(
-                       ps.map(
-                         ps.string('|'),
-                         function() {return ['str', ['|']];}),
-                       ps.before(
-                         ows(),
-                         ps.map(
-                           expr
-                           , function(pt) {return ['expr', pt];})))))),
-               ps.string('|}')),
-             function(arr) {
-               var toReturn = [];
-               _
-               .forEach
-               ( arr,
-                 function(elem) {
-                   if (elem[0] === 'comment') return;
-                   if
-                     ( toReturn.length == 0
-                       || elem[0] === 'expr')
-                     {toReturn.push(elem); return;}
-                   var last = _.last(toReturn);
-                   if
-                     (last[0] === 'str')
-                     {last[1].push(elem[1][0]); return;}
-                   toReturn.push(elem);});
+//var braceStr = {
+//  parseElem: function(elem) {
+//    return ps.map
+//           ( ps.around
+//             ( ps.string('{'),
+//               ps.many
+//               ( ps.or
+//                 ( ps.map(
+//                     ps.elemNot(ps.string('|')),
+//                     function(pt) {
+//                       return ['str', [pt]];}),
+//                   ps.before(
+//                     ps.string('|'),
+//                     ps.or(
+//                       ps.map(
+//                         ps.string('|'),
+//                         function() {return ['str', ['|']];}),
+//                       ps.before(
+//                         ows(),
+//                         ps.map(
+//                           expr
+//                           , function(pt) {return ['expr', pt];})))))),
+//               ps.string('|}')),
+//             function(arr) {
+//               var toReturn = [];
+//               _
+//               .forEach
+//               ( arr,
+//                 function(elem) {
+//                   if (elem[0] === 'comment') return;
+//                   if
+//                     ( toReturn.length == 0
+//                       || elem[0] === 'expr')
+//                     {toReturn.push(elem); return;}
+//                   var last = _.last(toReturn);
+//                   if
+//                     (last[0] === 'str')
+//                     {last[1].push(elem[1][0]); return;}
+//                   toReturn.push(elem);});
+//
+//               return ['braceStr',
+//                       toReturn];}).parseElem(elem);},
+//  match: false,
+//  result: undefined,
+//  noMore: false,
+//  futureSuccess: false}
 
-               return ['braceStr',
-                       toReturn];}).parseElem(elem);},
-  match: false,
-  result: undefined,
-  noMore: false,
-  futureSuccess: false}
+var string
+= ps.map
+  ( ps.around
+    ( ps.string('|')
+    , ps.many
+      ( ps.or
+        ( ps.elemNot(ps.string('\\'), ps.string('|'))
+        , ps.before(ps.string('\\'), ps.or(ps.string('|'), ps.string('\\')))))
+    , ps.string('|'))
+  , function(pt)
+     {return [ 'list'
+             , pt.map
+               (function(chr)
+                  {return ['quote', ['char', chr.codePointAt(0)]];})];});
 
 function
   listContents
@@ -142,6 +160,13 @@ function list() {
                       function(pt) {
                         return ['list', pt];});}
 
+function block() {
+  return ps.map(ps.around(ps.string("{"),
+                                listContents(),
+                                ps.string("}")),
+                      function(pt) {
+                        return ['quote', ['call', pt]];});}
+
 function quote()
 { return ps.map
          ( ps.before
@@ -154,7 +179,8 @@ var expr = {parseElem: function(elem) {
                            list(),
                            name(),
                            call(),
-                           braceStr,
+                           block(),
+                           string,
                            heredoc,
                            quote()).parseElem(elem);},
             match: false,

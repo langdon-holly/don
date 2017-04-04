@@ -1,6 +1,7 @@
 #!/usr/bin/env don
 
 #\print\->str(\str->unicode "hi 1)
+\print (fn "a {a 0} [2])|\|\\h|
 
 \ print
   (fn "Z
@@ -8,11 +9,32 @@
        "(Z
           (fn "!
             "(fn "n
-               "(eval (= n 0 "1 "(* n \! \-[n 1])) env)))
+               "(eval
+                  (= n 0
+                    "1
+                    "(* n \!\-[n 1]))
+                  env)))
           5)
        (fn "x
-         "\Z(fn "*x "(fn "y "(eval (= y 0 "0 "\+[x \*x \-[y 1]]) env)))))
-    (fn "f "(fn "x "\f(fn "v "(x x v)) (fn "x "\f(fn "v "(x x v))))))
+         "\ Z
+            (fn "*x
+              "(fn "y
+                 "(eval
+                    (= y 0
+                      "0
+                      "\ +
+                         [ x
+                           \*x\-[y 1]])
+                    env)))))
+    (fn "f
+      "(fn "x
+         "\ f
+            (fn "v
+              "(x x v))
+         (fn "x
+           "\ f
+              (fn "v
+                "(x x v))))))
 
 # function function fn test
 (fn "2*

@@ -640,6 +640,23 @@ var initEnv
                              , [])
                            , [[charLabel, ']'.codePointAt(0)]])];
 
+                if (arg[0] === ASTPrecomputedLabel)
+                  return [ listLabel
+                         , [[charLabel, 124]]
+                           .concat(toString(arg[1], env)[1])];
+
+                if (arg[0] === unitLabel)
+                  return [ listLabel
+                         , [117, 110, 105, 116]
+                           .map(function(chr) {return [charLabel, chr];})]
+
+                if (arg[0] === callLabel)
+                  return [ listLabel
+                         , [[charLabel, 92]]
+                           .concat(toString(arg[1][0], env)[1])
+                           .concat([[charLabel, 32]])
+                           .concat(toString(arg[1][1], env)[1])];
+
                 return strToChars("Um... " + arg.toString());});
 
           if (stringIs(Var, "str->unicode"))
