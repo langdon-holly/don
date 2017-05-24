@@ -5,6 +5,7 @@
 var don = require('./don-core.js');
 var program = require('commander');
 var fs = require('fs');
+var _ = require('lodash');
 
 program.parse(process.argv);
 
@@ -55,5 +56,8 @@ fs.readFile
                       + "\n"
                       + " ".repeat(lineCol[1] - 1)
                       + "^");}
+
+          var trace = parsed[2];
+          _.forEachRight(trace, function(frame) {console.log("in", frame[0]);});
         process.exit(2);}});
 

@@ -1,7 +1,9 @@
 #!/usr/bin/env don
 
 #\print\->str(\str->unicode "hi 1)
-\print (fn "a {a 0} [2])|\|\\h|
+\print (= -0 0 "yep "nope )
+
+(]
 
 \ print
   (fn "Z
