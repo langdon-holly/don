@@ -73,8 +73,9 @@ var heredoc
                        this,
                        endStr.map(function(chr) {return ps.string(chr);}))));}),
       function(pt)
-      {return [ 'heredoc'
-              , pt.map(function(chr) {return ['char', chr.codePointAt(0)]})];})
+      {return (
+         [ 'heredoc'
+         , pt.map(function(chr) {return ['char', chr.codePointAt(0)]})]);})
   , "heredoc");
 
 var string
@@ -88,10 +89,10 @@ var string
           , ps.before(ps.string('\\'), ps.or(ps.string('|'), ps.string('\\')))))
       , ps.string('|'))
     , function(pt)
-       {return [ 'list'
-               , pt.map
-                 (function(chr)
-                    {return ['quote', ['char', chr.codePointAt(0)]];})];})
+      {return [ 'quoted-list'
+              , pt.map
+                (function(chr)
+                   {return ['char', chr.codePointAt(0)];})];})
   , "string literal");
 
 function listContents()
