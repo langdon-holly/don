@@ -109,7 +109,7 @@ function list() {
   return ps.name
          ( ps.map
            ( ps.around(ps.string("["), listContents(), ps.string("]"))
-           , function(pt) {return ['list', pt];})
+           , function(pt) {return ['bracketed', pt];})
          , "bracket-list");}
 
 function braced() {

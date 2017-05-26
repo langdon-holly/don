@@ -106,20 +106,30 @@ function parseTreeToAST(pt) {
       , function(applied, arg)
           {return [callLabel, [applied, parseTreeToAST(arg)]]}
       , [ASTPrecomputedLabel, makeFn(function(arg){return arg})]));
-  if (label == 'list')
+  if (label == 'bracketed')
     return (
       [ callLabel
-      , [ listVar
-        , [ ASTPrecomputedLabel
-          , [ listLabel
-            , data
-              .map(parseTreeToAST)]]]]);
+      , [ bracketedVar
+        , makeFn
+          ( function(env)
+            { return (
+                [ listLabel
+                , data.map
+                  ( _.flow
+                    ( parseTreeToAST
+                    , function(expr) {return apply(Eval, env, expr)}))])})]]);
   if (label == 'braced')
     return (
       [ callLabel
       , [ bracedVar
-        , [ ASTPrecomputedLabel
-          , [listLabel, data.map(parseTreeToAST)]]]]);
+        , makeFn
+          ( function(env)
+            { return (
+                [ listLabel
+                , data.map
+                  ( _.flow
+                    ( parseTreeToAST
+                    , function(expr) {return apply(Eval, env, expr)}))])})]]);
   if (label === 'heredoc')
     return [ASTPrecomputedLabel, [listLabel, data.map(parseTreeToAST)]];
 
@@ -165,8 +175,8 @@ exports.unit = unit;
 var callLabel = {};
 exports.callLabel = callLabel;
 
-var listVar = [symLabel, {}];
-exports.listVar = listVar;
+var bracketedVar = [symLabel, {}];
+exports.bracketedVar = bracketedVar;
 
 var bracedVar = [symLabel, {}];
 exports.bracedVar = bracedVar;
@@ -192,19 +202,23 @@ var nothing = makeList(False);
 var Eval
 = makeFn
   ( function(env)
-      { return (
-          makeFn
-          ( function(expr)
-              { if (expr[0] === callLabel)
-                  return (
-                    apply(Eval, env, expr[1][0], apply(Eval, env, expr[1][1])))
+    {return (
+       makeFn
+       ( function(expr)
+         { var label = expr[0], data = expr[1]
 
-                ; if (expr[0] === ASTPrecomputedLabel) return expr[1]
+         ; if (label === callLabel)
+             return (
+               apply(Eval, env, data[0], apply(Eval, env, data[1])))
 
-                ; if (expr[0] === symLabel || isString(expr))
-                  return apply(env, expr, env)
+         ; if (label === ASTPrecomputedLabel) return data
 
-                ; return Null(expr)}))})
+         ; if (label === fnLabel) return apply(expr, env)
+
+         ; if (label === symLabel || isString(expr))
+           return apply(Eval, env, apply(env, expr))
+
+         ; return Null(expr)}))})
 ; exports.Eval = Eval
 
 ; var topEval = function(ast) {
@@ -272,52 +286,41 @@ function toString(arg)
 
   return Null("->str unknown type")}
 
+function bracketed(env)
+{ return (
+    fnOfType
+    ( listLabel
+    , function(arg)
+        { return (
+            [ listLabel
+            , arg.map
+              ( function(elem)
+                { return apply(Eval, env, elem)})])}))}
+
 var initEnv
 = makeFn
   ( function(Var)
-    { if (Var[0] === symLabel) {
-        if (Var === listVar)
-          return (
-            makeFn
-            ( function(env)
-              { return (
-                  fnOfType
-                  ( listLabel
-                  , function(arg)
-                      { return (
-                          [ listLabel
-                          , arg.map
-                            ( function(elem)
-                              { return apply(Eval, env, elem)})])}))}));
+    { if (Var[0] === symLabel)
+      { if (Var === bracketedVar) return constFn(makeFn(_.identity))
 
         if (Var === bracedVar)
           return (
             constFn
             ( fnOfType
               ( listLabel
-              , function(arg)
-                  { var argsO
-                    = apply(initEnv, listVar, initEnv, [listLabel, arg])
-                  ; if (argsO[0] !== listLabel)
-                      return Null("Listing returned nonlist");
-                  ; var args = argsO[1];
-                  ; if (args.length % 2 != 0)
-                      return Null("Tried to brace oddity")
-                  ; var pairs = _.chunk(args, 2)
-                  ; return (
-                    makeFn
-                    (function (arg)
-                       { var toReturn = nothing
-                       ; _.forEach
-                         ( pairs
-                         , function(pair)
-                             { if
-                                 ( arg === pair[0]
-                                   || isString(arg)
-                                      && isString(pair[0])
-                                      && strVal(arg) === strVal(pair[0]))
-                                 toReturn = just(pair[1])})
-                       ; return toReturn}))})));
+              , function(args)
+                { if (args.length % 2 != 0) return Null("Tried to brace oddity")
+                ; var pairs = _.chunk(args, 2)
+                ; return (
+                  makeFn
+                  ( function(arg)
+                    { var toReturn = nothing
+                    ; _.forEach
+                      ( pairs
+                      , function(pair)
+                          { if (eq(arg, pair[0]))
+                              toReturn = just(pair[1])})
+                    ; return toReturn}))})));
 
         return Null("symbol variable not found in environment")}
 
@@ -517,24 +520,22 @@ var initEnv
                 { return (
                     makeFn
                     ( function(param)
-                      { var newEnv
-                        = makeFn
-                          ( function(dynEnv)
-                            { return (
-                                makeFn
-                                ( function(Var)
-                                  { return (
-                                      eq(Var, param)
-                                      ? arg
-                                      : apply(env, Var, dynEnv))}))})
-                      ; return (
+                      { return (
                           makeFn
                           ( function(body)
                             { return (
                                 makeFn
                                 ( function(arg)
                                   { return (
-                                      apply(Eval, newEnv, body))}))}))}))}));
+                                      apply
+                                      ( Eval
+                                      , makeFn
+                                        ( function(Var)
+                                          { return (
+                                              eq(Var, param)
+                                              ? constFn(arg)
+                                              : apply(env, Var))})
+                                      , body))}))}))}))}));
 
           if (stringIs(Var, '+'))
             return (
