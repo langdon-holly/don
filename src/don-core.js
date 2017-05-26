@@ -14,16 +14,19 @@
 
 function apply(fn, arg) {
   function apply(fn, arg) {
-    return (
-      fn[0] === fnLabel
-      ? fn[1](arg)
-      : fn[0] === listLabel
-        ? arg[0] !== intLabel
-          ? Null("Argument to list must be integer")
-          : arg[1] < 0 || arg[1] >= fn[1].length
-            ? Null("Array index out of bounds")
-            : fn[1][arg[1]]
-        : Null("Tried to apply a non-function"))}
+    var funLabel = fn[0]
+    ; return (
+        funLabel === fnLabel
+        ? fn[1](arg)
+        : funLabel === listLabel
+          ? arg[0] !== intLabel
+            ? Null("Argument to list must be integer")
+            : arg[1] < 0 || arg[1] >= fn[1].length
+              ? Null("Array index out of bounds")
+              : fn[1][arg[1]]
+          : funLabel === ASTPrecomputedLabel
+            ? fn[1]
+            : Null("Tried to apply a non-function"))}
   return _.reduce(arguments, apply);}
 exports.apply = apply;
 
@@ -80,22 +83,22 @@ function eq(val0, val1)
     val0[0] === val1[0]
     &&
       ( val0[1] === val1[1]
-        ||
-          val0[0] === listLabel
-          && val0[1].length == val1[1].length
-          && _.every
-             ( val0[1]
-             , function(elem, index) {return eq(elem, val1[1][index])})
-        ||
-          isString(val0) && isString(val1) && strVal(val0) === strVal(val1)
-        || val0[0] === ASTPrecomputedLabel && eq(val0[1], val1[1])
-        ||
-          val0[0] === callLabel
-          && eq(val0[1][0], val1[1][0])
-          && eq(val0[1][1], val1[1][1])))}
+      ||
+        val0[0] === listLabel
+        && val0[1].length == val1[1].length
+        && _.every
+           ( val0[1]
+           , function(elem, index) {return eq(elem, val1[1][index])})
+      ||
+        isString(val0) && isString(val1) && strVal(val0) === strVal(val1)
+      || val0[0] === ASTPrecomputedLabel && eq(val0[1], val1[1])
+      ||
+        val0[0] === callLabel
+        && eq(val0[1][0], val1[1][0])
+        && eq(val0[1][1], val1[1][1])))}
 
-function parseTreeToAST(pt) {
-  var label = pt[0];
+function parseTreeToAST(pt)
+{ var label = pt[0];
   var data = pt[1];
 
   if (label == 'char') return [charLabel, pt[1]];

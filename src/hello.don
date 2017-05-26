@@ -1,7 +1,7 @@
 #!/usr/bin/env don
 
 #\print\->str(\str->unicode "hi 1)
-\print (= (fn "|\\\|| "({"foo -0 } |\\\|| 1 ) "foo ) 0 "|yeah man| "nope )
+\print \""01 -5
 
 (]
 
