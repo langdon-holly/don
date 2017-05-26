@@ -314,7 +314,10 @@
                       ; _.forEach
                         ( pairs
                         , function(pair)
-                          {if (eq(arg, pair[0])) toReturn = just(pair[1])})
+                          {return (
+                             eq(arg, pair[0])
+                             ? (toReturn = just(pair[1]), false)
+                             : true)})
                       ; return toReturn}))})))
 
         ; return Null("symbol variable not found in environment")}
