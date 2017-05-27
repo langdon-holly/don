@@ -13,6 +13,6 @@
 (true consequent alternative )
 (false consequent alternative )
 unit 
-/".* /
-/^(\-|\+)?[0-9]+$ /
+/^"/
+/^(\-|\+)?[0-9]+$/
 
