@@ -24,7 +24,7 @@
             : arg.data < 0 || arg.data >= fn.data.length
               ? Null("Array index out of bounds")
               : funData[arg.data]
-          : funLabel === ASTPrecomputedLabel
+          : funLabel === quoteLabel
             ? funData
             : funLabel === callLabel
               ? apply(funData.fnExpr, arg, apply(funData.argExpr, arg))
@@ -50,7 +50,7 @@
 
 //; function constFn(val) {return makeFn(_.constant(val))}
 
-; function quote(val) {return mk(ASTPrecomputedLabel, val)}
+; function quote(val) {return mk(quoteLabel, val)}
 
 ; function makeList() {return mk(listLabel, Array.from(arguments))}
 
@@ -100,7 +100,7 @@
             , function(elem, index) {return eq(elem, val1.data[index])})
        ||
          isString(val0) && isString(val1) && strVal(val0) === strVal(val1)
-       || val0.type === ASTPrecomputedLabel && eq(val0.data, val1.data)
+       || val0.type === quoteLabel && eq(val0.data, val1.data)
        ||
          val0.type === callLabel
          && eq(val0.data.fnExpr, val1.data.fnExpr)
@@ -117,7 +117,7 @@
         ( data
         , function(applied, arg)
           {return makeCall(applied, parseTreeToAST(arg))}
-        , mk(ASTPrecomputedLabel, makeFn(function(arg){return arg}))))
+        , mk(quoteLabel, makeFn(function(arg){return arg}))))
   ; if (label == 'bracketed')
       return (
         mkCall
@@ -145,9 +145,9 @@
                    ( parseTreeToAST
                    , function(expr) {return apply(expr, env)}))))})))
   ; if (label === 'heredoc')
-      return mk(ASTPrecomputedLabel, mk(listLabel, data.map(parseTreeToAST)))
+      return mk(quoteLabel, mk(listLabel, data.map(parseTreeToAST)))
 
-  ; if (label === 'quote') return mk(ASTPrecomputedLabel, parseTreeToAST(data))
+  ; if (label === 'quote') return mk(quoteLabel, parseTreeToAST(data))
 
   ; if (label === 'ident')
       return (
@@ -182,8 +182,8 @@
 ; var symLabel = {}
 ; exports.symLabel = symLabel
 
-; var ASTPrecomputedLabel = {}
-; exports.ASTPrecomputedLabel = ASTPrecomputedLabel
+; var quoteLabel = {}
+; exports.quoteLabel = quoteLabel
 
 ; var unitLabel = {}
 ; exports.unitLabel = unitLabel
@@ -261,7 +261,7 @@
             , [])
           , strToChars(']').data)))
 
-  ; if (argLabel === ASTPrecomputedLabel)
+  ; if (argLabel === quoteLabel)
       return (
         mk
         ( listLabel
