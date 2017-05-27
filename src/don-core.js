@@ -167,39 +167,39 @@
 ; function ttyLog()
   { if (process.stdout.isTTY) console.log.apply(this, arguments)}
 
-; var fnLabel = {}
+; var fnLabel = {label: 'fn'}
 ; exports.fnLabel = fnLabel
 
-; var listLabel = {}
+; var listLabel = {label: 'list'}
 ; exports.listLabel = listLabel
 
-; var intLabel = {}
+; var intLabel = {label: 'int'}
 ; exports.intLabel = intLabel
 
-; var charLabel = {}
+; var charLabel = {label: 'char'}
 ; exports.charLabel = charLabel
 
-; var symLabel = {}
+; var symLabel = {label: 'sym'}
 ; exports.symLabel = symLabel
 
-; var quoteLabel = {}
+; var quoteLabel = {label: 'quote'}
 ; exports.quoteLabel = quoteLabel
 
-; var unitLabel = {}
+; var unitLabel = {label: 'unit'}
 ; exports.unitLabel = unitLabel
 ; var unit = mk(unitLabel)
 ; exports.unit = unit
 
-; var callLabel = {}
+; var callLabel = {label: 'call'}
 ; exports.callLabel = callLabel
 
-; var identLabel = {}
+; var identLabel = {label: 'ident'}
 ; exports.identLabel = identLabel
 
-; var bracketedVar = mk(symLabel, {})
+; var bracketedVar = mk(symLabel, {var: 'bracketed'})
 ; exports.bracketedVar = bracketedVar
 
-; var bracedVar = mk(symLabel, {})
+; var bracedVar = mk(symLabel, {var: 'braced'})
 ; exports.bracedVar = bracedVar
 
 ; var Null
