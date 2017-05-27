@@ -1,10 +1,9 @@
-(fn param body)
+(fn param body arg)
 (+ array-of-int)
 (- array-of-int)
 (< int0 int1)
 (= int0 int1)
 (env var)
-(eval expr env)
 (print str?)
 (->str o)
 (str->unicode str)
@@ -14,5 +13,6 @@
 (true consequent alternative)
 (false consequent alternative)
 unit
+/".*/
 /^(\-|\+)?[0-9]+$/
 
