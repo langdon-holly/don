@@ -14,16 +14,16 @@
 
 ; function apply(fn, arg)
   { function apply2(fn, arg)
-    { var funLabel = fn[0], funData = fn[1]
+    { var funLabel = fn.type, funData = fn.data
     ; return (
         funLabel === fnLabel
         ? funData(arg)
         : funLabel === listLabel
-          ? arg[0] !== intLabel
+          ? arg.type !== intLabel
             ? Null("Argument to list must be integer")
-            : arg[1] < 0 || arg[1] >= fn[1].length
+            : arg.data < 0 || arg.data >= fn.data.length
               ? Null("Array index out of bounds")
-              : funData[arg[1]]
+              : funData[arg.data]
           : funLabel === ASTPrecomputedLabel
             ? funData
             : funLabel === callLabel
@@ -34,36 +34,38 @@
   ; return _.reduce(arguments, apply2)}
 ; exports.apply = apply
 
+; function mk(label, data) {return {type: label, data: data}}
+
 ; function fnOfType(type, fn)
   {return (
      makeFn
      ( function(arg)
-       { if (arg[0] !== type) return Null("typed function received garbage")
-       ; return fn(arg[1])}))}
+       { if (arg.type !== type) return Null("typed function received garbage")
+       ; return fn(arg.data)}))}
 
-; function makeFn(fn) {return [fnLabel, fn]}
+; function makeFn(fn) {return mk(fnLabel, fn)}
 
 //; function constFn(val) {return makeFn(_.constant(val))}
 
-; function quote(val) {return [ASTPrecomputedLabel, val]}
+; function quote(val) {return mk(ASTPrecomputedLabel, val)}
 
-; function makeList() {return [listLabel, Array.from(arguments)]}
+; function makeList() {return mk(listLabel, Array.from(arguments))}
 
 ; function just(val) {return makeList(True, val)}
 
 ; function isTrue(val)
-  { var trueVal = [symLabel, {}]
-  ; return apply(val, makeList(trueVal, [symLabel, {}])) === trueVal}
+  { var trueVal = mk(symLabel, {})
+  ; return apply(val, makeList(trueVal, mk(symLabel, {}))) === trueVal}
 
 ; function isString(val)
   {return (
-     val[0] === listLabel
-     && _.every(val[1], function(elem) {return elem[0] === charLabel}))}
+     val.type === listLabel
+     && _.every(val.data, function(elem) {return elem.type === charLabel}))}
 
 ; function strVal(list)
-  { if (list[0] !== listLabel) return Null()
+  { if (list.type !== listLabel) return Null()
   ; return (
-      list[1].reduce
+      list.data.reduce
       ( function(soFar, chr) {return soFar + charToStr(chr)}
       , ''))}
 
@@ -71,80 +73,88 @@
   {return strVal(list) === str}
 
 ; function charToStr(Char)
-  { if (Char[0] !== charLabel)
+  { if (Char.type !== charLabel)
       return Null("charToStr nonchar: " + strVal(toString(Char)))
-  ; return String.fromCodePoint(Char[1])}
+  ; return String.fromCodePoint(Char.data)}
 
 ; function strToChars(str)
   {return (
-     [ listLabel
+     mk
+     ( listLabel
      , Array.from(str).map
-       (function(chr) {return [charLabel, chr.codePointAt(0)]})])}
+       (function(chr) {return mk(charLabel, chr.codePointAt(0))})))}
 
 ; function eq(val0, val1)
   {return (
-     val0[0] === val1[0]
+     val0.type === val1.type
      &&
-       ( val0[1] === val1[1]
+       ( val0.data === val1.data
        ||
-         val0[0] === listLabel
-         && val0[1].length == val1[1].length
+         val0.type === listLabel
+         && val0.data.length == val1.data.length
          && _.every
-            ( val0[1]
-            , function(elem, index) {return eq(elem, val1[1][index])})
+            ( val0.data
+            , function(elem, index) {return eq(elem, val1.data[index])})
        ||
          isString(val0) && isString(val1) && strVal(val0) === strVal(val1)
-       || val0[0] === ASTPrecomputedLabel && eq(val0[1], val1[1])
+       || val0.type === ASTPrecomputedLabel && eq(val0.data, val1.data)
        ||
-         val0[0] === callLabel
-         && eq(val0[1][0], val1[1][0])
-         && eq(val0[1][1], val1[1][1])))}
+         val0.type === callLabel
+         && eq(val0.data[0], val1.data[0])
+         && eq(val0.data[1], val1.data[1])))}
 
 ; function parseTreeToAST(pt)
   { var label = pt[0]
   ; var data = pt[1]
 
-  ; if (label == 'char') return [charLabel, data]
+  ; if (label == 'char') return mk(charLabel, data)
   ; if (label == 'call')
       return (
         _.reduce
         ( data
         , function(applied, arg)
-          {return [callLabel, [applied, parseTreeToAST(arg)]]}
-        , [ASTPrecomputedLabel, makeFn(function(arg){return arg})]))
+          {return mk(callLabel, [applied, parseTreeToAST(arg)])}
+        , mk(ASTPrecomputedLabel, makeFn(function(arg){return arg}))))
   ; if (label == 'bracketed')
       return (
-        [ callLabel
-        , [ bracketedVar
+        mk
+        ( callLabel
+        , mk
+          ( bracketedVar
           , makeFn
             ( function(env)
               {return (
-                 [ listLabel
+                 mk
+                 ( listLabel
                  , data.map
                    ( _.flow
                      ( parseTreeToAST
-                     , function(expr) {return apply(expr, env)}))])})]])
+                     , function(expr) {return apply(expr, env)}))))}))))
   ; if (label == 'braced')
       return (
-        [ callLabel
-        , [ bracedVar
+        mk
+        ( callLabel
+        , mk
+          ( bracedVar
           , makeFn
             ( function(env)
               {return (
-                 [ listLabel
+                 mk
+                 ( listLabel
                  , data.map
                    ( _.flow
                      ( parseTreeToAST
-                     , function(expr) {return apply(expr, env)}))])})]])
+                     , function(expr) {return apply(expr, env)}))))}))))
   ; if (label === 'heredoc')
-      return [ASTPrecomputedLabel, [listLabel, data.map(parseTreeToAST)]]
+      return mk(ASTPrecomputedLabel, mk(listLabel, data.map(parseTreeToAST)))
 
-  ; if (label === 'quote') return [ASTPrecomputedLabel, parseTreeToAST(data)]
+  ; if (label === 'quote') return mk(ASTPrecomputedLabel, parseTreeToAST(data))
 
   ; if (label === 'ident')
       return (
-        [ identLabel
-        , [listLabel, data.map(function(chr) {return [charLabel, chr]})]])
+        mk
+        ( identLabel
+        , mk(listLabel, data.map(function(chr) {return mk(charLabel, chr)}))))
 
   ; return Null('unknown parse-tree type "' + label)}
 
@@ -178,7 +188,7 @@
 
 ; var unitLabel = {}
 ; exports.unitLabel = unitLabel
-; var unit = [unitLabel]
+; var unit = mk(unitLabel)
 ; exports.unit = unit
 
 ; var callLabel = {}
@@ -187,10 +197,10 @@
 ; var identLabel = {}
 ; exports.identLabel = identLabel
 
-; var bracketedVar = [symLabel, {}]
+; var bracketedVar = mk(symLabel, {})
 ; exports.bracketedVar = bracketedVar
 
-; var bracedVar = [symLabel, {}]
+; var bracedVar = mk(symLabel, {})
 ; exports.bracedVar = bracedVar
 
 ; var Null
@@ -219,28 +229,31 @@
 ; exports.topEval = topEval
 
 ; function toString(arg)
-  { var argLabel = arg[0], argData = arg[1]
+  { var argLabel = arg.type, argData = arg.data
   ; if (argLabel === charLabel)
       return (
-        [ listLabel
-        , [ strToChars("'")[1][0]
+        mk
+        ( listLabel
+        , [ strToChars("'").data[0]
           , arg
-          , strToChars("'")[1][0]]])
+          , strToChars("'").data[0]]))
 
   ; if (argLabel === intLabel)
       return (
-        [ listLabel
+        mk
+        ( listLabel
         , _.toArray(argData.toString()).map
-          ( function(chr) {return strToChars(chr)[1][0]})
-          .concat(strToChars(' ')[1])])
+          ( function(chr) {return strToChars(chr).data[0]})
+          .concat(strToChars(' ').data)))
 
   ; if (argLabel === listLabel)
       return (
-        [ listLabel
-        , strToChars('[')[1].concat
+        mk
+        ( listLabel
+        , strToChars('[').data.concat
           ( _.reduce
             ( argData.map
-              (function(o) {return toString(o)[1]})
+              (function(o) {return toString(o).data})
             , function(soFar, elem, idx)
               {return (
                  idx === 0
@@ -248,42 +261,46 @@
                  : soFar.concat
                    (elem))}
             , [])
-          , strToChars(']')[1])])
+          , strToChars(']').data)))
 
   ; if (argLabel === ASTPrecomputedLabel)
       return (
-        [ listLabel
-        , [[charLabel, 34]]
-          .concat(toString(argData)[1])])
+        mk
+        ( listLabel
+        , [mk(charLabel, 34)]
+          .concat(toString(argData).data)))
 
   ; if (argLabel === unitLabel)
       return (
-        [ listLabel
+        mk
+        ( listLabel
         , [117, 110, 105, 116, 32]
-          .map(function(chr) {return [charLabel, chr]})])
+          .map(function(chr) {return mk(charLabel, chr)})))
 
   ; if (argLabel === callLabel)
       return (
-        [ listLabel
-        , [[charLabel, 92]]
-          .concat(toString(argData[0])[1])
-          .concat(toString(argData[1])[1])])
+        mk
+        ( listLabel
+        , [mk(charLabel, 92)]
+          .concat(toString(argData[0]).data)
+          .concat(toString(argData[1]).data)))
 
   ; if (argLabel === identLabel)
       return (
-        [ listLabel
+        mk
+        ( listLabel
         , isString(argData)
-          ? strToChars('"|')[1].concat
+          ? strToChars('"|').data.concat
             ( _.flatMap
-              ( argData[1]
+              ( argData.data
               , function(chr)
                 {return (
-                   chr[1] == 92 || chr[1] == 124
-                   ? [[charLabel, 92], chr]
+                   chr.data == 92 || chr.data == 124
+                   ? [mk(charLabel, 92), chr]
                    : [chr])})
-            , strToChars("|")[1])
-          : strToChars("(ident ")[1].concat
-            (toString(argData)[1], strToChars(")")[1])])
+            , strToChars("|").data)
+          : strToChars("(ident ").data.concat
+            (toString(argData).data, strToChars(")").data)))
 
   ; if (argLabel === fnLabel) return strToChars("(fn ... )")
 
@@ -294,7 +311,7 @@
 ; var initEnv
   = makeFn
     ( function(Var)
-      { if (Var[0] === symLabel)
+      { if (Var.type === symLabel)
         { if (Var === bracketedVar) return quote(makeFn(_.identity))
 
         ; if (Var === bracedVar)
@@ -320,12 +337,12 @@
 
         ; return Null("symbol variable not found in environment")}
 
-      ; if (Var[0] === identLabel && isString(Var[1]))
+      ; if (Var.type === identLabel && isString(Var.data))
         { var
             vaR = Var
           , thisIsDumb
             = function()
-              { var Var = vaR[1]
+              { var Var = vaR.data
 
   //            function default0(pt) {
   //              if (pt[0]) return pt[1];
@@ -543,9 +560,9 @@
                            _.reduce
                            ( args
                            , function (arg0, arg1)
-                             { if (arg1[0] !== intLabel) return Null()
-                             ; return [intLabel, arg0[1] + arg1[1]]}
-                           , [intLabel, 0]))})))
+                             { if (arg1.type !== intLabel) return Null()
+                             ; return mk(intLabel, arg0.data + arg1.data)}
+                           , mk(intLabel, 0)))})))
 
               ; if (stringIs(Var, '-'))
                   return (
@@ -553,17 +570,17 @@
                     ( fnOfType
                       ( listLabel
                       , function (args)
-                        { if (args.length === 0) return [intLabel, -1]
+                        { if (args.length === 0) return mk(intLabel, -1)
 
-                        ; if (args[0][0] !== intLabel) return Null()
-                        ; if (args.length === 1) return [intLabel, -args[0][1]]
+                        ; if (args[0].type !== intLabel) return Null()
+                        ; if (args.length === 1) return mk(intLabel, -args[0].data)
 
                         ; return (
                             _.reduce
                             ( args
                             , function (arg0, arg1)
-                              { if (arg1[0] !== intLabel) return Null()
-                              ; return [intLabel, arg0[1] - arg1[1]]}))})))
+                              { if (arg1.type !== intLabel) return Null()
+                              ; return mk(intLabel, arg0.data - arg1.data)}))})))
 
               ; if (stringIs(Var, '<'))
                   return (
@@ -609,31 +626,33 @@
                       ( function(arg)
                         { if (!isString(arg)) return Null()
                         ; return (
-                            [ listLabel
-                            , arg[1].map
+                            mk
+                            ( listLabel
+                            , arg.data.map
                               ( function(Char)
-                                {return [intLabel, Char[1]]})])})))
+                                {return mk(intLabel, Char.data)})))})))
 
               ; if (stringIs(Var, "unicode->str"))
                   return (
                     quote
                     ( makeFn
                       ( function(arg)
-                        { if (arg[0] !== listLabel) return Null()
+                        { if (arg.type !== listLabel) return Null()
 
                         ; return (
-                            [ listLabel
-                            , arg[1].map
+                            mk
+                            ( listLabel
+                            , arg.data.map
                               ( function (codepoint)
-                                { if (codepoint[0] !== intLabel) return Null()
-                                ; return [charLabel, codepoint[1]]})])})))
+                                { if (codepoint.type !== intLabel) return Null()
+                                ; return mk(charLabel, codepoint.data)})))})))
 
               ; if (stringIs(Var, "length"))
                   return (
                     quote
                     ( fnOfType
                       ( listLabel
-                      , function(arg) {return [intLabel, arg.length]})))
+                      , function(arg) {return mk(intLabel, arg.length)})))
 
               ; if (stringIs(Var, "->list"))
                   return (
@@ -649,8 +668,8 @@
 
                              ; var toReturn = []
                              ; for (var i = 0; i < length; i++)
-                                 {toReturn.push(fn([intLabel, i]))}
-                             ; return [listLabel, toReturn]}))})))
+                                 {toReturn.push(fn(mk(intLabel, i)))}
+                             ; return mk(listLabel, toReturn)}))})))
 
               ; if (stringIs(Var, "true")) return quote(True)
 
@@ -658,12 +677,12 @@
 
               ; if (stringIs(Var, "unit")) return quote(unit)
 
-              ; if (Var[1][0][1] == '"'.codePointAt(0))
-                  return quote([listLabel, Var[1].slice(1)]);
+              ; if (Var.data[0].data == '"'.codePointAt(0))
+                  return quote(mk(listLabel, Var.data.slice(1)));
 
               ; var varStr = strVal(Var)
               ; if (/^(\-|\+)?[0-9]+$/.test(varStr))
-                  return quote([intLabel, parseInt(varStr, 10)])
+                  return quote(mk(intLabel, parseInt(varStr, 10)))
 
               ; return (
                   Null
