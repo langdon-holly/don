@@ -65,10 +65,8 @@
      ( ps.map
        ( ps.after(ps.many1(nameChar), ps.wsChar)
        , function(pt)
-         {return (
-            [ 'quoted-list'
-            , pt.map(function(chr) {return ['char', chr.codePointAt(0)]})])})
-     , "identifier"))}
+         {return ['ident', pt.map(function(chr) {return chr.codePointAt(0)})]})
+     , "short-identifier"))}
 
 ; var heredoc
   = ps.name
@@ -97,7 +95,7 @@
            , pt.map(function(chr) {return ['char', chr.codePointAt(0)]})])})
     , "heredoc")
 
-; var string
+; var ident
   = ps.name
     ( ps.map
       ( ps.around
@@ -109,12 +107,8 @@
               (ps.string('\\'), ps.or(ps.string('|'), ps.string('\\')))))
         , ps.string('|'))
       , function(pt)
-        {return (
-           [ 'quoted-list'
-           , pt.map
-             ( function(chr)
-               {return ['char', chr.codePointAt(0)]})])})
-    , "string literal")
+        {return ['ident', pt.map(function(chr) {return chr.codePointAt(0)})]})
+    , "long-identifier")
 
 ; function listContents()
   {return ps.around(ows(), ps.sepBy(expr, ows()), ows())}
@@ -163,7 +157,7 @@
             , name()
             , call()
             , braced()
-            , string
+            , ident
             , heredoc
             , quote())
             .parseElem(elem))}

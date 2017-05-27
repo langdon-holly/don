@@ -1,7 +1,7 @@
 #!/usr/bin/env don
 
 #\print\->str(\str->unicode "hi 1)
-\print ({"buh 5 "bih 7 }"buh 1 )
+\print (false ("\print |"4| env )2 )
 
 (]
 
