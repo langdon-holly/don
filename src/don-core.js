@@ -52,13 +52,13 @@
 
 ; function quote(val) {return mk(quoteLabel, val)}
 
-; function makeList() {return mk(listLabel, Array.from(arguments))}
+; function makeList(vals) {return mk(listLabel, vals)}
 
-; function just(val) {return makeList(True, val)}
+; function just(val) {return makeList([True, val])}
 
 ; function isTrue(val)
   { var trueVal = mk(symLabel, {})
-  ; return apply(val, makeList(trueVal, mk(symLabel, {}))) === trueVal}
+  ; return apply(val, makeList([trueVal, mk(symLabel, {})])) === trueVal}
 
 ; function isString(val)
   {return (
@@ -219,7 +219,7 @@
     ( function(consequent)
       {return makeFn(function(alternative) {return consequent})})
 
-; var nothing = makeList(False)
+; var nothing = makeList([False])
 
 ; var topEval = function(ast)
 { //var calls = []
@@ -232,9 +232,9 @@
   ; if (argLabel === charLabel)
       return (
         makeList
-        ( strToChars("'").data[0]
-        , arg
-        , strToChars("'").data[0]))
+        ( [ strToChars("'").data[0]
+          , arg
+          , strToChars("'").data[0]]))
 
   ; if (argLabel === intLabel)
       return (
