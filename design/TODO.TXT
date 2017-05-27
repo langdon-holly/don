@@ -2,5 +2,5 @@
 * continuations
 * concurrency
 * cells
-* s/ASTPrecomputed/fn/g ?
+* configurable pareneds
 
