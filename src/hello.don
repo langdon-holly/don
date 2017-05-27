@@ -1,6 +1,5 @@
 #!/usr/bin/env don
 
-#\print\->str(\str->unicode "hi 1)
 \print (false ("\print |"4| env )2 )
 
 (]

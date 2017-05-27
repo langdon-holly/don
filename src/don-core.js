@@ -27,7 +27,7 @@
           : funLabel === ASTPrecomputedLabel
             ? funData
             : funLabel === callLabel
-              ? apply(funData[0], arg, apply(funData[1], arg))
+              ? apply(funData.fnExpr, arg, apply(funData.argExpr, arg))
               : funLabel === symLabel || funLabel === identLabel
                 ? apply(arg, fn, arg)
                 : Null("Tried to apply a non-function"))}
@@ -35,6 +35,9 @@
 ; exports.apply = apply
 
 ; function mk(label, data) {return {type: label, data: data}}
+
+; function makeCall(fnExpr, argExpr)
+  {return mk(callLabel, {fnExpr: fnExpr, argExpr: argExpr})}
 
 ; function fnOfType(type, fn)
   {return (
@@ -100,8 +103,8 @@
        || val0.type === ASTPrecomputedLabel && eq(val0.data, val1.data)
        ||
          val0.type === callLabel
-         && eq(val0.data[0], val1.data[0])
-         && eq(val0.data[1], val1.data[1])))}
+         && eq(val0.data.fnExpr, val1.data.fnExpr)
+         && eq(val0.data.argExr, val1.data.argExr)))}
 
 ; function parseTreeToAST(pt)
   { var label = pt[0]
@@ -113,38 +116,34 @@
         _.reduce
         ( data
         , function(applied, arg)
-          {return mk(callLabel, [applied, parseTreeToAST(arg)])}
+          {return makeCall(applied, parseTreeToAST(arg))}
         , mk(ASTPrecomputedLabel, makeFn(function(arg){return arg}))))
   ; if (label == 'bracketed')
       return (
-        mk
-        ( callLabel
-        , mk
-          ( bracketedVar
-          , makeFn
-            ( function(env)
-              {return (
-                 mk
-                 ( listLabel
-                 , data.map
-                   ( _.flow
-                     ( parseTreeToAST
-                     , function(expr) {return apply(expr, env)}))))}))))
+        mkCall
+        ( bracketedVar
+        , makeFn
+          ( function(env)
+            {return (
+               mk
+               ( listLabel
+               , data.map
+                 ( _.flow
+                   ( parseTreeToAST
+                   , function(expr) {return apply(expr, env)}))))})))
   ; if (label == 'braced')
       return (
-        mk
-        ( callLabel
-        , mk
-          ( bracedVar
-          , makeFn
-            ( function(env)
-              {return (
-                 mk
-                 ( listLabel
-                 , data.map
-                   ( _.flow
-                     ( parseTreeToAST
-                     , function(expr) {return apply(expr, env)}))))}))))
+        mkCall
+        ( bracedVar
+        , makeFn
+          ( function(env)
+            {return (
+               mk
+               ( listLabel
+               , data.map
+                 ( _.flow
+                   ( parseTreeToAST
+                   , function(expr) {return apply(expr, env)}))))})))
   ; if (label === 'heredoc')
       return mk(ASTPrecomputedLabel, mk(listLabel, data.map(parseTreeToAST)))
 
@@ -232,11 +231,10 @@
   { var argLabel = arg.type, argData = arg.data
   ; if (argLabel === charLabel)
       return (
-        mk
-        ( listLabel
-        , [ strToChars("'").data[0]
-          , arg
-          , strToChars("'").data[0]]))
+        makeList
+        ( strToChars("'").data[0]
+        , arg
+        , strToChars("'").data[0]))
 
   ; if (argLabel === intLabel)
       return (
@@ -282,8 +280,8 @@
         mk
         ( listLabel
         , [mk(charLabel, 92)]
-          .concat(toString(argData[0]).data)
-          .concat(toString(argData[1]).data)))
+          .concat(toString(argData.fnExpr).data)
+          .concat(toString(argData.argExpr).data)))
 
   ; if (argLabel === identLabel)
       return (
