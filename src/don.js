@@ -18,10 +18,8 @@
   { var arr = Array.from(string), line = 1, col = 1
   ; for (var i = 0; i < arr.length; i++)
     { if (i == index) return [line, col]
-    ; if (string[i] === '\n')
-      { line++
-      ; col = 1}
-      else col++}
+    ; if (arr[i] === '\n') line++, col = 1
+    ; else col++}
     throw new RangeError
               ("indexToLineColumn: index=" + index + " is out of bounds")}
 
