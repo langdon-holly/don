@@ -127,7 +127,7 @@
         , quote(makeFn(function(arg){return arg}))))
   ; if (label == 'bracketed')
       return (
-        mkCall
+        makeCall
         ( bracketedVar
         , makeFn
           ( function(env)
@@ -139,7 +139,7 @@
                    , function(expr) {return apply(expr, env)}))))})))
   ; if (label == 'braced')
       return (
-        mkCall
+        makeCall
         ( bracedVar
         , makeFn
           ( function(env)
@@ -162,9 +162,10 @@
 
 ; function parseStr(str)
   { var parsed = parser(str)
-  ; if (!parsed[0]) return parsed
-
-  ; return [true, parseTreeToAST(parsed[1]), parsed[2]]}
+  ; return (
+      parsed.status === 'match' 
+      ? _.assign({ast: parseTreeToAST(parsed.result)}, parsed)
+      : parsed)}
 ; exports.parse = parseStr
 
 ; function ttyLog()
@@ -224,7 +225,7 @@
 
 ; var nothing = makeList([False])
 
-; var topEval = function(ast)
+; var topEval = function(ast, rest)
 { //var calls = []
   //; while (continuing.length > 0)
   ; return apply(ast, initEnv)}

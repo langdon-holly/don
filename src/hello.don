@@ -1,6 +1,6 @@
 #!/usr/bin/env don
 
-\print (false ("\print |"4|env )2 ])
+\print (false ("\print |"4|env )[] )
 
 (]
 

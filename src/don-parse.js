@@ -169,6 +169,8 @@
 ; function parseFile(str)
   { var arr = _.toArray(str)
   ; var parsed = ps.shortestMatch(ps.before(ows(), expr), arr)
-  ; if (parsed[0]) return [true, parsed[1], arr.slice(parsed[2]).join()]
-  ; return parsed}
+  ; return (
+      parsed.status === 'match'
+      ? _.assign({rest: arr.slice(parsed.index)}, parsed)
+      : parsed)}
 
