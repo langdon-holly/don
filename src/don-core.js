@@ -105,9 +105,8 @@
          && _.every
             ( val0.data
             , function(elem, index) {return eq(elem, val1.data[index])})
-       ||
-         isString(val0) && isString(val1) && strVal(val0) === strVal(val1)
        || val0.type === quoteLabel && eq(val0.data, val1.data)
+       || val0.type === identLabel && eq(val0.data, val1.data)
        ||
          val0.type === callLabel
          && eq(val0.data.fnExpr, val1.data.fnExpr)
