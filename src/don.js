@@ -61,7 +61,9 @@
                         + " ".repeat(lineCol.col0)
                         + "^")}
 
-          ; var trace = parsed.trace
-          ; _.forEachRight(trace, function(frame) {console.log("in", frame[0])})
+        //; var trace = parsed.trace
+        //; _.forEachRight(trace, function(frame) {console.log("in", frame[0])})
+        ; console.log(parsed.parser)
+
         ; process.exit(2)}})
 

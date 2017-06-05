@@ -28,7 +28,8 @@
        , match: false
        , result: undefined
        , noMore: false
-       , futureSuccess: false}
+       , futureSuccess: false
+       , stack: ps.nil}
      , "comment"))}
 
 ; function ows() {return ps.many(ps.or(ps.wsChar, comment()))}
@@ -164,7 +165,8 @@
     , match: false
     , result: undefined
     , noMore: false
-    , futureSuccess: false}
+    , futureSuccess: false
+    , stack: ps.nil}
 
 ; function parseFile(str)
   { var arr = _.toArray(str)
