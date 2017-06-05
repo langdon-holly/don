@@ -620,31 +620,19 @@
 
               ; if (stringIs(Var, "->str")) return quote(makeFn(toString))
 
-              ; if (stringIs(Var, "str->unicode"))
+              ; if (stringIs(Var, "char->unicode"))
                   return (
                     quote
-                    ( makeFn
-                      ( function(arg)
-                        { if (!isString(arg)) return Null()
-                        ; return (
-                            makeList
-                            ( arg.data.map
-                              ( function(Char)
-                                {return makeInt(Char.data)})))})))
+                    ( fnOfType
+                      ( charLabel
+                      , function(codepoint) {return makeInt(codepoint)})))
 
-              ; if (stringIs(Var, "unicode->str"))
+              ; if (stringIs(Var, "unicode->char"))
                   return (
                     quote
-                    ( makeFn
-                      ( function(arg)
-                        { if (arg.type !== listLabel) return Null()
-
-                        ; return (
-                            makeList
-                            ( arg.data.map
-                              ( function (codepoint)
-                                { if (codepoint.type !== intLabel) return Null()
-                                ; return makeChar(codepoint.data)})))})))
+                    ( fnOfType
+                      ( intLabel
+                      , function(codepoint) {return makeChar(codepoint)})))
 
               ; if (stringIs(Var, "length"))
                   return (

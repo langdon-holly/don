@@ -1,6 +1,6 @@
 #!/usr/bin/env don
 
-(false \print [`f`d] \say |"k1| )
+(false \say \char->unicode `A \say \unicode->char 66 )
 
 (]
 
