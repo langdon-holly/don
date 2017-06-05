@@ -1,6 +1,6 @@
 #!/usr/bin/env don
 
-(false \say 2 \say 1 )
+(false \print [`f`d] \say |"k1| )
 
 (]
 

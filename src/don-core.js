@@ -116,7 +116,7 @@
   { var label = pt[0]
   ; var data = pt[1]
 
-  ; if (label == 'char') return makeChar(data)
+  ; if (label == 'char') return quote(makeChar(data))
   ; if (label == 'call')
       return (
         _.reduce
@@ -235,9 +235,8 @@
   ; if (argLabel === charLabel)
       return (
         makeList
-        ( [ strToChars("'").data[0]
-          , arg
-          , strToChars("'").data[0]]))
+        ( [ strToChars("`").data[0]
+          , arg]))
 
   ; if (argLabel === intLabel)
       return (
@@ -596,7 +595,8 @@
                            ( function(arg1)
                              {return eq(arg0, arg1) ? True : False}))})))
 
-              ; if (stringIs(Var, "env")) return makeFn(function(env) {return env})
+              ; if (stringIs(Var, "env"))
+                  return makeFn(function(env) {return env})
 
               ; if (stringIs(Var, "print"))
                   return (

@@ -74,14 +74,14 @@
     ( ps.map
       ( ps.then
         ( ps.around
-          ( ps.string('`')
+          ( ps.string('@')
           , ps.many
             ( ps.or
-              ( ps.elemNot(ps.string('`'), ps.string('\\'))
+              ( ps.elemNot(ps.string('@'), ps.string('\\'))
               , ps.before
                 ( ps.string('\\')
-                , ps.or(ps.string('`'), ps.string('\\')))))
-          , ps.string('`'))
+                , ps.or(ps.string('@'), ps.string('\\')))))
+          , ps.string('@'))
         , function(endStr)
           {return (
              ps.shortest
@@ -95,6 +95,13 @@
            [ 'heredoc'
            , pt.map(function(chr) {return ['char', chr.codePointAt(0)]})])})
     , "heredoc")
+
+; var character
+  = ps.name
+    ( ps.map
+      ( ps.before(ps.string('`'), ps.elemNot())
+      , function(pt) {return ['char', pt.codePointAt(0)]})
+    , "character-literal")
 
 ; var ident
   = ps.name
@@ -160,7 +167,8 @@
             , braced()
             , ident
             , heredoc
-            , quote())
+            , quote()
+            , character)
             .parseElem(elem))}
     , match: false
     , result: undefined
