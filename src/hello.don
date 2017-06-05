@@ -1,6 +1,6 @@
 #!/usr/bin/env don
 
-\print (= |"i||"i||"equal||"unequal|)
+\say (= |"i||"i||"equal||"unequal|)
 
 (]
 

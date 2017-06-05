@@ -606,7 +606,16 @@
                         {return (
                            isString(arg)
                            ? process.stdout.write(strVal(arg))
-                           : process.stdout.write(strVal(toString(arg)))
+                           : Null('Tried to print nonstring')
+                           , unit)})))
+
+              ; if (stringIs(Var, "say"))
+                  return (
+                    quote
+                    ( makeFn
+                      ( function(arg)
+                        {return (
+                           process.stdout.write(strVal(toString(arg)))
                            , unit)})))
 
               ; if (stringIs(Var, "->str")) return quote(makeFn(toString))
