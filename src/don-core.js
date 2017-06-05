@@ -27,7 +27,7 @@
           : funLabel === quoteLabel
             ? funData
             : funLabel === callLabel
-              ? apply(funData.fnExpr, arg, apply(funData.argExpr, arg))
+              ? apply(apply(funData.fnExpr, arg), apply(funData.argExpr, arg))
               : funLabel === symLabel || funLabel === identLabel
                 ? apply(arg, fn, arg)
                 : Null("Tried to apply a non-function"))}

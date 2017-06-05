@@ -1,6 +1,6 @@
 #!/usr/bin/env don
 
-\say (= |"i||"i||"equal||"unequal|)
+(false \say 2 \say 1 )
 
 (]
 
