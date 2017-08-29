@@ -21,7 +21,7 @@
   "dependencies": {
     "big-integer": "^1.6.23",
     "commander": "^2.9.0",
-    "list-parsing": "^0.2.0",
+    "list-parsing": "^0.3.0",
     "lodash": "^4.17.2"
   }
 }
