@@ -1,6 +1,6 @@
 #!/usr/bin/env don
 
-(false \say \char->unicode `A \say \unicode->char 66 )
+\say \\parse \read-file |"parse-test.don| init-env
 
 (]
 

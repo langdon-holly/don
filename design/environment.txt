@@ -4,6 +4,7 @@
 (< int0 int1 )
 (= o0 o1 )
 (env var )
+(init-env var )
 (print str )
 (say o )
 (->str o )
@@ -14,6 +15,8 @@
 (true consequent alternative )
 (false consequent alternative )
 unit 
+(read-file filename-str )
+(parse str )
 /^"/
 /^(\-|\+)?[0-9]+$/
 

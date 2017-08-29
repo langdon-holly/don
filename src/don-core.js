@@ -2,19 +2,22 @@
 
 // Dependencies
 
-; var
-    ps = require('list-parsing')
-  , parser = require('./don-parse.js')
+; const
+    fs = require('fs')
+
   , _ = require('lodash')
+
+  , ps = require('list-parsing')
+  , parser = require('./don-parse.js')
   , nat = require('./nat.js')
 
 // Stuff
 
-; var exports = module.exports
+; exports = module.exports
 
-; function apply(fn, arg)
+; function apply(fn, ...args)
   { function apply2(fn, arg)
-    { var funLabel = fn.type, funData = fn.data
+    { const funLabel = fn.type, funData = fn.data
     ; return (
         funLabel === fnLabel
         ? funData(arg)
@@ -31,7 +34,7 @@
               : funLabel === symLabel || funLabel === identLabel
                 ? apply(arg, fn, arg)
                 : Null("Tried to apply a non-function"))}
-  ; return _.reduce(arguments, apply2)}
+  ; return _.reduce(args, apply2, fn)}
 ; exports.apply = apply
 
 ; function mk(label, data) {return {type: label, data: data}}
@@ -40,11 +43,11 @@
   {return mk(callLabel, {fnExpr: fnExpr, argExpr: argExpr})}
 
 ; function fnOfType(type, fn)
-  {return (
-     makeFn
-     ( function(arg)
-       { if (arg.type !== type) return Null("typed function received garbage")
-       ; return fn(arg.data)}))}
+  { return (
+      makeFn
+      ( function(arg)
+        { if (arg.type !== type) return Null("typed function received garbage")
+        ; return fn(arg.data)}))}
 
 ; function makeFn(fn) {return mk(fnLabel, fn)}
 
@@ -65,7 +68,7 @@
 ; function makeIdent(val) {return mk(identLabel, val)}
 
 ; function isTrue(val)
-  { var trueVal = gensym('if-true')
+  { const trueVal = gensym('if-true')
   ; return apply(val, makeList([trueVal, gensym('if-false')])) === trueVal}
 
 ; function isString(val)
@@ -113,8 +116,8 @@
          && eq(val0.data.argExr, val1.data.argExr)))}
 
 ; function parseTreeToAST(pt)
-  { var label = pt[0]
-  ; var data = pt[1]
+  { const label = pt[0]
+  ; const data = pt[1]
 
   ; if (label == 'char') return quote(makeChar(data))
   ; if (label == 'call')
@@ -160,7 +163,7 @@
   ; return Null('unknown parse-tree type "' + label)}
 
 ; function parseStr(str)
-  { var parsed = parser(str)
+  { const parsed = parser(str)
   ; return (
       parsed.status === 'match' 
       ? _.assign({ast: parseTreeToAST(parsed.result)}, parsed)
@@ -170,68 +173,68 @@
 ; function ttyLog()
   { if (process.stdout.isTTY) console.log.apply(this, arguments)}
 
-; var fnLabel = {label: 'fn'}
+; const fnLabel = {label: 'fn'}
 ; exports.fnLabel = fnLabel
 
-; var listLabel = {label: 'list'}
+; const listLabel = {label: 'list'}
 ; exports.listLabel = listLabel
 
-; var intLabel = {label: 'int'}
+; const intLabel = {label: 'int'}
 ; exports.intLabel = intLabel
 
-; var charLabel = {label: 'char'}
+; const charLabel = {label: 'char'}
 ; exports.charLabel = charLabel
 
-; var symLabel = {label: 'sym'}
+; const symLabel = {label: 'sym'}
 ; exports.symLabel = symLabel
 
-; var quoteLabel = {label: 'quote'}
+; const quoteLabel = {label: 'quote'}
 ; exports.quoteLabel = quoteLabel
 
-; var unitLabel = {label: 'unit'}
+; const unitLabel = {label: 'unit'}
 ; exports.unitLabel = unitLabel
-; var unit = mk(unitLabel)
+; const unit = mk(unitLabel)
 ; exports.unit = unit
 
-; var callLabel = {label: 'call'}
+; const callLabel = {label: 'call'}
 ; exports.callLabel = callLabel
 
-; var identLabel = {label: 'ident'}
+; const identLabel = {label: 'ident'}
 ; exports.identLabel = identLabel
 
-; var bracketedVar = gensym('bracketed-var')
+; const bracketedVar = gensym('bracketed-var')
 ; exports.bracketedVar = bracketedVar
 
-; var bracedVar = gensym('braced-var')
+; const bracedVar = gensym('braced-var')
 ; exports.bracedVar = bracedVar
 
-; var Null
+; const Null
   = function()
     { ttyLog.apply(this, arguments)
     ; throw new Error("diverging…")
     ; while (true) {}}
 ; exports.Null = Null
 
-; var False
+; const False
   = makeFn
     ( function(consequent)
       {return makeFn(function(alternative) {return alternative})})
 
-; var True
+; const True
   = makeFn
     ( function(consequent)
       {return makeFn(function(alternative) {return consequent})})
 
-; var nothing = makeList([False])
+; const nothing = makeList([False])
 
-; var topEval = function(ast, rest)
-{ //var calls = []
-  //; while (continuing.length > 0)
-  ; return apply(ast, initEnv)}
+; const topEval
+  = (ast, rest) => apply(ast, initEnv)
+//let calls = []
+//; while (continuing.length > 0)
 ; exports.topEval = topEval
 
 ; function toString(arg)
-  { var argLabel = arg.type, argData = arg.data
+  { const argLabel = arg.type, argData = arg.data
   ; if (argLabel === charLabel)
       return (
         makeList
@@ -299,7 +302,7 @@
 
   ; return Null("->str unknown type:", arg)}
 
-; var initEnv
+; const initEnv
   = makeFn
     ( function(Var)
       { if (Var.type === symLabel)
@@ -312,11 +315,11 @@
                 ( listLabel
                 , function(args)
                   { if (args.length % 2 != 0) return Null("Tried to brace oddity")
-                  ; var pairs = _.chunk(args, 2)
+                  ; const pairs = _.chunk(args, 2)
                   ; return (
                     makeFn
                     ( function(arg)
-                      { var toReturn = nothing
+                      { let toReturn = nothing
                       ; _.forEach
                         ( pairs
                         , function(pair)
@@ -329,10 +332,10 @@
         ; return Null("symbol variable not found in environment")}
 
       ; if (Var.type === identLabel && isString(Var.data))
-        { var vaR = Var
+        { const vaR = Var
         ; return (
             function()
-            { var Var = vaR.data
+            { const Var = vaR.data
 
   //          function default0(pt) {
   //            if (pt[0]) return pt[1];
@@ -597,6 +600,8 @@
             ; if (stringIs(Var, "env"))
                 return makeFn(function(env) {return env})
 
+            ; if (stringIs(Var, "init-env")) return quote(initEnv)
+
             ; if (stringIs(Var, "print"))
                 return (
                   quote
@@ -652,8 +657,8 @@
                          , function(length)
                            { if (length < 0) return Null()
 
-                           ; var toReturn = []
-                           ; for (var i = 0; i < length; i++)
+                           ; const toReturn = []
+                           ; for (let i = 0; i < length; i++)
                                {toReturn.push(fn(makeInt(i)))}
                            ; return makeList(toReturn)}))})))
 
@@ -663,10 +668,28 @@
 
             ; if (stringIs(Var, "unit")) return quote(unit)
 
+            ; if (stringIs(Var, "read-file"))
+                return (
+                  quote
+                  ( makeFn
+                    ( arg =>
+                        isString(arg)
+                        ? strToChars(fs.readFileSync(strVal(arg), 'utf8'))
+                        : Null('Tried to read-file with nonstring'))))
+
+            ; if (stringIs(Var, "parse"))
+                return (
+                  quote
+                  ( makeFn
+                    ( arg =>
+                        isString(arg)
+                        ? parseStr(strVal(arg)).ast
+                        : Null('Tried to parse nonstring'))))
+
             ; if (Var.data[0].data == '"'.codePointAt(0))
                 return quote(makeList(Var.data.slice(1)));
 
-            ; var varStr = strVal(Var)
+            ; const varStr = strVal(Var)
             ; if (/^(\-|\+)?[0-9]+$/.test(varStr))
                 return quote(makeInt(parseInt(varStr, 10)))
 
