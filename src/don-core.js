@@ -6,10 +6,10 @@
     fs = require('fs')
 
   , _ = require('lodash')
+  //, bigInt = require('big-integer')
 
   , ps = require('list-parsing')
   , parser = require('./don-parse.js')
-  , nat = require('./nat.js')
 
 // Stuff
 
@@ -92,10 +92,7 @@
   ; return String.fromCodePoint(Char.data)}
 
 ; function strToChars(str)
-  {return (
-     makeList
-     ( Array.from(str).map
-       (function(chr) {return makeChar(chr.codePointAt(0))})))}
+  {return makeList(Array.from(str).map(chr => makeChar(chr.codePointAt(0))))}
 
 ; function eq(val0, val1)
   {return (
@@ -228,7 +225,16 @@
 ; const nothing = makeList([False])
 
 ; const topEval
-  = (ast, rest) => apply(ast, initEnv)
+  = (ast, rest) =>
+      ( quotedSourceData =>
+          apply
+          ( ast
+          , makeFn
+            ( Var =>
+                eq(Var, makeIdent(strToChars('source-data')))
+                ? quotedSourceData
+                : apply(initEnv, Var))))
+      (quote(strToChars(rest)))
 //let calls = []
 //; while (continuing.length > 0)
 ; exports.topEval = topEval
@@ -322,11 +328,10 @@
                       { let toReturn = nothing
                       ; _.forEach
                         ( pairs
-                        , function(pair)
-                          {return (
-                             eq(arg, pair[0])
-                             ? (toReturn = just(pair[1]), false)
-                             : true)})
+                        , pair =>
+                            eq(arg, pair[0])
+                            ? (toReturn = just(pair[1]), false)
+                            : true)
                       ; return toReturn}))})))
 
         ; return Null("symbol variable not found in environment")}

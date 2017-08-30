@@ -1,5 +1,7 @@
 #!/usr/bin/env don
 
+\say (parse source-data init-env )
+
 ( false
   ( false
     \say (make-call "quote "1 env 5 )
