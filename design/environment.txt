@@ -18,6 +18,9 @@ unit
 (read-file filename-str )
 (parse str )
 (quote o _ )
+(make-call fn-expr arg-expr )
+(make-ident o )
+(ident-key ident )
 /^"/
 /^(\-|\+)?[0-9]+$/
 

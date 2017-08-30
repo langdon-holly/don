@@ -689,6 +689,18 @@
             ; if (stringIs(Var, "quote"))
                 return quote(makeFn(quote))
 
+            ; if (stringIs(Var, "make-call"))
+                return (
+                  quote
+                  ( makeFn
+                    (fnExpr => makeFn(argExpr => makeCall(fnExpr, argExpr)))))
+
+            ; if (stringIs(Var, "make-ident"))
+                return quote(makeFn(makeIdent))
+
+            ; if (stringIs(Var, "ident-key"))
+                return quote(fnOfType(identLabel, _.identity))
+
             ; if (Var.data[0].data == '"'.codePointAt(0))
                 return quote(makeList(Var.data.slice(1)));
 

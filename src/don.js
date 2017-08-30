@@ -17,7 +17,8 @@
 ; program.parse(process.argv)
 
 ; function indexToLineColumn(index, string)
-  { const arr = Array.from(string), line = 0, col = 0
+  { const arr = Array.from(string)
+  ; let line = 0, col = 0
   ; for (let i = 0; i < arr.length; i++)
     { if (i == index)
         return {line0: line, col0: col, line1: ++line, col1: ++col}

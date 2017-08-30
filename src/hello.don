@@ -1,6 +1,10 @@
 #!/usr/bin/env don
 
-\say (quote 0 5 )
+( false
+  ( false
+    \say (make-call "quote "1 env 5 )
+    \say (make-ident |"300| env ))
+  \say \ident-key "300 )
 
 (]
 
