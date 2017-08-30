@@ -686,6 +686,9 @@
                         ? parseStr(strVal(arg)).ast
                         : Null('Tried to parse nonstring'))))
 
+            ; if (stringIs(Var, "quote"))
+                return quote(makeFn(quote))
+
             ; if (Var.data[0].data == '"'.codePointAt(0))
                 return quote(makeList(Var.data.slice(1)));
 

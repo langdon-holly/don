@@ -1,6 +1,6 @@
 #!/usr/bin/env don
 
-\say \\parse \read-file |"parse-test.don| init-env
+\say (quote 0 5 )
 
 (]
 

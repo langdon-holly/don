@@ -17,6 +17,7 @@
 unit 
 (read-file filename-str )
 (parse str )
+(quote o _ )
 /^"/
 /^(\-|\+)?[0-9]+$/
 
