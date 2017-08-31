@@ -72,16 +72,13 @@
   ; return apply(val, makeList([trueVal, gensym('if-false')])) === trueVal}
 
 ; function isString(val)
-  {return (
-     val.type === listLabel
-     && _.every(val.data, function(elem) {return elem.type === charLabel}))}
+  { return (
+      val.type === listLabel
+      && _.every(val.data, elem => elem.type === charLabel))}
 
 ; function strVal(list)
   { if (list.type !== listLabel) return Null()
-  ; return (
-      list.data.reduce
-      ( function(soFar, chr) {return soFar + charToStr(chr)}
-      , ''))}
+  ; return list.data.reduce((soFar, chr) => soFar + charToStr(chr), '')}
 
 ; function stringIs(list, str)
   {return strVal(list) === str}
@@ -91,26 +88,26 @@
       return Null("charToStr nonchar: " + strVal(toString(Char)))
   ; return String.fromCodePoint(Char.data)}
 
+; function strToChar(chr) {return makeChar(chr.codePointAt(0))}
+
 ; function strToChars(str)
-  {return makeList(Array.from(str).map(chr => makeChar(chr.codePointAt(0))))}
+  {return makeList(Array.from(str).map(strToChar))}
 
 ; function eq(val0, val1)
-  {return (
-     val0.type === val1.type
-     &&
-       ( val0.data === val1.data
-       ||
-         val0.type === listLabel
-         && val0.data.length == val1.data.length
-         && _.every
-            ( val0.data
-            , function(elem, index) {return eq(elem, val1.data[index])})
-       || val0.type === quoteLabel && eq(val0.data, val1.data)
-       || val0.type === identLabel && eq(val0.data, val1.data)
-       ||
-         val0.type === callLabel
-         && eq(val0.data.fnExpr, val1.data.fnExpr)
-         && eq(val0.data.argExr, val1.data.argExr)))}
+  { return (
+      val0.type === val1.type
+      &&
+        ( val0.data === val1.data
+        ||
+          val0.type === listLabel
+          && val0.data.length == val1.data.length
+          && _.every(val0.data, (elem, index) => eq(elem, val1.data[index]))
+        || val0.type === quoteLabel && eq(val0.data, val1.data)
+        || val0.type === identLabel && eq(val0.data, val1.data)
+        ||
+          val0.type === callLabel
+          && eq(val0.data.fnExpr, val1.data.fnExpr)
+          && eq(val0.data.argExr, val1.data.argExr)))}
 
 ; function parseTreeToAST(pt)
   { const label = pt[0]
@@ -121,41 +118,30 @@
       return (
         _.reduce
         ( data
-        , function(applied, arg)
-          {return makeCall(applied, parseTreeToAST(arg))}
-        , quote(makeFn(function(arg){return arg}))))
+        , (applied, arg) => makeCall(applied, parseTreeToAST(arg))
+        , quote(makeFn(_.identity))))
   ; if (label == 'bracketed')
       return (
         makeCall
         ( bracketedVar
         , makeFn
-          ( function(env)
-            {return (
-               makeList
-               ( data.map
-                 ( _.flow
-                   ( parseTreeToAST
-                   , function(expr) {return apply(expr, env)}))))})))
+          ( env =>
+              makeList
+              (data.map(_.flow(parseTreeToAST, expr => apply(expr, env)))))))
   ; if (label == 'braced')
       return (
         makeCall
         ( bracedVar
         , makeFn
-          ( function(env)
-            {return (
-               makeList
-               ( data.map
-                 ( _.flow
-                   ( parseTreeToAST
-                   , function(expr) {return apply(expr, env)}))))})))
+          ( env =>
+              makeList
+              (data.map(_.flow(parseTreeToAST, expr => apply(expr, env)))))))
   ; if (label === 'heredoc')
       return quote(makeList(data.map(parseTreeToAST)))
 
   ; if (label === 'quote') return quote(parseTreeToAST(data))
 
-  ; if (label === 'ident')
-      return (
-        makeIdent(makeList(data.map(function(chr) {return makeChar(chr)}))))
+  ; if (label === 'ident') return makeIdent(makeList(data.map(makeChar)))
 
   ; return Null('unknown parse-tree type "' + label)}
 
@@ -212,15 +198,9 @@
     ; while (true) {}}
 ; exports.Null = Null
 
-; const False
-  = makeFn
-    ( function(consequent)
-      {return makeFn(function(alternative) {return alternative})})
+; const False = makeFn(_.constant(makeFn(_.identity)))
 
-; const True
-  = makeFn
-    ( function(consequent)
-      {return makeFn(function(alternative) {return consequent})})
+; const True = makeFn(consequent => makeFn(_.constant(consequent)))
 
 ; const nothing = makeList([False])
 
@@ -241,43 +221,24 @@
 
 ; function toString(arg)
   { const argLabel = arg.type, argData = arg.data
-  ; if (argLabel === charLabel)
-      return (
-        makeList
-        ( [ strToChars("`").data[0]
-          , arg]))
+  ; if (argLabel === charLabel) return makeList([strToChar("`"), arg])
 
-  ; if (argLabel === intLabel)
-      return (
-        makeList
-        ( _.toArray(argData.toString()).map
-          ( function(chr) {return strToChars(chr).data[0]})
-          .concat(strToChars(' ').data)))
+  ; if (argLabel === intLabel) return strToChars(argData.toString() + ' ')
 
   ; if (argLabel === listLabel)
       return (
         makeList
-        ( strToChars('[').data.concat
+        ( [strToChar('[')].concat
           ( _.reduce
-            ( argData.map
-              (function(o) {return toString(o).data})
-            , function(soFar, elem, idx)
-              {return (
-                 idx === 0
-                 ? elem
-                 : soFar.concat
-                   (elem))}
+            ( argData.map(o => toString(o).data)
+            , (soFar, elem, idx) => idx === 0 ? elem : soFar.concat(elem)
             , [])
-          , strToChars(']').data)))
+          , [strToChar(']')])))
 
   ; if (argLabel === quoteLabel)
       return makeList([makeChar(34)].concat(toString(argData).data))
 
-  ; if (argLabel === unitLabel)
-      return (
-        makeList
-        ( [117, 110, 105, 116, 32]
-          .map(function(chr) {return makeChar(chr)})))
+  ; if (argLabel === unitLabel) return strToChars('unit ')
 
   ; if (argLabel === callLabel)
       return (
@@ -293,14 +254,13 @@
           ? strToChars('"|').data.concat
             ( _.flatMap
               ( argData.data
-              , function(chr)
-                {return (
-                   chr.data == 92 || chr.data == 124
-                   ? [makeChar(92), chr]
-                   : [chr])})
-            , strToChars("|").data)
+              , chr =>
+                  chr.data == 92 || chr.data == 124
+                  ? [makeChar(92), chr]
+                  : [chr])
+            , [strToChar("|")])
           : strToChars("(ident ").data.concat
-            (toString(argData).data, strToChars(")").data)))
+            (toString(argData).data, [strToChar(")")])))
 
   ; if (argLabel === fnLabel) return strToChars("(fn ... )")
 
@@ -528,39 +488,33 @@
             ; if (stringIs(Var, 'fn'))
                 return (
                   makeFn
-                  ( function(env)
-                    {return (
-                       makeFn
-                       ( function(param)
-                         {return (
-                            makeFn
-                            ( function(body)
-                              {return (
-                                 makeFn
-                                 ( function(arg)
-                                   {return (
-                                      apply
-                                      ( body
-                                      , makeFn
-                                        ( function(Var)
-                                          {return (
-                                             eq(Var, param)
-                                             ? quote(arg)
-                                             : apply(env, Var))})))}))}))}))}))
+                  ( env =>
+                      makeFn
+                      ( param =>
+                          makeFn
+                          ( body =>
+                              makeFn
+                              ( arg =>
+                                  apply
+                                  ( body
+                                  , makeFn
+                                    ( Var =>
+                                        eq(Var, param)
+                                        ? quote(arg)
+                                        : apply(env, Var))))))))
 
             ; if (stringIs(Var, '+'))
                 return (
                   quote
                   ( fnOfType
                     ( listLabel
-                    , function (args)
-                      {return (
-                         _.reduce
-                         ( args
-                         , function (arg0, arg1)
-                           { if (arg1.type !== intLabel) return Null()
-                           ; return makeInt(arg0.data + arg1.data)}
-                         , makeInt(0)))})))
+                    , args =>
+                        _.reduce
+                        ( args
+                        , function (arg0, arg1)
+                          { if (arg1.type !== intLabel) return Null()
+                          ; return makeInt(arg0.data + arg1.data)}
+                        , makeInt(0)))))
 
             ; if (stringIs(Var, '-'))
                 return (
@@ -585,25 +539,18 @@
                   quote
                   ( fnOfType
                     ( intLabel
-                    , function(arg0)
-                      {return (
-                         fnOfType
-                         ( intLabel
-                         , function(arg1)
-                           {return arg0 < arg1 ? True : False}))})))
+                    , arg0 =>
+                        fnOfType
+                        ( intLabel
+                        , arg1 => arg0 < arg1 ? True : False))))
 
             ; if (stringIs(Var, '='))
                 return (
                   quote
                   ( makeFn
-                    ( function(arg0)
-                      {return (
-                         makeFn
-                         ( function(arg1)
-                           {return eq(arg0, arg1) ? True : False}))})))
+                    (arg0 => makeFn(arg1 => eq(arg0, arg1) ? True : False))))
 
-            ; if (stringIs(Var, "env"))
-                return makeFn(function(env) {return env})
+            ; if (stringIs(Var, "env")) return makeFn(_.identity)
 
             ; if (stringIs(Var, "init-env")) return quote(initEnv)
 
@@ -611,61 +558,48 @@
                 return (
                   quote
                   ( makeFn
-                    ( function(arg)
-                      {return (
-                         isString(arg)
-                         ? process.stdout.write(strVal(arg))
-                         : Null('Tried to print nonstring')
-                         , unit)})))
+                    ( arg =>
+                        isString(arg)
+                        ? process.stdout.write(strVal(arg))
+                        : Null('Tried to print nonstring')
+                        , unit)))
 
             ; if (stringIs(Var, "say"))
                 return (
                   quote
                   ( makeFn
-                    ( function(arg)
-                      {return (
-                         process.stdout.write(strVal(toString(arg)))
-                         , unit)})))
+                    ( _.flow
+                      ( toString
+                      , strVal
+                      , process.stdout.write.bind(process.stdout)
+                      , _.constant(unit)))))
 
             ; if (stringIs(Var, "->str")) return quote(makeFn(toString))
 
             ; if (stringIs(Var, "char->unicode"))
-                return (
-                  quote
-                  ( fnOfType
-                    ( charLabel
-                    , function(codepoint) {return makeInt(codepoint)})))
+                return quote(fnOfType(charLabel, makeInt))
 
             ; if (stringIs(Var, "unicode->char"))
-                return (
-                  quote
-                  ( fnOfType
-                    ( intLabel
-                    , function(codepoint) {return makeChar(codepoint)})))
+                return quote(fnOfType(intLabel, makeChar))
 
             ; if (stringIs(Var, "length"))
-                return (
-                  quote
-                  ( fnOfType
-                    ( listLabel
-                    , function(arg) {return makeInt(arg.length)})))
+                return quote(fnOfType(listLabel, arg => makeInt(arg.length)))
 
             ; if (stringIs(Var, "->list"))
                 return (
                   quote
                   ( fnOfType
                     ( fnLabel
-                    , function(fn)
-                      {return (
-                         fnOfType
-                         ( intLabel
-                         , function(length)
-                           { if (length < 0) return Null()
+                    , fn =>
+                        fnOfType
+                        ( intLabel
+                        , function(length)
+                          { if (length < 0) return Null()
 
-                           ; const toReturn = []
-                           ; for (let i = 0; i < length; i++)
-                               {toReturn.push(fn(makeInt(i)))}
-                           ; return makeList(toReturn)}))})))
+                          ; const toReturn = []
+                          ; for (let i = 0; i < length; i++)
+                              {toReturn.push(fn(makeInt(i)))}
+                          ; return makeList(toReturn)}))))
 
             ; if (stringIs(Var, "true")) return quote(True)
 
