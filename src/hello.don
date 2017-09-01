@@ -1,14 +1,10 @@
 #!/usr/bin/env don
 
-\say (parse source-data init-env )
+\"(parse-prog source-data env )(eval-file |"std-env.don|env )
 
-( false
-  ( false
-    \say (make-call "quote "1 env 5 )
-    \say (make-ident |"300| env ))
-  \say \ident-key "300 )
+\print \eval-file |"eval-file-testee.don|
 
-(]
+\)
 
 \ print
   (fn "Z
@@ -42,15 +38,4 @@
            "\ f
               (fn "v
                 "(x x v))))))
-
-# function function fn test
-(fn "2*
-  "(fn "*3
-     "(2* *3 5)
-     (fn "x "\+[x x x]))
-  (fn "a-fn
-    "(fn "x
-       "\a-fn \a-fn x)))
-
-\print{| \->str\+[5 3]|`a`kad|||"hello|} # syntax test
 

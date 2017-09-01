@@ -77,7 +77,7 @@
       && _.every(val.data, elem => elem.type === charLabel))}
 
 ; function strVal(list)
-  { if (list.type !== listLabel) return Null()
+  { if (list.type !== listLabel) return Null("Tried to strVal nonlist")
   ; return list.data.reduce((soFar, chr) => soFar + charToStr(chr), '')}
 
 ; function stringIs(list, str)
@@ -151,7 +151,6 @@
       parsed.status === 'match' 
       ? _.assign({ast: parseTreeToAST(parsed.result)}, parsed)
       : parsed)}
-; exports.parse = parseStr
 
 ; function ttyLog()
   { if (process.stdout.isTTY) console.log.apply(this, arguments)}
@@ -203,6 +202,64 @@
 ; const True = makeFn(consequent => makeFn(_.constant(consequent)))
 
 ; const nothing = makeList([False])
+
+; const readFile = filename => fs.readFileSync(filename, 'utf8')
+
+; const indexToLineColumn
+  = (index, string) =>
+      { const arr = Array.from(string)
+      ; let line = 0, col = 0
+      ; for (let i = 0; i < arr.length; i++)
+        { if (i == index)
+            return {line0: line, col0: col, line1: ++line, col1: ++col}
+        ; if (arr[i] === '\n') line++, col = 0
+        ; else col++}
+        throw new RangeError
+                  ("indexToLineColumn: index=" + index + " is out of bounds")}
+
+; const parseFile
+  = data =>
+      { const parsed = parseStr(data)
+
+      ; if (parsed.status === 'match')
+          return { success: true, ast: parsed.ast, rest: parsed.rest}
+      ; else if (parsed.status === 'eof')
+          return (
+            { success: false
+            , error
+              : filename =>
+                  "Syntax error: "
+                  + filename
+                  + " should have at least "
+                  + (Array.from(data).length + 1)
+                  + " codepoints"})
+      ; else
+        { const errAt = parsed.index
+        ; if (errAt == 0)
+            return {success: false, error: _.constant("Error in the syntax")}
+        ; else
+          { const lineCol = indexToLineColumn(errAt - 1, data)
+          ; return (
+              { success: false
+              , error
+                : filename =>
+                    "Syntax error at "
+                    + filename
+                    + " "
+                    + lineCol.line1
+                    + ","
+                    + lineCol.col1
+                    + ":\n"
+                    + data.split('\n')[lineCol.line0]
+                    + "\n"
+                    + " ".repeat(lineCol.col0)
+                    + "^"})}
+
+        //; const trace = parsed.trace
+        //; _.forEachRight(trace, function(frame) {console.log("in", frame[0])})
+        //; console.log(parsed.parser)
+        }}
+; exports.parse = parseFile
 
 ; const topEval
   = (ast, rest) =>
@@ -613,17 +670,38 @@
                   ( makeFn
                     ( arg =>
                         isString(arg)
-                        ? strToChars(fs.readFileSync(strVal(arg), 'utf8'))
-                        : Null('Tried to read-file with nonstring'))))
+                        ? strToChars(readFile(strVal(arg)))
+                        : Null('Tried to read-file of nonstring'))))
 
-            ; if (stringIs(Var, "parse"))
+            ; if (stringIs(Var, "try-parse-prog"))
                 return (
                   quote
                   ( makeFn
                     ( arg =>
                         isString(arg)
-                        ? parseStr(strVal(arg)).ast
+                        ? ( parsed =>
+                              makeList
+                              ( parsed.success
+                                ? [True, parsed.ast, strToChars(parsed.rest)]
+                                : [ False
+                                  , makeFn
+                                    ( _.flow
+                                      (strVal, parsed.error, strToChars))]))
+                          (parseFile(strVal(arg)))
                         : Null('Tried to parse nonstring'))))
+
+            ; if (stringIs(Var, "eval-file"))
+                return (
+                  quote
+                  ( makeFn
+                    ( arg =>
+                        isString(arg)
+                        ? ( parsed =>
+                              parsed.success
+                              ? topEval(parsed.ast, parsed.rest)
+                              : Null(parsed.error(strVal(arg))))
+                          (parseFile(readFile(strVal(arg))))
+                        : Null('Tried to eval-file of nonstring'))))
 
             ; if (stringIs(Var, "quote"))
                 return quote(makeFn(quote))
@@ -639,6 +717,16 @@
 
             ; if (stringIs(Var, "ident-key"))
                 return quote(fnOfType(identLabel, _.identity))
+
+            ; if (stringIs(Var, "error"))
+                return (
+                  quote
+                  ( makeFn
+                    ( msgStr =>
+                        Null
+                        ( isString(msgStr)
+                          ? strVal(msgStr)
+                          : "Error message wasn't stringy enough"))))
 
             ; if (Var.data[0].data == '"'.codePointAt(0))
                 return quote(makeList(Var.data.slice(1)));

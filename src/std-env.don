@@ -1,0 +1,20 @@
+(fn "parse-prog
+  " (fn "this-env
+      " (fn "new-env
+          " (fn "var
+              "(= var "parse-prog "\this-env var "\new-env var env )))
+      env )
+  (fn "str 
+    " (fn "parsed
+        " (parsed 0
+            " (fn "new-env
+                " (parsed
+                    1
+                    (fn "var
+                      " (= var "source-data
+                          "\quote \parsed 2
+                          "\new-env var
+                          env ))))
+            "\error (parsed 1 |"file| )
+            env )
+        \try-parse-prog str )))
