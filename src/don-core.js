@@ -39,8 +39,7 @@
 
 ; function mk(label, data) {return {type: label, data: data}}
 
-; function makeCall(fnExpr, argExpr)
-  {return mk(callLabel, {fnExpr: fnExpr, argExpr: argExpr})}
+; function makeCall(fnExpr, argExpr) {return mk(callLabel, {fnExpr, argExpr})}
 
 ; function fnOfType(type, fn)
   { return (
@@ -116,10 +115,9 @@
   ; if (label == 'char') return quote(makeChar(data))
   ; if (label == 'call')
       return (
-        _.reduce
-        ( data
-        , (applied, arg) => makeCall(applied, parseTreeToAST(arg))
-        , quote(makeFn(_.identity))))
+        data.length === 0
+        ? quote(makeFn(_.identity))
+        : _.reduce(_.map(data, parseTreeToAST), makeCall))
   ; if (label == 'bracketed')
       return (
         makeCall
@@ -711,6 +709,12 @@
                   quote
                   ( makeFn
                     (fnExpr => makeFn(argExpr => makeCall(fnExpr, argExpr)))))
+
+            ; if (stringIs(Var, "call-fn-expr"))
+                return quote(fnOfType(callLabel, ({fnExpr}) => fnExpr))
+
+            ; if (stringIs(Var, "call-arg-expr"))
+                return quote(fnOfType(callLabel, ({argExpr}) => argExpr))
 
             ; if (stringIs(Var, "make-ident"))
                 return quote(makeFn(makeIdent))

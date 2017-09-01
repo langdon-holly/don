@@ -21,6 +21,8 @@ unit
 (eval-file filename-str )
 (quote o _ )
 (make-call fn-expr arg-expr )
+(call-fn-expr call )
+(call-arg-expr call )
 (make-ident o )
 (ident-key ident )
 (error msg-str )

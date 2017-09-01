@@ -2,7 +2,7 @@
 
 \"(parse-prog source-data env )(eval-file |"std-env.don|env )
 
-\print \eval-file |"eval-file-testee.don|
+(false \say \call-fn-expr "\say 0 \say \call-arg-expr "\[4 ] 5 )
 
 \)
 
