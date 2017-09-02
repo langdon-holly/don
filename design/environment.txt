@@ -26,5 +26,7 @@ unit
 (make-ident o )
 (ident-key ident )
 (error msg-str )
+bracketed-var 
+braced-var 
 /^"/
 /^(\-|\+)?[0-9]+$/

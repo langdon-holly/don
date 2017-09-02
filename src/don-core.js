@@ -334,7 +334,11 @@
 
   ; if (argLabel === fnLabel) return strToChars("(fn ... )")
 
-  ; if (argLabel === symLabel) return strToChars("(sym ... )")
+  ; if (argLabel === symLabel)
+      return (
+        makeList
+        ( strToChars("(sym ").data.concat
+          (toString(strToChars(argData.sym)).data , [strToChar(")")])))
 
   ; return Null("->str unknown type:", arg)}
 
@@ -746,6 +750,12 @@
                         ( isString(msgStr)
                           ? strVal(msgStr)
                           : "Error message wasn't stringy enough"))))
+
+            ; if (stringIs(Var, "bracketed-var"))
+                return quote(bracketedVar)
+
+            ; if (stringIs(Var, "braced-var"))
+                return quote(bracedVar)
 
             ; if (Var.data[0].data == '"'.codePointAt(0))
                 return quote(makeList(Var.data.slice(1)));
