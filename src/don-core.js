@@ -43,7 +43,7 @@
                   : funLabel === callLabel
                     ? apply
                       (apply(funData.fnExpr, arg), apply(funData.argExpr, arg))
-                    : funLabel === symLabel || funLabel === identLabel
+                    : funLabel === identLabel
                       ? apply(arg, fn, arg)
                       : Null("Tried to apply a non-function"))}
       , fn))}
@@ -78,9 +78,11 @@
 
 ; function makeIdent(val) {return mk(identLabel, val)}
 
-; function isTrue(val)
-  { const trueVal = gensym('if-true')
-  ; return apply(val, makeList([trueVal, gensym('if-false')])) === trueVal}
+//; function isTrue(val)
+//  { const trueVal = makeIdent(gensym('if-true'))
+//  ; return (
+//      apply(val, makeList([trueVal, makeIdent(gensym('if-false'))]))
+//      === trueVal)}
 
 ; function isString(val)
   { return (
@@ -194,10 +196,12 @@
 ; const identLabel = {label: 'ident'}
 ; exports.identLabel = identLabel
 
-; const bracketedVar = gensym('bracketed-var')
+; const bracketedVarSym = gensym('bracketed-var')
+; const bracketedVar = makeIdent(bracketedVarSym)
 ; exports.bracketedVar = bracketedVar
 
-; const bracedVar = gensym('braced-var')
+; const bracedVarSym = gensym('braced-var')
+; const bracedVar = makeIdent(bracedVarSym)
 ; exports.bracedVar = bracedVar
 
 ; const Null
@@ -343,14 +347,14 @@
   ; return Null("->str unknown type:", arg)}
 
 ; const initEnv
-  = makeFn
-    ( Var =>
-      { if (Var.type === symLabel)
-        { if (Var === bracketedVar) return quote(makeFn(_.identity))
+  = fnOfType
+    ( identLabel
+    , varKey =>
+        varKey.type === symLabel
+        ? varKey === bracketedVarSym ? quote(makeFn(_.identity))
 
-        ; if (Var === bracedVar)
-            return (
-              quote
+          : varKey === bracedVarSym
+            ? quote
               ( fnOfType
                 ( listLabel
                 , args =>
@@ -366,15 +370,11 @@
                             eq(arg, pair[0])
                             ? (toReturn = just(pair[1]), false)
                             : true)
-                      ; return toReturn}))})))
+                      ; return toReturn}))}))
 
-        ; return Null("symbol variable not found in environment")}
+          : Null("symbol variable not found in environment")
 
-      ; if (Var.type === identLabel && isString(Var.data))
-        { const vaR = Var
-        ; return (
-            () =>
-            { const Var = vaR.data
+        : isString(varKey)
 
   //          function default0(pt) {
   //            if (pt[0]) return pt[1];
@@ -559,217 +559,197 @@
   //                            apply(env,
   //                                  valObj(strLabel, varParts[0])))}
 
-            ; if (stringIs(Var, 'fn'))
-                return (
+          ? stringIs(varKey, 'fn')
+            ? makeFn
+              ( env =>
                   makeFn
-                  ( env =>
+                  ( param =>
                       makeFn
-                      ( param =>
+                      ( body =>
                           makeFn
-                          ( body =>
-                              makeFn
-                              ( arg =>
-                                  apply
-                                  ( body
-                                  , makeFn
-                                    ( Var =>
-                                        eq(Var, param)
-                                        ? quote(arg)
-                                        : apply(env, Var))))))))
+                          ( arg =>
+                              apply
+                              ( body
+                              , makeFn
+                                ( varKey =>
+                                    eq(varKey, param)
+                                    ? quote(arg)
+                                    : apply(env, varKey)))))))
 
-            ; if (stringIs(Var, '+'))
-                return (
-                  quote
-                  ( fnOfType
-                    ( listLabel
-                    , args =>
+            : stringIs(varKey, '+')
+              ? quote
+                ( fnOfType
+                  ( listLabel
+                  , args =>
+                      _.reduce
+                      ( args
+                      , (arg0, arg1) =>
+                        { if (arg1.type !== intLabel) return Null()
+                        ; return makeInt(arg0.data + arg1.data)}
+                      , makeInt(0))))
+
+            : stringIs(varKey, '-')
+              ? quote
+                ( fnOfType
+                  ( listLabel
+                  , args =>
+                    { if (args.length === 0) return makeInt(-1)
+
+                    ; if (args[0].type !== intLabel) return Null()
+                    ; if (args.length === 1) return makeInt(-args[0].data)
+
+                    ; return (
                         _.reduce
                         ( args
                         , (arg0, arg1) =>
                           { if (arg1.type !== intLabel) return Null()
-                          ; return makeInt(arg0.data + arg1.data)}
-                        , makeInt(0)))))
+                          ; return makeInt(arg0.data - arg1.data)}))}))
 
-            ; if (stringIs(Var, '-'))
-                return (
-                  quote
-                  ( fnOfType
-                    ( listLabel
-                    , args =>
-                      { if (args.length === 0) return makeInt(-1)
+            : stringIs(varKey, '<')
+              ? quote
+                ( fnOfType
+                  ( intLabel
+                  , arg0 =>
+                      fnOfType
+                      ( intLabel
+                      , arg1 => arg0 < arg1 ? True : False)))
 
-                      ; if (args[0].type !== intLabel) return Null()
-                      ; if (args.length === 1) return makeInt(-args[0].data)
+            : stringIs(varKey, '=')
+              ? quote
+                (makeFn(arg0 => makeFn(arg1 => eq(arg0, arg1) ? True : False)))
 
-                      ; return (
-                          _.reduce
-                          ( args
-                          , (arg0, arg1) =>
-                            { if (arg1.type !== intLabel) return Null()
-                            ; return makeInt(arg0.data - arg1.data)}))})))
+            : stringIs(varKey, "env") ? makeFn(_.identity)
 
-            ; if (stringIs(Var, '<'))
-                return (
-                  quote
-                  ( fnOfType
-                    ( intLabel
-                    , arg0 =>
-                        fnOfType
-                        ( intLabel
-                        , arg1 => arg0 < arg1 ? True : False))))
+            : stringIs(varKey, "init-env") ? quote(initEnv)
 
-            ; if (stringIs(Var, '='))
-                return (
-                  quote
-                  ( makeFn
-                    (arg0 => makeFn(arg1 => eq(arg0, arg1) ? True : False))))
+            : stringIs(varKey, "print")
+              ? quote
+                ( makeFn
+                  ( arg =>
+                      ( isString(arg)
+                        ? process.stdout.write(strVal(arg))
+                        : Null('Tried to print nonstring')
+                        , unit)))
 
-            ; if (stringIs(Var, "env")) return makeFn(_.identity)
+            : stringIs(varKey, "say")
+              ? quote
+                ( makeFn
+                  ( _.flow
+                    ( toString
+                    , strVal
+                    , process.stdout.write.bind(process.stdout)
+                    , _.constant(unit))))
 
-            ; if (stringIs(Var, "init-env")) return quote(initEnv)
+            : stringIs(varKey, "->str") ? quote(makeFn(toString))
 
-            ; if (stringIs(Var, "print"))
-                return (
-                  quote
-                  ( makeFn
-                    ( arg =>
-                        ( isString(arg)
-                          ? process.stdout.write(strVal(arg))
-                          : Null('Tried to print nonstring')
-                          , unit))))
+            : stringIs(varKey, "char->unicode")
+              ? quote(fnOfType(charLabel, makeInt))
 
-            ; if (stringIs(Var, "say"))
-                return (
-                  quote
-                  ( makeFn
-                    ( _.flow
-                      ( toString
-                      , strVal
-                      , process.stdout.write.bind(process.stdout)
-                      , _.constant(unit)))))
+            : stringIs(varKey, "unicode->char")
+              ? quote(fnOfType(intLabel, makeChar))
 
-            ; if (stringIs(Var, "->str")) return quote(makeFn(toString))
+            : stringIs(varKey, "length")
+              ? quote(fnOfType(listLabel, arg => makeInt(arg.length)))
 
-            ; if (stringIs(Var, "char->unicode"))
-                return quote(fnOfType(charLabel, makeInt))
+            : stringIs(varKey, "->list")
+              ? quote
+                ( fnOfType
+                  ( fnLabel
+                  , fn =>
+                      fnOfType
+                      ( intLabel
+                      , length =>
+                        { if (length < 0) return Null()
 
-            ; if (stringIs(Var, "unicode->char"))
-                return quote(fnOfType(intLabel, makeChar))
+                        ; const toReturn = []
+                        ; for (let i = 0; i < length; i++)
+                            {toReturn.push(fn(makeInt(i)))}
+                        ; return makeList(toReturn)})))
 
-            ; if (stringIs(Var, "length"))
-                return quote(fnOfType(listLabel, arg => makeInt(arg.length)))
+            : stringIs(varKey, "true") ? quote(True)
 
-            ; if (stringIs(Var, "->list"))
-                return (
-                  quote
-                  ( fnOfType
-                    ( fnLabel
-                    , fn =>
-                        fnOfType
-                        ( intLabel
-                        , length =>
-                          { if (length < 0) return Null()
+            : stringIs(varKey, "false") ? quote(False)
 
-                          ; const toReturn = []
-                          ; for (let i = 0; i < length; i++)
-                              {toReturn.push(fn(makeInt(i)))}
-                          ; return makeList(toReturn)}))))
+            : stringIs(varKey, "unit") ? quote(unit)
 
-            ; if (stringIs(Var, "true")) return quote(True)
+            : stringIs(varKey, "read-file")
+              ? quote
+                ( makeFn
+                  ( arg =>
+                      isString(arg)
+                      ? strToChars(readFile(strVal(arg)))
+                      : Null('Tried to read-file of nonstring')))
 
-            ; if (stringIs(Var, "false")) return quote(False)
+            : stringIs(varKey, "try-parse-prog")
+              ? quote
+                ( makeFn
+                  ( arg =>
+                      isString(arg)
+                      ? ( parsed =>
+                            makeList
+                            ( parsed.success
+                              ? [True, parsed.ast, strToChars(parsed.rest)]
+                              : [ False
+                                , makeFn
+                                  ( _.flow
+                                    (strVal, parsed.error, strToChars))]))
+                        (parseFile(strVal(arg)))
+                      : Null('Tried to parse nonstring')))
 
-            ; if (stringIs(Var, "unit")) return quote(unit)
+            : stringIs(varKey, "eval-file")
+              ? quote
+                ( makeFn
+                  ( arg =>
+                      isString(arg)
+                      ? ( parsed =>
+                            parsed.success
+                            ? topEval(parsed.ast, parsed.rest)
+                            : Null(parsed.error(strVal(arg))))
+                        (parseFile(readFile(strVal(arg))))
+                      : Null('Tried to eval-file of nonstring')))
 
-            ; if (stringIs(Var, "read-file"))
-                return (
-                  quote
-                  ( makeFn
-                    ( arg =>
-                        isString(arg)
-                        ? strToChars(readFile(strVal(arg)))
-                        : Null('Tried to read-file of nonstring'))))
+            : stringIs(varKey, "q") ? quote(makeFn(quote))
 
-            ; if (stringIs(Var, "try-parse-prog"))
-                return (
-                  quote
-                  ( makeFn
-                    ( arg =>
-                        isString(arg)
-                        ? ( parsed =>
-                              makeList
-                              ( parsed.success
-                                ? [True, parsed.ast, strToChars(parsed.rest)]
-                                : [ False
-                                  , makeFn
-                                    ( _.flow
-                                      (strVal, parsed.error, strToChars))]))
-                          (parseFile(strVal(arg)))
-                        : Null('Tried to parse nonstring'))))
+            : stringIs(varKey, "make-call")
+              ? quote
+                ( makeFn
+                  (fnExpr => makeFn(argExpr => makeCall(fnExpr, argExpr))))
 
-            ; if (stringIs(Var, "eval-file"))
-                return (
-                  quote
-                  ( makeFn
-                    ( arg =>
-                        isString(arg)
-                        ? ( parsed =>
-                              parsed.success
-                              ? topEval(parsed.ast, parsed.rest)
-                              : Null(parsed.error(strVal(arg))))
-                          (parseFile(readFile(strVal(arg))))
-                        : Null('Tried to eval-file of nonstring'))))
+            : stringIs(varKey, "call-fn-expr")
+              ? quote(fnOfType(callLabel, ({fnExpr}) => fnExpr))
 
-            ; if (stringIs(Var, "q"))
-                return quote(makeFn(quote))
+            : stringIs(varKey, "call-arg-expr")
+              ? quote(fnOfType(callLabel, ({argExpr}) => argExpr))
 
-            ; if (stringIs(Var, "make-call"))
-                return (
-                  quote
-                  ( makeFn
-                    (fnExpr => makeFn(argExpr => makeCall(fnExpr, argExpr)))))
+            : stringIs(varKey, "make-ident") ? quote(makeFn(makeIdent))
 
-            ; if (stringIs(Var, "call-fn-expr"))
-                return quote(fnOfType(callLabel, ({fnExpr}) => fnExpr))
+            : stringIs(varKey, "ident-key")
+              ? quote(fnOfType(identLabel, _.identity))
 
-            ; if (stringIs(Var, "call-arg-expr"))
-                return quote(fnOfType(callLabel, ({argExpr}) => argExpr))
+            : stringIs(varKey, "error")
+              ? quote
+                ( makeFn
+                  ( msgStr =>
+                      Null
+                      ( isString(msgStr)
+                        ? strVal(msgStr)
+                        : "Error message wasn't stringy enough")))
 
-            ; if (stringIs(Var, "make-ident"))
-                return quote(makeFn(makeIdent))
+            : stringIs(varKey, "bracketed-var") ? quote(bracketedVar)
 
-            ; if (stringIs(Var, "ident-key"))
-                return quote(fnOfType(identLabel, _.identity))
+            : stringIs(varKey, "braced-var") ? quote(bracedVar)
 
-            ; if (stringIs(Var, "error"))
-                return (
-                  quote
-                  ( makeFn
-                    ( msgStr =>
-                        Null
-                        ( isString(msgStr)
-                          ? strVal(msgStr)
-                          : "Error message wasn't stringy enough"))))
+            : varKey.data[0].data == '"'.codePointAt(0)
+              ? quote(makeList(varKey.data.slice(1)))
 
-            ; if (stringIs(Var, "bracketed-var"))
-                return quote(bracketedVar)
-
-            ; if (stringIs(Var, "braced-var"))
-                return quote(bracedVar)
-
-            ; if (Var.data[0].data == '"'.codePointAt(0))
-                return quote(makeList(Var.data.slice(1)));
-
-            ; const varStr = strVal(Var)
-            ; if (/^(\-|\+)?[0-9]+$/.test(varStr))
-                return quote(makeInt(parseInt(varStr, 10)))
-
-            ; return (
-                Null
-                ( 'string variable not found in environment: "'
-                  + strVal(Var)))})()}
-
-        return Null("unknown variable: " + strVal(toString(Var)))})
+            : (varStr => 
+                /^(\-|\+)?[0-9]+$/.test(varStr)
+                ? quote(makeInt(parseInt(varStr, 10)))
+                : Null
+                  ( 'string variable not found in environment: "'
+                    + strVal(varKey)))
+              (strVal(varKey))
+        : Null("unknown variable: " + strVal(toString(varKey))))
 ; exports.initEnv = initEnv
 
 ; Error.stackTraceLimit = Infinity
