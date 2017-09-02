@@ -21,7 +21,7 @@
 ; fs.readFile
   (hasFileArg ? program.args[0] : 0
   , 'utf8'
-  , function(err, data)
+  , (err, data) =>
     { if (err) console.log("Couldn't read file"), process.exit(1)
 
     ; const parsed = don.parse(data)

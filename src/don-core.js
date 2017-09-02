@@ -16,25 +16,31 @@
 ; exports = module.exports
 
 ; function apply(fn, ...args)
-  { function apply2(fn, arg)
-    { const funLabel = fn.type, funData = fn.data
-    ; return (
-        funLabel === fnLabel
-        ? funData(arg)
-        : funLabel === listLabel
-          ? arg.type !== intLabel
-            ? Null("Argument to list must be integer")
-            : arg.data < 0 || arg.data >= fn.data.length
-              ? Null("Array index out of bounds")
-              : funData[arg.data]
-          : funLabel === quoteLabel
-            ? funData
-            : funLabel === callLabel
-              ? apply(apply(funData.fnExpr, arg), apply(funData.argExpr, arg))
-              : funLabel === symLabel || funLabel === identLabel
-                ? apply(arg, fn, arg)
-                : Null("Tried to apply a non-function"))}
-  ; return _.reduce(args, apply2, fn)}
+  { return (
+      _.reduce
+      ( args
+      , (fn, arg) =>
+          { const
+              {type: funLabel, data: funData} = fn
+            , {type: argLabel, data: argData} = arg
+          ; return (
+              funLabel === fnLabel
+              ? funData(arg)
+              : funLabel === listLabel
+                ? argLabel !== intLabel
+                  ? Null("Argument to list must be integer")
+                  : argData < 0 || argData >= funData.length
+                    ? Null("Array index out of bounds")
+                    : funData[argData]
+                : funLabel === quoteLabel
+                  ? funData
+                  : funLabel === callLabel
+                    ? apply
+                      (apply(funData.fnExpr, arg), apply(funData.argExpr, arg))
+                    : funLabel === symLabel || funLabel === identLabel
+                      ? apply(arg, fn, arg)
+                      : Null("Tried to apply a non-function"))}
+      , fn))}
 ; exports.apply = apply
 
 ; function mk(label, data) {return {type: label, data: data}}
@@ -44,7 +50,7 @@
 ; function fnOfType(type, fn)
   { return (
       makeFn
-      ( function(arg)
+      ( arg =>
         { if (arg.type !== type) return Null("typed function received garbage")
         ; return fn(arg.data)}))}
 
@@ -189,7 +195,7 @@
 ; exports.bracedVar = bracedVar
 
 ; const Null
-  = function()
+  = () =>
     { ttyLog.apply(this, arguments)
     ; throw new Error("diverging…")
     ; while (true) {}}
@@ -325,7 +331,7 @@
 
 ; const initEnv
   = makeFn
-    ( function(Var)
+    ( Var =>
       { if (Var.type === symLabel)
         { if (Var === bracketedVar) return quote(makeFn(_.identity))
 
@@ -334,12 +340,12 @@
               quote
               ( fnOfType
                 ( listLabel
-                , function(args)
+                , args =>
                   { if (args.length % 2 != 0) return Null("Tried to brace oddity")
                   ; const pairs = _.chunk(args, 2)
                   ; return (
                     makeFn
-                    ( function(arg)
+                    ( arg =>
                       { let toReturn = nothing
                       ; _.forEach
                         ( pairs
@@ -354,7 +360,7 @@
       ; if (Var.type === identLabel && isString(Var.data))
         { const vaR = Var
         ; return (
-            function()
+            () =>
             { const Var = vaR.data
 
   //          function default0(pt) {
@@ -566,7 +572,7 @@
                     , args =>
                         _.reduce
                         ( args
-                        , function (arg0, arg1)
+                        , (arg0, arg1) =>
                           { if (arg1.type !== intLabel) return Null()
                           ; return makeInt(arg0.data + arg1.data)}
                         , makeInt(0)))))
@@ -576,7 +582,7 @@
                   quote
                   ( fnOfType
                     ( listLabel
-                    , function (args)
+                    , args =>
                       { if (args.length === 0) return makeInt(-1)
 
                       ; if (args[0].type !== intLabel) return Null()
@@ -585,7 +591,7 @@
                       ; return (
                           _.reduce
                           ( args
-                          , function (arg0, arg1)
+                          , (arg0, arg1) =>
                             { if (arg1.type !== intLabel) return Null()
                             ; return makeInt(arg0.data - arg1.data)}))})))
 
@@ -614,10 +620,10 @@
                   quote
                   ( makeFn
                     ( arg =>
-                        isString(arg)
-                        ? process.stdout.write(strVal(arg))
-                        : Null('Tried to print nonstring')
-                        , unit)))
+                        ( isString(arg)
+                          ? process.stdout.write(strVal(arg))
+                          : Null('Tried to print nonstring')
+                          , unit))))
 
             ; if (stringIs(Var, "say"))
                 return (
@@ -648,7 +654,7 @@
                     , fn =>
                         fnOfType
                         ( intLabel
-                        , function(length)
+                        , length =>
                           { if (length < 0) return Null()
 
                           ; const toReturn = []
