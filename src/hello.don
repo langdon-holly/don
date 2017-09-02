@@ -2,19 +2,7 @@
 
 \"(parse-prog source-data env )(eval-file |"std-env.don|env )
 
-(false
-  (fn "a-map
-    " (false
-        (false
-          \say \a-map "fd
-          \say \a-map "1 )
-        \say \a-map "fds )
-    {"1 nothing "fds \just |"something|})
-  (false
-    (false 
-      \say (is-just \just 3 |"just||"unjust|)
-      \say (is-just nothing |"just||"unjust|))
-    \say \unjust \just 3 ))
+\say (false \say (true false true ) true )
 
 \)
 

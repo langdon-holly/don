@@ -45,7 +45,11 @@
                       (apply(funData.fnExpr, arg), apply(funData.argExpr, arg))
                     : funLabel === identLabel
                       ? apply(arg, fn, arg)
-                      : Null("Tried to apply a non-function"))}
+                      : funLabel === boolLabel
+                        ? funData
+                          ? makeFn(_.constant(arg))
+                          : makeFn(_.identity)
+                        : Null("Tried to apply a non-function"))}
       , fn))}
 ; exports.apply = apply
 
@@ -77,6 +81,8 @@
 ; function gensym(debugId) {return mk(symLabel, {sym: debugId})}
 
 ; function makeIdent(val) {return mk(identLabel, val)}
+
+; function makeBool(val) {return mk(boolLabel, val)}
 
 //; function isTrue(val)
 //  { const trueVal = makeIdent(gensym('if-true'))
@@ -199,6 +205,9 @@
 ; const maybeLabel = {label: 'maybe'}
 ; exports.maybeLabel = maybeLabel
 
+; const boolLabel = {label: 'bool'}
+; exports.boolLabel = boolLabel
+
 ; const bracketedVarSym = gensym('bracketed-var')
 ; const bracketedVar = makeIdent(bracketedVarSym)
 ; exports.bracketedVar = bracketedVar
@@ -211,9 +220,9 @@
   = (...args) => {throw new Error("Diverging: " + util.format(...args))}
 ; exports.Null = Null
 
-; const False = makeFn(_.constant(makeFn(_.identity)))
+; const False = makeBool(false)
 
-; const True = makeFn(consequent => makeFn(_.constant(consequent)))
+; const True = makeBool(true)
 
 ; const nothing = mk(maybeLabel, {is: false})
 
@@ -354,6 +363,9 @@
           ( strToChars("(just ").data.concat
             (toString(argData.val).data, [strToChar(")")]))
         : strToChars("nothing "))
+
+  ; if (argLabel === boolLabel)
+      return argData ? strToChars("true ") : strToChars("false ")
 
   ; return Null("->str unknown type:", arg)}
 
@@ -623,11 +635,11 @@
                   , arg0 =>
                       fnOfType
                       ( intLabel
-                      , arg1 => arg0 < arg1 ? True : False)))
+                      , makeBool(arg1 => arg0 < arg1))))
 
             : stringIs(varKey, '=')
               ? quote
-                (makeFn(arg0 => makeFn(arg1 => eq(arg0, arg1) ? True : False)))
+                (makeFn(arg0 => makeFn(arg1 => makeBool(eq(arg0, arg1)))))
 
             : stringIs(varKey, "env") ? makeFn(_.identity)
 
@@ -755,7 +767,7 @@
             : stringIs(varKey, "nothing") ? quote(nothing)
 
             : stringIs(varKey, "is-just")
-              ? quote(fnOfType(maybeLabel, arg => arg.is ? True : False))
+              ? quote(fnOfType(maybeLabel, arg => makeBool(arg.is)))
 
             : stringIs(varKey, "unjust")
               ? quote
