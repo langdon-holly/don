@@ -68,7 +68,7 @@
 
 ; function makeList(vals) {return mk(listLabel, vals)}
 
-; function just(val) {return makeList([True, val])}
+; function just(val) {return mk(maybeLabel, {is: true, val})}
 
 ; function makeInt(Int) {return mk(intLabel, Int)}
 
@@ -196,6 +196,9 @@
 ; const identLabel = {label: 'ident'}
 ; exports.identLabel = identLabel
 
+; const maybeLabel = {label: 'maybe'}
+; exports.maybeLabel = maybeLabel
+
 ; const bracketedVarSym = gensym('bracketed-var')
 ; const bracketedVar = makeIdent(bracketedVarSym)
 ; exports.bracketedVar = bracketedVar
@@ -212,7 +215,7 @@
 
 ; const True = makeFn(consequent => makeFn(_.constant(consequent)))
 
-; const nothing = makeList([False])
+; const nothing = mk(maybeLabel, {is: false})
 
 ; const readFile = filename => fs.readFileSync(filename, 'utf8')
 
@@ -343,6 +346,14 @@
         makeList
         ( strToChars("(sym ").data.concat
           (toString(strToChars(argData.sym)).data , [strToChar(")")])))
+
+  ; if (argLabel === maybeLabel)
+      return (
+        argData.is
+        ? makeList
+          ( strToChars("(just ").data.concat
+            (toString(argData.val).data, [strToChar(")")]))
+        : strToChars("nothing "))
 
   ; return Null("->str unknown type:", arg)}
 
@@ -738,6 +749,19 @@
             : stringIs(varKey, "bracketed-var") ? quote(bracketedVar)
 
             : stringIs(varKey, "braced-var") ? quote(bracedVar)
+
+            : stringIs(varKey, "just") ? quote(makeFn(just))
+
+            : stringIs(varKey, "nothing") ? quote(nothing)
+
+            : stringIs(varKey, "is-just")
+              ? quote(fnOfType(maybeLabel, arg => arg.is ? True : False))
+
+            : stringIs(varKey, "unjust")
+              ? quote
+                ( fnOfType
+                  ( maybeLabel
+                  , arg => arg.is ? arg.val : Null("Nothing was unjustified")))
 
             : varKey.data[0].data == '"'.codePointAt(0)
               ? quote(makeList(varKey.data.slice(1)))
