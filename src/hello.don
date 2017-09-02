@@ -2,7 +2,7 @@
 
 \"(parse-prog source-data env )(eval-file |"std-env.don|env )
 
-\say \print |"df|
+\parse-prog |"|
 
 \)
 

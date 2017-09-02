@@ -4,12 +4,18 @@
 
 ; const
     fs = require('fs')
+  , util = require('util')
 
   , _ = require('lodash')
   //, bigInt = require('big-integer')
 
   , ps = require('list-parsing')
   , parser = require('./don-parse.js')
+
+// Utility
+const
+  debug = true
+, log = (...args) => (debug ? console.log(...args) : undefined, _.last(args))
 
 // Stuff
 
@@ -156,8 +162,8 @@
       ? _.assign({ast: parseTreeToAST(parsed.result)}, parsed)
       : parsed)}
 
-; function ttyLog()
-  { if (process.stdout.isTTY) console.log.apply(this, arguments)}
+//; function ttyLog()
+//  { if (process.stdout.isTTY) console.log(...arguments)}
 
 ; const fnLabel = {label: 'fn'}
 ; exports.fnLabel = fnLabel
@@ -195,10 +201,7 @@
 ; exports.bracedVar = bracedVar
 
 ; const Null
-  = () =>
-    { ttyLog.apply(this, arguments)
-    ; throw new Error("diverging…")
-    ; while (true) {}}
+  = (...args) => {throw new Error("Diverging: " + util.format(...args))}
 ; exports.Null = Null
 
 ; const False = makeFn(_.constant(makeFn(_.identity)))
