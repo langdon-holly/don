@@ -19,7 +19,7 @@ unit
 (read-file filename-str )
 (try-parse-prog str )
 (eval-file filename-str )
-(quote o _ )
+(q o _ )
 (make-call fn-expr arg-expr )
 (call-fn-expr call )
 (call-arg-expr call )

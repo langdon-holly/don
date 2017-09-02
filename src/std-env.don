@@ -12,7 +12,7 @@
                     1
                     (fn "var
                       " (= var "source-data
-                          "\quote \parsed 2
+                          "\q \parsed 2
                           "\new-env var
                           env ))))
             "\error (parsed 1 |"file| )

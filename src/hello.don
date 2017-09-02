@@ -2,7 +2,11 @@
 
 \"(parse-prog source-data env )(eval-file |"std-env.don|env )
 
-\parse-prog |"|
+(false
+  (false
+    \say \make-ident 4
+    \say "\say 0 )
+  \say [`d ] )
 
 \)
 

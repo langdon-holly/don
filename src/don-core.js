@@ -13,9 +13,9 @@
   , parser = require('./don-parse.js')
 
 // Utility
-const
-  debug = true
-, log = (...args) => (debug ? console.log(...args) : undefined, _.last(args))
+; const
+    debug = true
+  , log = (...args) => (debug ? console.log(...args) : undefined, _.last(args))
 
 // Stuff
 
@@ -283,6 +283,15 @@ const
 //; while (continuing.length > 0)
 ; exports.topEval = topEval
 
+; function escInIdent(charArr)
+  { return (
+      _.flatMap
+      ( charArr
+      , chr =>
+          chr.data == 92 || chr.data == 124
+          ? [makeChar(92), chr]
+          : [chr]))}
+
 ; function toString(arg)
   { const argLabel = arg.type, argData = arg.data
   ; if (argLabel === charLabel) return makeList([strToChar("`"), arg])
@@ -292,12 +301,14 @@ const
   ; if (argLabel === listLabel)
       return (
         makeList
-        ( [strToChar('[')].concat
-          ( _.reduce
-            ( argData.map(o => toString(o).data)
-            , (soFar, elem, idx) => idx === 0 ? elem : soFar.concat(elem)
-            , [])
-          , [strToChar(']')])))
+        ( argData.length > 0 && isString(arg)
+          ? strToChars('|"').data.concat(escInIdent(argData), [strToChar('|')])
+          : [strToChar('[')].concat
+            ( _.reduce
+              ( argData.map(o => toString(o).data)
+              , (soFar, elem) => soFar.concat(elem)
+              , [])
+            , [strToChar(']')])))
 
   ; if (argLabel === quoteLabel)
       return makeList([makeChar(34)].concat(toString(argData).data))
@@ -307,23 +318,18 @@ const
   ; if (argLabel === callLabel)
       return (
         makeList
-        ( [makeChar(92)]
-          .concat(toString(argData.fnExpr).data)
-          .concat(toString(argData.argExpr).data)))
+        ( strToChars("(make-call ").data.concat
+          ( toString(argData.fnExpr).data
+          , toString(argData.argExpr).data
+          , [strToChar(")")])))
 
   ; if (argLabel === identLabel)
       return (
         makeList
         ( isString(argData)
           ? strToChars('"|').data.concat
-            ( _.flatMap
-              ( argData.data
-              , chr =>
-                  chr.data == 92 || chr.data == 124
-                  ? [makeChar(92), chr]
-                  : [chr])
-            , [strToChar("|")])
-          : strToChars("(ident ").data.concat
+            (escInIdent(argData.data), [strToChar("|")]) 
+          : strToChars("(make-ident ").data.concat
             (toString(argData).data, [strToChar(")")])))
 
   ; if (argLabel === fnLabel) return strToChars("(fn ... )")
@@ -710,7 +716,7 @@ const
                           (parseFile(readFile(strVal(arg))))
                         : Null('Tried to eval-file of nonstring'))))
 
-            ; if (stringIs(Var, "quote"))
+            ; if (stringIs(Var, "q"))
                 return quote(makeFn(quote))
 
             ; if (stringIs(Var, "make-call"))
