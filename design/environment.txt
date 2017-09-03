@@ -17,7 +17,7 @@ source-data
 (false consequent alternative )
 unit 
 (read-file filename-str )
-(try-parse-prog str )
+(parse-prog str )
 (eval-file filename-str )
 (q o _ )
 (make-call fn-expr arg-expr )

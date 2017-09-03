@@ -88,11 +88,25 @@
 
 ; function errResult(val) {return mk(resultLabel, {ok: false, val})}
 
-//; function isTrue(val)
-//  { const trueVal = makeIdent(gensym('if-true'))
-//  ; return (
-//      apply(val, makeList([trueVal, makeIdent(gensym('if-false'))]))
-//      === trueVal)}
+; function makeMap(args)
+  { if (args.length % 2 != 0) return Null("Tried to brace oddity")
+  ; const pairs = _.chunk(args, 2)
+  ; return (
+      makeFn
+      ( arg =>
+        { let toReturn = nothing
+        ; _.forEach
+          ( pairs
+          , pair =>
+              eq(arg, pair[0])
+              ? (toReturn = just(pair[1]), false)
+              : true)
+        ; return toReturn}))}
+
+; function objToMap(o)
+  { return (
+      makeMap
+      (_.flatMap(o, (val, keyStr) => [makeIdent(strToChars(keyStr)), val])))}
 
 ; function isString(val)
   { return (
@@ -177,7 +191,7 @@
 ; function parseStr(str)
   { const parsed = parser(str)
   ; return (
-      parsed.status === 'match' 
+      parsed.status === 'match'
       ? _.assign({ast: parseTreeToAST(parsed.result)}, parsed)
       : parsed)}
 
@@ -233,10 +247,6 @@
 ; const Null
   = (...args) => {throw new Error("Diverging: " + util.format(...args))}
 ; exports.Null = Null
-
-; const False = makeBool(false)
-
-; const True = makeBool(true)
 
 ; const nothing = mk(maybeLabel, {is: false})
 
@@ -358,7 +368,7 @@
         makeList
         ( isString(argData)
           ? strToChars('"|').data.concat
-            (escInIdent(argData.data), [strToChar("|")]) 
+            (escInIdent(argData.data), [strToChar("|")])
           : strToChars("(make-ident ").data.concat
             (toString(argData).data, [strToChar(")")])))
 
@@ -396,24 +406,7 @@
         varKey.type === symLabel
         ? varKey === bracketedVarSym ? quote(makeFn(_.identity))
 
-          : varKey === bracedVarSym
-            ? quote
-              ( fnOfType
-                ( listLabel
-                , args =>
-                  { if (args.length % 2 != 0) return Null("Tried to brace oddity")
-                  ; const pairs = _.chunk(args, 2)
-                  ; return (
-                    makeFn
-                    ( arg =>
-                      { let toReturn = nothing
-                      ; _.forEach
-                        ( pairs
-                        , pair =>
-                            eq(arg, pair[0])
-                            ? (toReturn = just(pair[1]), false)
-                            : true)
-                      ; return toReturn}))}))
+          : varKey === bracedVarSym ? quote(fnOfType(listLabel, makeMap))
 
           : Null("symbol variable not found in environment")
 
@@ -709,9 +702,9 @@
                             {toReturn.push(fn(makeInt(i)))}
                         ; return makeList(toReturn)})))
 
-            : stringIs(varKey, "true") ? quote(True)
+            : stringIs(varKey, "true") ? quote(makeBool(true))
 
-            : stringIs(varKey, "false") ? quote(False)
+            : stringIs(varKey, "false") ? quote(makeBool(false))
 
             : stringIs(varKey, "unit") ? quote(unit)
 
@@ -723,19 +716,21 @@
                       ? strToChars(readFile(strVal(arg)))
                       : Null('Tried to read-file of nonstring')))
 
-            : stringIs(varKey, "try-parse-prog")
+            : stringIs(varKey, "parse-prog")
               ? quote
                 ( makeFn
                   ( arg =>
                       isString(arg)
                       ? ( parsed =>
-                            makeList
-                            ( parsed.success
-                              ? [True, parsed.ast, strToChars(parsed.rest)]
-                              : [ False
-                                , makeFn
-                                  ( _.flow
-                                    (strVal, parsed.error, strToChars))]))
+                            parsed.success
+                            ? okResult
+                              ( objToMap
+                                ( { "expr": parsed.ast
+                                  , "rest": strToChars(parsed.rest)}))
+                            : errResult
+                              ( makeFn
+                                ( _.flow
+                                  (strVal, parsed.error, strToChars))))
                         (parseFile(strVal(arg)))
                       : Null('Tried to parse nonstring')))
 
@@ -806,18 +801,30 @@
               ? quote
                 ( fnOfType
                   ( resultLabel
-                  , arg => arg.ok ? arg.val : Null("Result was not ok")))
+                  , arg =>
+                      arg.ok
+                      ? arg.val
+                      : Null
+                        ( isString(arg.val)
+                          ? "Err: " + strVal(arg.val)
+                          : "Result was not ok")))
 
             : stringIs(varKey, "unerr")
               ? quote
                 ( fnOfType
                   ( resultLabel
-                  , arg => arg.ok ? Null("Result was ok") : arg.val))
+                  , arg =>
+                      arg.ok
+                      ? Null
+                        ( isString(arg.val)
+                          ? "Ok: " + strVal(arg.val)
+                          : "Result was ok")
+                      : arg.val))
 
             : varKey.data[0].data == '"'.codePointAt(0)
               ? quote(makeList(varKey.data.slice(1)))
 
-            : (varStr => 
+            : (varStr =>
                 /^(\-|\+)?[0-9]+$/.test(varStr)
                 ? quote(makeInt(parseInt(varStr, 10)))
                 : Null
