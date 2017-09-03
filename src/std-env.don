@@ -1,9 +1,22 @@
 (fn "parse-prog
-  " (fn "this-env
-      " (fn "new-env
-          " (fn "var
-              "(= var "parse-prog "\this-env var "\new-env var env )))
-      env )
+  " (fn "Z
+      " (fn "this-env
+          " (fn "new-env
+              " (fn "var
+                  " (= var "parse-prog true (= var "Z )
+                      "\this-env var
+                      "\new-env var
+                      env )))
+          env )
+      (fn "f
+        " (fn "x
+            " \f
+                (fn "v
+                  "(x x v ))
+            (fn "x
+              " \f
+                  (fn "v
+                    "(x x v ))))))
   (fn "str 
     " (fn "parsed
         " (parsed 0
@@ -18,3 +31,17 @@
             "\error (parsed 1 |"file| )
             env )
         \try-parse-prog str )))
+
+\)
+
+(fn "x
+  " \ Z
+      (fn "*x
+        "(fn "y
+           "(eval
+              (= y 0
+                "0
+                "\ +
+                   [ x
+                     \*x\-[y 1 ]])
+              env ))))

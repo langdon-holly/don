@@ -1,10 +1,8 @@
 #!/usr/bin/env don
 
-\say (< 1 1 )
-
 \"(parse-prog source-data env )(eval-file |"std-env.don|env )
 
-\say (false \say (true false true ) true )
+\say (Z (fn "j "()) 3 )
 
 \)
 
