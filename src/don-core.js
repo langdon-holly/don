@@ -84,6 +84,10 @@
 
 ; function makeBool(val) {return mk(boolLabel, val)}
 
+; function okResult(val) {return mk(resultLabel, {ok: true, val})}
+
+; function errResult(val) {return mk(resultLabel, {ok: false, val})}
+
 //; function isTrue(val)
 //  { const trueVal = makeIdent(gensym('if-true'))
 //  ; return (
@@ -130,7 +134,10 @@
         ||
           val0.type === maybeLabel
           && val0.data.is === val1.data.is
-          && (!val0.data.is || eq(val0.data.val, val1.data.val))))}
+          && (!val0.data.is || eq(val0.data.val, val1.data.val)))
+        || val0.type === resultLabel
+           && val0.data.ok === val1.data.ok
+           && eq(val0.data.val, val1.data.val))}
 
 ; function parseTreeToAST(pt)
   { const label = pt[0]
@@ -211,6 +218,9 @@
 
 ; const boolLabel = {label: 'bool'}
 ; exports.boolLabel = boolLabel
+
+; const resultLabel = {label: 'result'}
+; exports.resultLabel = resultLabel
 
 ; const bracketedVarSym = gensym('bracketed-var')
 ; const bracketedVar = makeIdent(bracketedVarSym)
@@ -370,6 +380,12 @@
 
   ; if (argLabel === boolLabel)
       return argData ? strToChars("true ") : strToChars("false ")
+
+  ; if (argLabel === resultLabel)
+      return (
+        makeList
+        ( strToChars(argData.ok ? "(ok " : "(err ").data.concat
+          (toString(argData.val).data, [strToChar(")")])))
 
   ; return Null("->str unknown type:", arg)}
 
@@ -770,7 +786,7 @@
 
             : stringIs(varKey, "nothing") ? quote(nothing)
 
-            : stringIs(varKey, "is-just")
+            : stringIs(varKey, "justp")
               ? quote(fnOfType(maybeLabel, arg => makeBool(arg.is)))
 
             : stringIs(varKey, "unjust")
@@ -778,6 +794,25 @@
                 ( fnOfType
                   ( maybeLabel
                   , arg => arg.is ? arg.val : Null("Nothing was unjustified")))
+
+            : stringIs(varKey, "ok") ? quote(makeFn(okResult))
+
+            : stringIs(varKey, "err") ? quote(makeFn(errResult))
+
+            : stringIs(varKey, "okp")
+              ? quote(fnOfType(resultLabel, arg => makeBool(arg.ok)))
+
+            : stringIs(varKey, "unok")
+              ? quote
+                ( fnOfType
+                  ( resultLabel
+                  , arg => arg.ok ? arg.val : Null("Result was not ok")))
+
+            : stringIs(varKey, "unerr")
+              ? quote
+                ( fnOfType
+                  ( resultLabel
+                  , arg => arg.ok ? Null("Result was ok") : arg.val))
 
             : varKey.data[0].data == '"'.codePointAt(0)
               ? quote(makeList(varKey.data.slice(1)))

@@ -1,12 +1,19 @@
 #!/usr/bin/env don
 
-(false
-  (false
-    \say (= nothing nothing )
-    \say (= \just 3 nothing ))
-  (false
-    \say (= \just 3 \just 3 )
-    \say (= \just 3 \just 4 )))
+(->list
+  ( fn "list "(fn "i "\say \list i )
+    [ (= \err 3 \err 4 )
+      (= \err 3 \err 3 )
+      (= \err 3 \ok 3 )
+      (= \ok 3 \ok 3 )
+      (= \ok 3 \ok 4 )
+      (ok 3 )
+      (err 2 )
+      (okp (ok 3 ))
+      (okp (err 2 ))
+      (unok (ok 3 ))
+      (unerr (err 2 ))])
+  11 )
 
 \)
 

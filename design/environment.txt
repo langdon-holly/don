@@ -30,7 +30,12 @@ bracketed-var
 braced-var 
 (just o )
 nothing 
-(is-just maybe )
+(justp maybe )
 (unjust maybe )
+(ok o )
+(err o )
+(okp result )
+(unok result )
+(unerr result )
 /^"/
 /^(\-|\+)?[0-9]+$/
