@@ -635,7 +635,7 @@
                   , arg0 =>
                       fnOfType
                       ( intLabel
-                      , makeBool(arg1 => arg0 < arg1))))
+                      , arg1 => makeBool(arg0 < arg1))))
 
             : stringIs(varKey, '=')
               ? quote
