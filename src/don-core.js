@@ -126,7 +126,11 @@
         ||
           val0.type === callLabel
           && eq(val0.data.fnExpr, val1.data.fnExpr)
-          && eq(val0.data.argExr, val1.data.argExr)))}
+          && eq(val0.data.argExr, val1.data.argExr)
+        ||
+          val0.type === maybeLabel
+          && val0.data.is === val1.data.is
+          && (!val0.data.is || eq(val0.data.val, val1.data.val))))}
 
 ; function parseTreeToAST(pt)
   { const label = pt[0]

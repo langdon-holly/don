@@ -1,5 +1,15 @@
 #!/usr/bin/env don
 
+(false
+  (false
+    \say (= nothing nothing )
+    \say (= \just 3 nothing ))
+  (false
+    \say (= \just 3 \just 3 )
+    \say (= \just 3 \just 4 )))
+
+\)
+
 \"(parse-prog source-data env )(eval-file |"std-env.don|env )
 
 \say (Z (fn "j "()) 3 )
