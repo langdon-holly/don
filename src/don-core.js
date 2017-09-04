@@ -108,10 +108,14 @@
       fnOfType
       ( identLabel
       , identKey =>
-        { const notFoundStr = "Key not found in ns"
+        { const notFoundStr = "Var not found in ns"
         ; if (!isString(identKey)) return Null(notFoundStr)
         ; const keyStr = strVal(identKey)
-        ; return o.hasOwnProperty(keyStr) ? o[keyStr] : Null(notFoundStr)}))}
+        ; return (
+            o.hasOwnProperty(keyStr)
+            ? o[keyStr]
+            : Null
+              (notFoundStr + ": " + strVal(toString(makeIdent(identKey)))))}))}
 
 ; function isString(val)
   { return (
