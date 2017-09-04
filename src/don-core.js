@@ -103,10 +103,15 @@
               : true)
         ; return toReturn}))}
 
-; function objToMap(o)
+; function objToNs(o)
   { return (
-      makeMap
-      (_.flatMap(o, (val, keyStr) => [makeIdent(strToChars(keyStr)), val])))}
+      fnOfType
+      ( identLabel
+      , identKey =>
+        { const notFoundStr = "Key not found in ns"
+        ; if (!isString(identKey)) return Null(notFoundStr)
+        ; const keyStr = strVal(identKey)
+        ; return o.hasOwnProperty(keyStr) ? o[keyStr] : Null(notFoundStr)}))}
 
 ; function isString(val)
   { return (
@@ -724,9 +729,9 @@
                       ? ( parsed =>
                             parsed.success
                             ? okResult
-                              ( objToMap
-                                ( { "expr": parsed.ast
-                                  , "rest": strToChars(parsed.rest)}))
+                              ( objToNs
+                                ( { "expr": quote(parsed.ast)
+                                  , "rest": quote(strToChars(parsed.rest))}))
                             : errResult
                               ( makeFn
                                 ( _.flow

@@ -22,10 +22,10 @@
         " (\okp parsed
             " \ok
                 (fn "new-env
-                  " (unjust (unok parsed "expr )
+                  " ("expr \unok parsed
                       (fn "var
                         " (= var "source-data
-                            "\q \unjust (unok parsed "rest )
+                            "\q \"rest \unok parsed
                             "\new-env var
                             env ))))
             "\err (unerr parsed |"file| )
