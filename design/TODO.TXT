@@ -1,7 +1,6 @@
 * better syntax-error message
 * continuations
 * concurrency
-* cells
 * configurable pareneds
 * object-orientation
 

@@ -37,5 +37,9 @@ nothing
 (okp result )
 (unok result )
 (unerr result )
+(make-cell val )
+(cell-val cell )
+(set cell val )
+(cas cell old-val new-val )
 /^"/
 /^(\-|\+)?[0-9]+$/

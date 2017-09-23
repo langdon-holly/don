@@ -1,5 +1,18 @@
 #!/usr/bin/env don
 
+(fn "ce
+  " [ \say ce
+      \say \cell-val ce
+      \say (cas ce 5 3 )
+      \say \cell-val ce
+      \say (= ce ce )
+      \say (= ce \make-cell 3 )
+      \say \cell-val ce
+      \say (set ce 4 )
+      \say \cell-val ce
+      \say ce ]
+  \make-cell 5 )
+
 \"(unok \parse-prog-expr source-data env )(eval-file |"std-env.don|env )
 
 \print source-data

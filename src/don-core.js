@@ -88,6 +88,8 @@
 
 ; function errResult(val) {return mk(resultLabel, {ok: false, val})}
 
+; function makeCell(val) {return mk(cellLabel, {val})}
+
 ; function makeMap(args)
   { if (args.length % 2 != 0) return Null("Tried to brace oddity")
   ; const pairs = _.chunk(args, 2)
@@ -160,7 +162,8 @@
           && (!val0.data.is || eq(val0.data.val, val1.data.val)))
         || val0.type === resultLabel
            && val0.data.ok === val1.data.ok
-           && eq(val0.data.val, val1.data.val))}
+           && eq(val0.data.val, val1.data.val)
+        || val0.type === cellLabel && val0.data === val1.data)}
 
 ; function parseTreeToAST(pt)
   { const label = pt[0]
@@ -245,6 +248,9 @@
 ; const resultLabel = {label: 'result'}
 ; exports.resultLabel = resultLabel
 
+; const cellLabel = {label: 'cell'}
+; exports.cellLabel = cellLabel
+
 ; const bracketedVarSym = gensym('bracketed-var')
 ; const bracketedVar = makeIdent(bracketedVarSym)
 ; exports.bracketedVar = bracketedVar
@@ -278,7 +284,7 @@
       { const parsed = parseStr(data)
 
       ; if (parsed.status === 'match')
-          return { success: true, ast: parsed.ast, rest: parsed.rest}
+          return {success: true, ast: parsed.ast, rest: parsed.rest}
       ; else if (parsed.status === 'eof')
           return (
             { success: false
@@ -309,7 +315,8 @@
                     + data.split('\n')[lineCol.line0]
                     + "\n"
                     + " ".repeat(lineCol.col0)
-                    + "^"})}
+                    + "^"
+                    + util.inspect(parsed.parser.traceStack, {depth: null})})}
 
         //; const trace = parsed.trace
         //; _.forEachRight(trace, function(frame) {console.log("in", frame[0])})
@@ -404,6 +411,12 @@
       return (
         makeList
         ( strToChars(argData.ok ? "(ok " : "(err ").data.concat
+          (toString(argData.val).data, [strToChar(")")])))
+
+  ; if (argLabel === cellLabel)
+      return (
+        makeList
+        ( strToChars("(make-cell ").data.concat
           (toString(argData.val).data, [strToChar(")")])))
 
   ; return Null("->str unknown type:", arg)}
@@ -829,6 +842,29 @@
                           ? "Ok: " + strVal(arg.val)
                           : "Result was ok")
                       : arg.val))
+
+            : stringIs(varKey, "make-cell") ? quote(makeFn(makeCell))
+
+            : stringIs(varKey, "cell-val")
+              ? quote(fnOfType(cellLabel, ({val}) => val))
+
+            : stringIs(varKey, "set")
+              ? quote
+                ( fnOfType
+                  (cellLabel, cell => makeFn(val => (cell.val = val, unit))))
+
+            : stringIs(varKey, "cas")
+              ? quote
+                ( fnOfType
+                  ( cellLabel
+                  , cell =>
+                      makeFn
+                      ( oldVal =>
+                          makeFn
+                          ( newVal =>
+                              eq(cell.val, oldVal)
+                              ? (cell.val = newVal, oldVal)
+                              : newVal))))
 
             : varKey.data[0].data == '"'.codePointAt(0)
               ? quote(makeList(varKey.data.slice(1)))
