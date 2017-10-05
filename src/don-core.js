@@ -16,42 +16,54 @@
 ; const
     debug = true
   , log = (...args) => (debug ? console.log(...args) : undefined, _.last(args))
+  , promiseSyncMap
+    = (arrIn, promiseFn) =>
+        _.reduce
+        ( arrIn
+        , (prm, nextIn, idx) =>
+            prm.then
+            ( arrOut =>
+                promiseFn(nextIn).then
+                (newVal => (arrOut[idx] = newVal, Promise.resolve(arrOut))))
+        , Promise.resolve(Array(arrIn.length)))
 
 // Stuff
 
 ; exports = module.exports
 
-; function apply(fn, ...args)
-  { return (
-      _.reduce
-      ( args
-      , (fn, arg) =>
-          { const
-              {type: funLabel, data: funData} = fn
-            , {type: argLabel, data: argData} = arg
-          ; return (
-              funLabel === fnLabel
-              ? funData(arg)
-              : funLabel === listLabel
-                ? argLabel !== intLabel
-                  ? Null("Argument to list must be integer")
-                  : argData < 0 || argData >= funData.length
-                    ? Null("Array index out of bounds")
-                    : funData[argData]
-                : funLabel === quoteLabel
-                  ? funData
-                  : funLabel === callLabel
-                    ? apply
-                      (apply(funData.fnExpr, arg), apply(funData.argExpr, arg))
-                    : funLabel === identLabel
-                      ? apply(arg, fn, arg)
-                      : funLabel === boolLabel
-                        ? funData
-                          ? makeFn(_.constant(arg))
-                          : makeFn(_.identity)
-                        : Null("Tried to apply a non-function"))}
-      , fn))}
+; function apply(fn, arg)
+  { const
+      {type: funLabel, data: funData} = fn
+    , {type: argLabel, data: argData} = arg
+  ; return (
+      funLabel === fnLabel
+      ? funData(arg)
+      : funLabel === listLabel
+        ? argLabel !== intLabel
+          ? Promise.reject("Argument to list must be integer")
+          : argData < 0 || argData >= funData.length
+            ? Promise.reject("Array index out of bounds")
+            : Promise.resolve(funData[argData])
+        : funLabel === quoteLabel
+          ? Promise.resolve(funData)
+          : funLabel === callLabel
+            ? apply(funData.fnExpr, arg).then
+              ( fnVal =>
+                  apply(funData.argExpr, arg).then
+                  (argVal => apply(fnVal, argVal)))
+            : funLabel === identLabel
+              ? apply(arg, fn).then(expr => apply(expr, arg))
+              : funLabel === boolLabel
+                ? Promise.resolve
+                  ( makeFn
+                    ( funData
+                    ? _.constant(Promise.resolve(arg))
+                    : o => Promise.resolve(o)))
+                : Promise.reject("Tried to apply a non-function"))}
 ; exports.apply = apply
+
+; function Continue(cont, arg)
+  {}
 
 ; function mk(label, data) {return {type: label, data: data}}
 
@@ -61,8 +73,9 @@
   { return (
       makeFn
       ( arg =>
-        { if (arg.type !== type) return Null("typed function received garbage")
-        ; return fn(arg.data)}))}
+          arg.type !== type
+          ? Promise.reject("typed function received garbage")
+          : fn(arg.data)))}
 
 ; function makeFn(fn) {return mk(fnLabel, fn)}
 
@@ -90,6 +103,8 @@
 
 ; function makeCell(val) {return mk(cellLabel, {val})}
 
+; function makeCont(fn) {return mk(contLabel, {fn})}
+
 ; function makeMap(args)
   { if (args.length % 2 != 0) return Null("Tried to brace oddity")
   ; const pairs = _.chunk(args, 2)
@@ -103,21 +118,24 @@
               eq(arg, pair[0])
               ? (toReturn = just(pair[1]), false)
               : true)
-        ; return toReturn}))}
+        ; return Promise.resolve(toReturn)}))}
+
+; const objToNsNotFoundStr = "Var not found in ns"
 
 ; function objToNs(o)
   { return (
       fnOfType
       ( identLabel
       , identKey =>
-        { const notFoundStr = "Var not found in ns"
-        ; if (!isString(identKey)) return Null(notFoundStr)
+        { if (!isString(identKey)) return Promise.reject(objToNsNotFoundStr)
         ; const keyStr = strVal(identKey)
         ; return (
             o.hasOwnProperty(keyStr)
-            ? o[keyStr]
-            : Null
-              (notFoundStr + ": " + strVal(toString(makeIdent(identKey)))))}))}
+            ? Promise.resolve(o[keyStr])
+            : Promise.reject
+              ( objToNsNotFoundStr
+              + ": "
+              + strVal(toString(makeIdent(identKey)))))}))}
 
 ; function isString(val)
   { return (
@@ -162,8 +180,7 @@
           && (!val0.data.is || eq(val0.data.val, val1.data.val)))
         || val0.type === resultLabel
            && val0.data.ok === val1.data.ok
-           && eq(val0.data.val, val1.data.val)
-        || val0.type === cellLabel && val0.data === val1.data)}
+           && eq(val0.data.val, val1.data.val))}
 
 ; function parseTreeToAST(pt)
   { const label = pt[0]
@@ -173,7 +190,7 @@
   ; if (label == 'call')
       return (
         data.length === 0
-        ? quote(makeFn(_.identity))
+        ? quote(makeFn(o => Promise.resolve(o)))
         : _.reduce(_.map(data, parseTreeToAST), makeCall))
   ; if (label == 'bracketed')
       return (
@@ -181,16 +198,16 @@
         ( bracketedVar
         , makeFn
           ( env =>
-              makeList
-              (data.map(_.flow(parseTreeToAST, expr => apply(expr, env)))))))
+              promiseSyncMap(data.map(parseTreeToAST), expr => apply(expr, env))
+              .then(makeList))))
   ; if (label == 'braced')
       return (
         makeCall
         ( bracedVar
         , makeFn
           ( env =>
-              makeList
-              (data.map(_.flow(parseTreeToAST, expr => apply(expr, env)))))))
+              promiseSyncMap(data.map(parseTreeToAST), expr => apply(expr, env))
+              .then(makeList))))
   ; if (label === 'heredoc')
       return quote(makeList(data.map(parseTreeToAST)))
 
@@ -250,6 +267,9 @@
 
 ; const cellLabel = {label: 'cell'}
 ; exports.cellLabel = cellLabel
+
+; const contLabel = {label: 'continuation'}
+; exports.contLabel = contLabel
 
 ; const bracketedVarSym = gensym('bracketed-var')
 ; const bracketedVar = makeIdent(bracketedVarSym)
@@ -326,15 +346,15 @@
 
 ; const topEval
   = (ast, rest) =>
-      ( quotedSourceData =>
+      ( promisedQuotedSourceData =>
           apply
           ( ast
           , makeFn
             ( Var =>
                 eq(Var, makeIdent(strToChars('source-data')))
-                ? quotedSourceData
+                ? promisedQuotedSourceData
                 : apply(initEnv, Var))))
-      (quote(strToChars(rest)))
+      (Promise.resolve(quote(strToChars(rest))))
 //let calls = []
 //; while (continuing.length > 0)
 ; exports.topEval = topEval
@@ -419,6 +439,8 @@
         ( strToChars("(make-cell ").data.concat
           (toString(argData.val).data, [strToChar(")")])))
 
+  ; if (argLabel === contLabel) return strToChars("(cont ... )")
+
   ; return Null("->str unknown type:", arg)}
 
 ; const initEnv
@@ -426,11 +448,14 @@
     ( identLabel
     , varKey =>
         varKey.type === symLabel
-        ? varKey === bracketedVarSym ? quote(makeFn(_.identity))
+        ? varKey === bracketedVarSym
+          ? Promise.resolve(quote(makeFn(o => Promise.resolve(o))))
 
-          : varKey === bracedVarSym ? quote(fnOfType(listLabel, makeMap))
+          : varKey === bracedVarSym
+            ? Promise.resolve
+              (quote(fnOfType(listLabel, _.flow(makeMap, o => Promise.resolve(o)))))
 
-          : Null("symbol variable not found in environment")
+            : Promise.reject("symbol variable not found in environment")
 
         : isString(varKey)
 
@@ -618,265 +643,365 @@
   //                                  valObj(strLabel, varParts[0])))}
 
           ? stringIs(varKey, 'fn')
-            ? makeFn
-              ( env =>
-                  makeFn
-                  ( param =>
-                      makeFn
-                      ( body =>
-                          makeFn
-                          ( arg =>
-                              apply
-                              ( body
-                              , makeFn
-                                ( varKey =>
-                                    eq(varKey, param)
-                                    ? quote(arg)
-                                    : apply(env, varKey)))))))
+            ? Promise.resolve
+              ( makeFn
+                ( env =>
+                    Promise.resolve
+                    ( makeFn
+                      ( param =>
+                          Promise.resolve
+                          ( makeFn
+                            ( body =>
+                                Promise.resolve
+                                ( makeFn
+                                  ( arg =>
+                                      apply
+                                      ( body
+                                      , makeFn
+                                        ( varKey =>
+                                            eq(varKey, param)
+                                            ? Promise.resolve(quote(arg))
+                                            : apply(env, varKey)))))))))))
 
             : stringIs(varKey, '+')
-              ? quote
-                ( fnOfType
-                  ( listLabel
-                  , args =>
-                      _.reduce
-                      ( args
-                      , (arg0, arg1) =>
-                        { if (arg1.type !== intLabel) return Null()
-                        ; return makeInt(arg0.data + arg1.data)}
-                      , makeInt(0))))
+              ? Promise.resolve
+                ( quote
+                  ( fnOfType
+                    ( listLabel
+                    , args =>
+                        Promise.resolve().then
+                        ( () =>
+                            Promise.resolve
+                            ( _.reduce
+                              ( args
+                              , (arg0, arg1) =>
+                                {
+                                  if (arg1.type !== intLabel)
+                                    throw (
+                                      strToChars
+                                      ("Additional argument wasn't integral"))
+                                ; return makeInt(arg0.data + arg1.data)}
+                              , makeInt(0)))))))
 
             : stringIs(varKey, '-')
-              ? quote
-                ( fnOfType
-                  ( listLabel
-                  , args =>
-                    { if (args.length === 0) return makeInt(-1)
+              ? Promise.resolve
+                ( quote
+                  ( fnOfType
+                    ( listLabel
+                    , args =>
+                      { if (args.length === 0)
+                          return Promise.resolve(makeInt(-1))
 
-                    ; if (args[0].type !== intLabel) return Null()
-                    ; if (args.length === 1) return makeInt(-args[0].data)
+                      ; if (args[0].type !== intLabel) return Promise.reject()
+                      ; if (args.length === 1)
+                          return Promise.resolve(makeInt(-args[0].data))
 
-                    ; return (
-                        _.reduce
-                        ( args
-                        , (arg0, arg1) =>
-                          { if (arg1.type !== intLabel) return Null()
-                          ; return makeInt(arg0.data - arg1.data)}))}))
+                      ; return (
+                          Promise.resolve().then
+                          ( () =>
+                              Promise.resolve
+                              ( _.reduce
+                                ( args
+                                , (arg0, arg1) =>
+                                  { if (arg1.type !== intLabel)
+                                      throw (
+                                        strToChars
+                                        ( "Subtractional argument wasn't "
+                                          + "integral"))
+                                  ; return (
+                                      makeInt(arg0.data - arg1.data))}))))})))
 
             : stringIs(varKey, '<')
-              ? quote
-                ( fnOfType
-                  ( intLabel
-                  , arg0 =>
-                      fnOfType
-                      ( intLabel
-                      , arg1 => makeBool(arg0 < arg1))))
+              ? Promise.resolve
+                ( quote
+                  ( fnOfType
+                    ( intLabel
+                    , arg0 =>
+                        Promise.resolve
+                        ( fnOfType
+                          ( intLabel
+                          , arg1 => Promise.resolve(makeBool(arg0 < arg1)))))))
 
             : stringIs(varKey, '=')
-              ? quote
-                (makeFn(arg0 => makeFn(arg1 => makeBool(eq(arg0, arg1)))))
+              ? Promise.resolve
+                ( quote
+                  ( makeFn
+                    ( arg0 =>
+                        Promise.resolve
+                        ( makeFn
+                          ( arg1 =>
+                              Promise.resolve(makeBool(eq(arg0, arg1))))))))
 
-            : stringIs(varKey, "env") ? makeFn(_.identity)
+            : stringIs(varKey, "env")
+              ? Promise.resolve(makeFn(o => Promise.resolve(o)))
 
-            : stringIs(varKey, "init-env") ? quote(initEnv)
+            : stringIs(varKey, "init-env") ? Promise.resolve(quote(initEnv))
 
             : stringIs(varKey, "print")
-              ? quote
-                ( makeFn
-                  ( arg =>
-                      ( isString(arg)
-                        ? process.stdout.write(strVal(arg))
-                        : Null('Tried to print nonstring')
-                        , unit)))
+              ? Promise.resolve
+                ( quote
+                  ( makeFn
+                    ( arg =>
+                        isString(arg)
+                        ? ( process.stdout.write(strVal(arg))
+                          , Promise.resolve(unit))
+                        : Promise.reject('Tried to print nonstring'))))
 
             : stringIs(varKey, "say")
-              ? quote
-                ( makeFn
-                  ( _.flow
-                    ( toString
-                    , strVal
-                    , process.stdout.write.bind(process.stdout)
-                    , _.constant(unit))))
+              ? Promise.resolve
+                ( quote
+                  ( makeFn
+                    ( _.flow
+                      ( toString
+                      , strVal
+                      , process.stdout.write.bind(process.stdout)
+                      , _.constant(Promise.resolve(unit))))))
 
-            : stringIs(varKey, "->str") ? quote(makeFn(toString))
+            : stringIs(varKey, "->str")
+              ? Promise.resolve
+                (quote(makeFn(_.flow(toString, o => Promise.resolve(o)))))
 
             : stringIs(varKey, "char->unicode")
-              ? quote(fnOfType(charLabel, makeInt))
+              ? Promise.resolve
+                ( quote
+                  ( fnOfType
+                    (charLabel, _.flow(makeInt, o => Promise.resolve(o)))))
 
             : stringIs(varKey, "unicode->char")
-              ? quote(fnOfType(intLabel, makeChar))
+              ? Promise.resolve
+                ( quote
+                  ( fnOfType
+                    (intLabel, _.flow(makeChar, o => Promise.resolve(o)))))
 
             : stringIs(varKey, "length")
-              ? quote(fnOfType(listLabel, arg => makeInt(arg.length)))
+              ? Promise.resolve
+                ( quote
+                  ( fnOfType
+                    (listLabel, arg => Promise.resolve(makeInt(arg.length)))))
 
             : stringIs(varKey, "->list")
-              ? quote
-                ( fnOfType
-                  ( fnLabel
-                  , fn =>
-                      fnOfType
-                      ( intLabel
-                      , length =>
-                        { if (length < 0) return Null()
+              ? Promise.resolve
+                ( quote
+                  ( fnOfType
+                    ( fnLabel
+                    , fn =>
+                        Promise.resolve
+                        ( fnOfType
+                          ( intLabel
+                          , length =>
+                            { if (length < 0) return Promise.reject()
 
-                        ; const toReturn = []
-                        ; for (let i = 0; i < length; i++)
-                            {toReturn.push(fn(makeInt(i)))}
-                        ; return makeList(toReturn)})))
+                            ; const toReturn = []
+                            ; for (let i = 0; i < length; i++)
+                                toReturn.push(fn(makeInt(i)))
+                            ; return Promise.resolve(makeList(toReturn))})))))
 
-            : stringIs(varKey, "true") ? quote(makeBool(true))
+            : stringIs(varKey, "true") ? Promise.resolve(quote(makeBool(true)))
 
-            : stringIs(varKey, "false") ? quote(makeBool(false))
+            : stringIs(varKey, "false")
+              ? Promise.resolve(quote(makeBool(false)))
 
-            : stringIs(varKey, "unit") ? quote(unit)
+            : stringIs(varKey, "unit") ? Promise.resolve(quote(unit))
 
             : stringIs(varKey, "read-file")
-              ? quote
-                ( makeFn
-                  ( arg =>
-                      isString(arg)
-                      ? strToChars(readFile(strVal(arg)))
-                      : Null('Tried to read-file of nonstring')))
+              ? Promise.resolve
+                ( quote
+                  ( makeFn
+                    ( arg =>
+                        isString(arg)
+                        ? Promise.resolve(strToChars(readFile(strVal(arg))))
+                        : Promise.reject('Tried to read-file of nonstring'))))
 
             : stringIs(varKey, "parse-prog")
-              ? quote
-                ( makeFn
-                  ( arg =>
-                      isString(arg)
-                      ? ( parsed =>
-                            parsed.success
-                            ? okResult
-                              ( objToNs
-                                ( { "expr": quote(parsed.ast)
-                                  , "rest": quote(strToChars(parsed.rest))}))
-                            : errResult
-                              ( makeFn
-                                ( _.flow
-                                  (strVal, parsed.error, strToChars))))
-                        (parseFile(strVal(arg)))
-                      : Null('Tried to parse nonstring')))
+              ? Promise.resolve
+                ( quote
+                  ( makeFn
+                    ( arg =>
+                        isString(arg)
+                        ? Promise.resolve
+                          ( ( parsed =>
+                                parsed.success
+                                ? okResult
+                                  ( objToNs
+                                    ( { "expr": quote(parsed.ast)
+                                      , "rest": quote(strToChars(parsed.rest))}))
+                                : errResult
+                                  ( makeFn
+                                    ( _.flow
+                                      (strVal, parsed.error, strToChars))))
+                            (parseFile(strVal(arg))))
+                        : Promise.reject('Tried to parse nonstring'))))
 
             : stringIs(varKey, "eval-file")
-              ? quote
-                ( makeFn
-                  ( arg =>
-                      isString(arg)
-                      ? ( parsed =>
-                            parsed.success
-                            ? topEval(parsed.ast, parsed.rest)
-                            : Null(parsed.error(strVal(arg))))
-                        (parseFile(readFile(strVal(arg))))
-                      : Null('Tried to eval-file of nonstring')))
+              ? Promise.resolve
+                ( quote
+                  ( makeFn
+                    ( arg =>
+                        isString(arg)
+                        ? ( parsed =>
+                              parsed.success
+                              ? topEval(parsed.ast, parsed.rest)
+                              : Promise.reject(parsed.error(strVal(arg))))
+                          (parseFile(readFile(strVal(arg))))
+                        : Promise.reject('Tried to eval-file of nonstring'))))
 
-            : stringIs(varKey, "q") ? quote(makeFn(quote))
+            : stringIs(varKey, "q")
+              ? Promise.resolve
+                (quote(makeFn(_.flow(quote, o => Promise.resolve(o)))))
 
             : stringIs(varKey, "make-call")
-              ? quote
-                ( makeFn
-                  (fnExpr => makeFn(argExpr => makeCall(fnExpr, argExpr))))
+              ? Promise.resolve
+                ( quote
+                  ( makeFn
+                    ( fnExpr =>
+                        Promise.resolve
+                        ( makeFn
+                          ( argExpr =>
+                              Promise.resolve(makeCall(fnExpr, argExpr)))))))
 
             : stringIs(varKey, "call-fn-expr")
-              ? quote(fnOfType(callLabel, ({fnExpr}) => fnExpr))
+              ? Promise.resolve
+                ( quote
+                  (fnOfType(callLabel, ({fnExpr}) => Promise.resolve(fnExpr))))
 
             : stringIs(varKey, "call-arg-expr")
-              ? quote(fnOfType(callLabel, ({argExpr}) => argExpr))
+              ? Promise.resolve
+                ( quote
+                  ( fnOfType
+                    (callLabel, ({argExpr}) => Promise.resolve(argExpr))))
 
-            : stringIs(varKey, "make-ident") ? quote(makeFn(makeIdent))
+            : stringIs(varKey, "make-ident")
+              ? Promise.resolve
+                (quote(makeFn(_.flow(makeIdent, o => Promise.resolve(o)))))
 
             : stringIs(varKey, "ident-key")
-              ? quote(fnOfType(identLabel, _.identity))
+              ? Promise.resolve
+                ( quote
+                  (fnOfType(identLabel, o => Promise.resolve(o))))
 
             : stringIs(varKey, "error")
-              ? quote
-                ( makeFn
-                  ( msgStr =>
-                      Null
-                      ( isString(msgStr)
-                        ? strVal(msgStr)
-                        : "Error message wasn't stringy enough")))
+              ? Promise.resolve
+                ( quote
+                  ( makeFn
+                    ( msgStr =>
+                        Promise.reject
+                        ( isString(msgStr)
+                          ? strVal(msgStr)
+                          : "Error message wasn't stringy enough"))))
 
-            : stringIs(varKey, "bracketed-var") ? quote(bracketedVar)
+            : stringIs(varKey, "bracketed-var")
+              ? Promise.resolve(quote(bracketedVar))
 
-            : stringIs(varKey, "braced-var") ? quote(bracedVar)
+            : stringIs(varKey, "braced-var") ? Promise.resolve(quote(bracedVar))
 
-            : stringIs(varKey, "just") ? quote(makeFn(just))
+            : stringIs(varKey, "just")
+              ? Promise.resolve
+                (quote(makeFn(_.flow(just, o => Promise.resolve(o)))))
 
-            : stringIs(varKey, "nothing") ? quote(nothing)
+            : stringIs(varKey, "nothing") ? Promise.resolve(quote(nothing))
 
             : stringIs(varKey, "justp")
-              ? quote(fnOfType(maybeLabel, arg => makeBool(arg.is)))
+              ? Promise.resolve
+                ( quote
+                  ( fnOfType
+                    (maybeLabel, arg => Promise.resolve(makeBool(arg.is)))))
 
             : stringIs(varKey, "unjust")
-              ? quote
-                ( fnOfType
-                  ( maybeLabel
-                  , arg => arg.is ? arg.val : Null("Nothing was unjustified")))
+              ? Promise.resolve
+                ( quote
+                  ( fnOfType
+                    ( maybeLabel
+                    , arg =>
+                        arg.is
+                        ? Promise.resolve(arg.val)
+                        : Promise.reject("Nothing was unjustified"))))
 
-            : stringIs(varKey, "ok") ? quote(makeFn(okResult))
+            : stringIs(varKey, "ok")
+              ? Promise.resolve
+                (quote(makeFn(_.flow(okResult, o => Promise.resolve(o)))))
 
-            : stringIs(varKey, "err") ? quote(makeFn(errResult))
+            : stringIs(varKey, "err")
+              ? Promise.resolve
+                (quote(makeFn(_.flow(errResult, o => Promise.resolve(o)))))
 
             : stringIs(varKey, "okp")
-              ? quote(fnOfType(resultLabel, arg => makeBool(arg.ok)))
+              ? Promise.resolve
+                ( quote
+                  ( fnOfType
+                    (resultLabel, arg => Promise.resolve(makeBool(arg.ok)))))
 
             : stringIs(varKey, "unok")
-              ? quote
-                ( fnOfType
-                  ( resultLabel
-                  , arg =>
-                      arg.ok
-                      ? arg.val
-                      : Null
-                        ( isString(arg.val)
-                          ? "Err: " + strVal(arg.val)
-                          : "Result was not ok")))
+              ? Promise.resolve
+                ( quote
+                  ( fnOfType
+                    ( resultLabel
+                    , arg =>
+                        arg.ok
+                        ? Promise.resolve(arg.val)
+                        : Promise.reject
+                          ( isString(arg.val)
+                            ? "Err: " + strVal(arg.val)
+                            : "Result was not ok"))))
 
             : stringIs(varKey, "unerr")
-              ? quote
-                ( fnOfType
-                  ( resultLabel
-                  , arg =>
-                      arg.ok
-                      ? Null
-                        ( isString(arg.val)
-                          ? "Ok: " + strVal(arg.val)
-                          : "Result was ok")
-                      : arg.val))
+              ? Promise.resolve
+                ( quote
+                  ( fnOfType
+                    ( resultLabel
+                    , arg =>
+                        arg.ok
+                        ? Promise.reject
+                          ( isString(arg.val)
+                            ? "Ok: " + strVal(arg.val)
+                            : "Result was ok")
+                        : Promise.resolve(arg.val))))
 
-            : stringIs(varKey, "make-cell") ? quote(makeFn(makeCell))
+            : stringIs(varKey, "make-cell")
+              ? Promise.resolve
+                (quote(makeFn(_.flow(makeCell, o => Promise.resolve(o)))))
 
             : stringIs(varKey, "cell-val")
-              ? quote(fnOfType(cellLabel, ({val}) => val))
+              ? Promise.resolve
+                (quote(fnOfType(cellLabel, ({val}) => Promise.resolve(val))))
 
             : stringIs(varKey, "set")
-              ? quote
-                ( fnOfType
-                  (cellLabel, cell => makeFn(val => (cell.val = val, unit))))
+              ? Promise.resolve
+                ( quote
+                  ( fnOfType
+                    ( cellLabel
+                    , cell =>
+                        Promise.resolve
+                        ( makeFn
+                          (val => (cell.val = val, Promise.resolve(unit)))))))
 
             : stringIs(varKey, "cas")
-              ? quote
-                ( fnOfType
-                  ( cellLabel
-                  , cell =>
-                      makeFn
-                      ( oldVal =>
-                          makeFn
-                          ( newVal =>
-                              eq(cell.val, oldVal)
-                              ? (cell.val = newVal, oldVal)
-                              : newVal))))
+              ? Promise.resolve
+                ( quote
+                  ( fnOfType
+                    ( cellLabel
+                    , cell =>
+                        Promise.resolve
+                        ( makeFn
+                          ( oldVal =>
+                              Promise.resolve
+                              ( makeFn
+                                ( newVal =>
+                                    Promise.resolve
+                                    ( eq(cell.val, oldVal)
+                                      ? (cell.val = newVal, oldVal)
+                                      : newVal))))))))
 
             : varKey.data[0].data == '"'.codePointAt(0)
-              ? quote(makeList(varKey.data.slice(1)))
+              ? Promise.resolve(quote(makeList(varKey.data.slice(1))))
 
             : (varStr =>
                 /^(\-|\+)?[0-9]+$/.test(varStr)
-                ? quote(makeInt(parseInt(varStr, 10)))
-                : Null
+                ? Promise.resolve(quote(makeInt(parseInt(varStr, 10))))
+                : Promise.reject
                   ( 'string variable not found in environment: "'
                     + strVal(varKey)))
               (strVal(varKey))
-        : Null("unknown variable: " + strVal(toString(varKey))))
+        : Promise.reject("unknown variable: " + strVal(toString(varKey))))
 ; exports.initEnv = initEnv
 
 ; Error.stackTraceLimit = Infinity

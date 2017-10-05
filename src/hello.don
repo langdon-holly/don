@@ -1,54 +1,9 @@
 #!/usr/bin/env don
 
-(fn "ce
-  " [ \say ce
-      \say \cell-val ce
-      \say (cas ce 5 3 )
-      \say \cell-val ce
-      \say (= ce ce )
-      \say (= ce \make-cell 3 )
-      \say \cell-val ce
-      \say (set ce 4 )
-      \say \cell-val ce
-      \say ce ]
-  \make-cell 5 )
-
 \"(unok \parse-prog-expr source-data env )(eval-file |"std-env.don|env )
 
 \print source-data
 
 \)
 
-\ print
-  (fn "Z
-    "(fn "*
-       "(Z
-          (fn "!
-            "(fn "n
-               "(eval
-                  (= n 0
-                    "1
-                    "(* n \!\-[n 1]))
-                  env)))
-          5)
-       (fn "x
-         "\ Z
-            (fn "*x
-              "(fn "y
-                 "(eval
-                    (= y 0
-                      "0
-                      "\ +
-                         [ x
-                           \*x\-[y 1]])
-                    env)))))
-    (fn "f
-      "(fn "x
-         "\ f
-            (fn "v
-              "(x x v))
-         (fn "x
-           "\ f
-              (fn "v
-                "(x x v))))))
-
+HELO

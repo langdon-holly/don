@@ -6,6 +6,7 @@
 
 ; const
     fs = require('fs')
+  , util = require('util')
 
   , program = require('commander')
   , red = require('chalk').red
@@ -27,7 +28,10 @@
     ; const parsed = don.parse(data)
 
     ; if (parsed.success)
-        don.topEval(parsed.ast, parsed.rest)
-        , process.exit(0)
-    ; else console.error(red(parsed.error(hasFileArg ? program.args[0] : "STDIN"))), process.exit(2)})
+        don.topEval(parsed.ast, parsed.rest).then
+        ( () => process.exit(0)
+        , e => (console.error(red(util.format(e))), process.exit(1)))
+    ; else
+        console.error(red(parsed.error(hasFileArg ? program.args[0] : "STDIN")))
+        , process.exit(2)})
 
