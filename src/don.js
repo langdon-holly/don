@@ -28,9 +28,14 @@
     ; const parsed = don.parse(data)
 
     ; if (parsed.success)
-        don.topEval(parsed.ast, parsed.rest).then
-        ( () => process.exit(0)
-        , e => (console.error(red(util.format(e))), process.exit(1)))
+        don.topApply
+        ( don.bindRest(parsed.ast, parsed.rest)
+        , don.initEnv
+        , don.makeCont(() => process.exit(0))
+        , don.makeCont
+          ( e =>
+              ( console.error(red(don.strVal(don.toString(e))))
+              , process.exit(1))))
     ; else
         console.error(red(parsed.error(hasFileArg ? program.args[0] : "STDIN")))
         , process.exit(2)})

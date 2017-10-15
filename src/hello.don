@@ -2,6 +2,8 @@
 
 \"(unok \parse-prog-expr source-data env )(eval-file |"std-env.don|env )
 
+(error 0 )
+
 \print source-data
 
 \)
