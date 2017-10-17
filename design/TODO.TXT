@@ -1,5 +1,4 @@
 * better syntax-error message
-* continuations
 * concurrency
 * configurable pareneds
 * object-orientation

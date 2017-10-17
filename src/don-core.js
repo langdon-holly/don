@@ -585,14 +585,15 @@ exports.strVal = strVal
   ; return Null("->str unknown type:", arg)}
 ; exports.toString = toString
 
-; const makeContOns
-  = makeCont
-    ( res =>
-        res.type !== listLabel
-        ? Null("cont body must return list")
-        : res.data.length !== 2
-          ? Null("cont body must return doubleton list")
-          : {cont: res.data[0], arg: res.data[1]})
+; const makeContOnOk
+  = cont =>
+      makeCont
+      ( res =>
+          res.type !== listLabel
+          ? {cont, arg: strToChars("cont body must return list")}
+          : res.data.length !== 2
+            ? {cont, arg: strToChars("cont body must return doubleton list")}
+            : {cont: res.data[0], arg: res.data[1]})
 
 ; const initEnv
   = fnOfType
@@ -814,34 +815,51 @@ exports.strVal = strVal
                                                                 , arg
                                                                   : varKey})}))}))}))}))}
 
-            //: stringIs(varKey, 'make-cont')
-            //  ? { val
-            //      : makeFun
-            //        ( env =>
-            //            ( { val
-            //                : makeFun
-            //                  ( param =>
-            //                      ( { val
-            //                          : makeFun
-            //                            ( body =>
-            //                                ( { val
-            //                                    : makeCont
-            //                                      ( arg =>
-            //                                          ( { cont: body
-            //                                            , arg
-            //                                              : makeList
-            //                                                ( [ makeFun
-            //                                                    ( varKey =>
-            //                                                        eq
-            //                                                        (varKey, param)
-            //                                                        ? { val
-            //                                                            : quote
-            //                                                              (arg)}
-            //                                                        : { fn: env
-            //                                                          , arg
-            //                                                            : varKey})
-            //                                                  , makeContOns
-            //                                                  , makeContOns])}))}))}))}))}
+            : stringIs(varKey, 'continue')
+              ? { val
+                  : quote
+                    (makeFun(cont => ({val: makeFun(arg => ({cont, arg}))})))}
+
+            : stringIs(varKey, 'call/cc')
+              ? {val: quote(makeFun((fn, arg) => ({fn, arg})))}
+
+            : stringIs(varKey, 'call/onerr')
+              ? {val: quote(makeFun((...[fn,, arg]) => ({fn, arg})))}
+
+            : stringIs(varKey, 'make-cont')
+              ? { val
+                  : makeFun
+                    ( env =>
+                        ( { val
+                            : makeFun
+                              ( onErr =>
+                                  ( { val
+                                      : makeFun
+                                        ( param =>
+                                            ( { val
+                                                : makeFun
+                                                  ( body =>
+                                                      ( { val
+                                                          : makeCont
+                                                            ( arg =>
+                                                                ( { cont: body
+                                                                  , arg
+                                                                    : makeList
+                                                                      ( [ makeFun
+                                                                          ( varKey =>
+                                                                              eq
+                                                                              ( varKey
+                                                                              , param)
+                                                                              ? { val
+                                                                                  : quote
+                                                                                    (arg)}
+                                                                              : { fn
+                                                                                  : env
+                                                                                , arg
+                                                                                  : varKey})
+                                                                        , makeContOnOk
+                                                                          (onErr)
+                                                                        , onErr])}))}))}))}))}))}
 
             : stringIs(varKey, '+')
               ? { val

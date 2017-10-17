@@ -1,5 +1,9 @@
 source-data 
 (fn param body arg )
+(continue on-err-cont arg )
+(call/cc fn )
+(call/onerr fn )
+(make-cont cont param body )
 (+ array-of-ints )
 (- array-of-ints )
 (< int0 int1 )
