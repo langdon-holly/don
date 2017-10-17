@@ -2,9 +2,9 @@
 
 \"(unok \parse-prog-expr source-data env )(eval-file |"std-env.don|env )
 
-(error 0 )
+(say [({"0 4 } "0 )["hi ]])
 
-\print source-data
+;\print ((make-cont "a "[(a 1 )|"ok|])9 )
 
 \)
 

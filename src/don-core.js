@@ -57,7 +57,7 @@
                 , idx =>
                     idx < 0 || idx >= contData.length
                     ? {ok: false, val: strToChars("Array index out of bounds")}
-                    : {val: contData[argData]})
+                    : {val: contData[idx]})
             , arg}
           : contType === quoteLabel
             ? {cont: makeFun(_.constant({val: contData})), arg}
@@ -107,7 +107,7 @@
       makeFun
       ( (arg, ...ons) =>
           arg.type !== type
-          ? {ok: false, val: "typed function received garbage"}
+          ? {ok: false, val: strToChars("typed function received garbage")}
           : fn(arg.data, ...ons)))}
 
 ; const
@@ -184,23 +184,6 @@
 
 ; function makeCont(fn) {return mk(contLabel, fn)}
 ; exports.makeCont = makeCont
-
-; function makeMap(args)
-  { if (args.length % 2 != 0)
-      return {ok: false, val: strToChars("Tried to brace oddity")}
-  ; const pairs = _.chunk(args, 2)
-  ; return (
-      { val
-        : makeFun
-          ( arg =>
-            { let toReturn = nothing
-            ; _.forEach
-              ( pairs
-              , pair =>
-                  eq(arg, pair[0])
-                  ? (toReturn = just(pair[1]), false)
-                  : true)
-            ; return {val: toReturn}})})}
 
 ; const objToNsNotFoundStr = "Var not found in ns"
 
@@ -283,21 +266,33 @@ exports.strVal = strVal
         makeCall
         ( bracketedVar
         , makeFun
-          ( (...args) =>
+          ( env =>
               ( { fn: syncMap
                 , arg: makeList(data.map(parseTreeToAST))
-                , onOk
-                  : makeCont(expr => ({cont: expr, arg: makeList(args)}))}))))
+                , okThen
+                  : { fn
+                      : makeFun
+                        ( soFar =>
+                            ( { fn: soFar
+                              , arg
+                                : makeFun
+                                  (expr => ({fn: expr, arg: env}))}))}}))))
   ; if (label == 'braced')
       return (
         makeCall
         ( bracedVar
         , makeFun
-          ( (...args) =>
+          ( env =>
               ( { fn: syncMap
                 , arg: makeList(data.map(parseTreeToAST))
-                , onOk
-                  : makeCont(expr => ({cont: expr, arg: makeList(args)}))}))))
+                , okThen
+                  : { fn
+                      : makeFun
+                        ( soFar =>
+                            ( { fn: soFar
+                              , arg
+                                : makeFun
+                                  (expr => ({fn: expr, arg: env}))}))}}))))
   ; if (label === 'heredoc')
       return quote(makeList(data.map(parseTreeToAST)))
 
@@ -376,6 +371,26 @@ exports.strVal = strVal
 ; const nothing = mk(maybeLabel, {is: false})
 
 ; const I = makeFun(val => ({val}))
+
+; const makeMap
+    = fnOfType
+      ( listLabel
+      , args =>
+        { if (args.length % 2 != 0)
+            return {ok: false, val: strToChars("Tried to brace oddity")}
+        ; const pairs = _.chunk(args, 2)
+        ; return (
+            { val
+              : makeFun
+                ( arg =>
+                  { let toReturn = nothing
+                  ; _.forEach
+                    ( pairs
+                    , pair =>
+                        eq(arg, pair[0])
+                        ? (toReturn = just(pair[1]), false)
+                        : true)
+                  ; return {val: toReturn}})})})
 
 ; const
     syncMap
@@ -570,6 +585,15 @@ exports.strVal = strVal
   ; return Null("->str unknown type:", arg)}
 ; exports.toString = toString
 
+; const makeContOns
+  = makeCont
+    ( res =>
+        res.type !== listLabel
+        ? Null("cont body must return list")
+        : res.data.length !== 2
+          ? Null("cont body must return doubleton list")
+          : {cont: res.data[0], arg: res.data[1]})
+
 ; const initEnv
   = fnOfType
     ( identLabel
@@ -577,11 +601,7 @@ exports.strVal = strVal
         varKey.type === symLabel
         ? varKey === bracketedVarSym ? {val: quote(I)}
 
-          : varKey === bracedVarSym
-            ? { val
-                : quote
-                  ( fnOfType
-                    (listLabel, _.flow(makeMap, val => ({val}))))}
+          : varKey === bracedVarSym ? {val: quote(makeMap)}
 
             : { ok: false
               , val: strToChars("symbol variable not found in environment")}
@@ -793,6 +813,35 @@ exports.strVal = strVal
                                                               : { fn: env
                                                                 , arg
                                                                   : varKey})}))}))}))}))}
+
+            //: stringIs(varKey, 'make-cont')
+            //  ? { val
+            //      : makeFun
+            //        ( env =>
+            //            ( { val
+            //                : makeFun
+            //                  ( param =>
+            //                      ( { val
+            //                          : makeFun
+            //                            ( body =>
+            //                                ( { val
+            //                                    : makeCont
+            //                                      ( arg =>
+            //                                          ( { cont: body
+            //                                            , arg
+            //                                              : makeList
+            //                                                ( [ makeFun
+            //                                                    ( varKey =>
+            //                                                        eq
+            //                                                        (varKey, param)
+            //                                                        ? { val
+            //                                                            : quote
+            //                                                              (arg)}
+            //                                                        : { fn: env
+            //                                                          , arg
+            //                                                            : varKey})
+            //                                                  , makeContOns
+            //                                                  , makeContOns])}))}))}))}))}
 
             : stringIs(varKey, '+')
               ? { val
