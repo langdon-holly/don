@@ -1,13 +1,17 @@
 (fn "parse-prog-expr
   " (fn "Z
-      " (fn "this-env
-          " (fn "new-env
-              " (fn "var
-                  " (= var "parse-prog-expr true (= var "Z )
-                      "\this-env var
-                      "\new-env var
-                      env )))
-          env )
+      " (fn "error
+          " (fn "this-env
+              " (fn "new-env
+                  " (fn "var
+                      " (= var "parse-prog-expr true
+                          (= var "Z true (= var "error ))
+                          "\this-env var
+                          "\new-env var
+                          env )))
+              env )
+          ( call/onerr
+            (fn "throw "(make-cont throw "err "(continue (err 2 )(err 0 ))))))
       (fn "f
         " (fn "x
             " \f

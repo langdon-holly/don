@@ -2,9 +2,9 @@
 
 \"(unok \parse-prog-expr source-data env )(eval-file |"std-env.don|env )
 
-;\say \call/onerr (fn "return "(continue return 5 ))
-
-\say \call/cc (fn "throw "((make-cont throw "a "[|"extra|(a 1 )|"ok|])9 ))
+\say
+  [ \say \\->list \\fn "a "\+ [a 2 ]3
+    \error 2 ]
 
 \)
 

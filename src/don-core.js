@@ -353,7 +353,7 @@ exports.strVal = strVal
 ; const cellLabel = {label: 'cell'}
 ; exports.cellLabel = cellLabel
 
-; const contLabel = {label: 'continuation'}
+; const contLabel = {label: 'cont'}
 ; exports.contLabel = contLabel
 
 ; const bracketedVarSym = gensym('bracketed-var')
@@ -409,7 +409,8 @@ exports.strVal = strVal
                               , okThen
                                 : { fn
                                     : makeFun
-                                      (newVal => (arrOut[idx] = newVal, doNext))}})
+                                      ( newVal =>
+                                          (arrOut[idx] = newVal, doNext))}})
                         , {val: makeList(arrOut)}))
                     (Array(arrIn.length)))}))
 
@@ -973,19 +974,25 @@ exports.strVal = strVal
             : stringIs(varKey, "->list")
               ? { val
                   : quote
-                    ( fnOfType
-                      ( fnLabel
-                      , fn =>
+                    ( makeFun
+                      ( arg =>
                           ( { val
                               : fnOfType
                                 ( intLabel
                                 , length =>
-                                    { if (length < 0) return {ok: false}
-
-                                    ; const toReturn = []
-                                    ; for (let i = 0; i < length; i++)
-                                        toReturn.push(fn(makeInt(i)))
-                                    ; return {val: makeList(toReturn)}})})))}
+                                    length < 0
+                                    ? { ok: false
+                                      , val
+                                        : strToChars
+                                          ( "Lists must be nonnegative in "
+                                            + "length")}
+                                    : { fn: syncMap
+                                      , arg
+                                        : makeList(_.range(length).map(makeInt))
+                                      , okThen
+                                        : { fn
+                                            : makeFun
+                                              (fn => ({fn, arg}))}})})))}
 
             : stringIs(varKey, "true") ? {val: quote(makeBool(true))}
 
@@ -1073,8 +1080,8 @@ exports.strVal = strVal
             : stringIs(varKey, "ident-key")
               ? {val: quote(fnOfType(identLabel, val => ({val})))}
 
-            : stringIs(varKey, "error")
-              ? {val: quote(makeFun(msg => ({ok: false, val: msg})))}
+            //: stringIs(varKey, "error")
+            //  ? {val: quote(makeFun(msg => ({ok: false, val: msg})))}
 
             : stringIs(varKey, "bracketed-var") ? {val: quote(bracketedVar)}
 
