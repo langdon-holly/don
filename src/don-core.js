@@ -255,20 +255,22 @@ exports.strVal = strVal
   { const label = pt[0]
   ; const data = pt[1]
 
-  ; if (label == 'char') return quote(makeChar(data))
-  ; if (label == 'call')
+  ; if (label === 'char') return quote(makeChar(data))
+  ; if (label === 'call')
       return (
         data.length === 0
         ? quote(I)
         : _.reduce(_.map(data, parseTreeToAST), makeCall))
-  ; if (label == 'bracketed')
+  ; if (label === 'delimited')
       return (
         makeCall
-        ( bracketedVar
+        ( makeCall
+          ( makeCall(delimitedVar, quote(strToChar(data[0])))
+          , quote(strToChar(data[2])))
         , makeFun
           ( env =>
               ( { fn: syncMap
-                , arg: makeList(data.map(parseTreeToAST))
+                , arg: makeList(data[1].map(parseTreeToAST))
                 , okThen
                   : { fn
                       : makeFun
@@ -277,22 +279,38 @@ exports.strVal = strVal
                               , arg
                                 : makeFun
                                   (expr => ({fn: expr, arg: env}))}))}}))))
-  ; if (label == 'braced')
-      return (
-        makeCall
-        ( bracedVar
-        , makeFun
-          ( env =>
-              ( { fn: syncMap
-                , arg: makeList(data.map(parseTreeToAST))
-                , okThen
-                  : { fn
-                      : makeFun
-                        ( soFar =>
-                            ( { fn: soFar
-                              , arg
-                                : makeFun
-                                  (expr => ({fn: expr, arg: env}))}))}}))))
+  //; if (label === 'bracketed')
+  //    return (
+  //      makeCall
+  //      ( bracketedVar
+  //      , makeFun
+  //        ( env =>
+  //            ( { fn: syncMap
+  //              , arg: makeList(data.map(parseTreeToAST))
+  //              , okThen
+  //                : { fn
+  //                    : makeFun
+  //                      ( soFar =>
+  //                          ( { fn: soFar
+  //                            , arg
+  //                              : makeFun
+  //                                (expr => ({fn: expr, arg: env}))}))}}))))
+  //; if (label === 'braced')
+  //    return (
+  //      makeCall
+  //      ( bracedVar
+  //      , makeFun
+  //        ( env =>
+  //            ( { fn: syncMap
+  //              , arg: makeList(data.map(parseTreeToAST))
+  //              , okThen
+  //                : { fn
+  //                    : makeFun
+  //                      ( soFar =>
+  //                          ( { fn: soFar
+  //                            , arg
+  //                              : makeFun
+  //                                (expr => ({fn: expr, arg: env}))}))}}))))
   ; if (label === 'heredoc')
       return quote(makeList(data.map(parseTreeToAST)))
 
@@ -356,13 +374,17 @@ exports.strVal = strVal
 ; const contLabel = {label: 'cont'}
 ; exports.contLabel = contLabel
 
-; const bracketedVarSym = gensym('bracketed-var')
-; const bracketedVar = makeIdent(bracketedVarSym)
-; exports.bracketedVar = bracketedVar
+//; const bracketedVarSym = gensym('bracketed-var')
+//; const bracketedVar = makeIdent(bracketedVarSym)
+//; exports.bracketedVar = bracketedVar
+//
+//; const bracedVarSym = gensym('braced-var')
+//; const bracedVar = makeIdent(bracedVarSym)
+//; exports.bracedVar = bracedVar
 
-; const bracedVarSym = gensym('braced-var')
-; const bracedVar = makeIdent(bracedVarSym)
-; exports.bracedVar = bracedVar
+; const delimitedVarSym = gensym('delimited-var')
+; const delimitedVar = makeIdent(delimitedVarSym)
+; exports.delimitedVar = delimitedVar
 
 ; const Null
   = (...args) => {throw new Error("Null: " + util.format(...args))}
@@ -596,17 +618,59 @@ exports.strVal = strVal
             ? {cont, arg: strToChars("cont body must return doubleton list")}
             : {cont: res.data[0], arg: res.data[1]})
 
+; const
+    [lParen, rParen, lBracket, rBracket, lBrace, rBrace]
+    = Array.from('()[]{}').map(strToChar)
+
 ; const initEnv
   = fnOfType
     ( identLabel
     , varKey =>
         varKey.type === symLabel
-        ? varKey === bracketedVarSym ? {val: quote(I)}
+        ? //varKey === bracketedVarSym ? {val: quote(I)}
 
-          : varKey === bracedVarSym ? {val: quote(makeMap)}
+          //: varKey === bracedVarSym ? {val: quote(makeMap)}
 
-            : { ok: false
-              , val: strToChars("symbol variable not found in environment")}
+          varKey === delimitedVarSym
+          ? { val
+              : quote
+                ( makeFun
+                  ( begin =>
+                      ( { val
+                          : makeFun
+                            ( end =>
+                                eq(begin, lParen) && eq(end, rParen)
+                                ? { val
+                                    : fnOfType
+                                      ( listLabel
+                                        , (elems, onOk, onErr) =>
+                                            elems.length === 0
+                                            ? {val: I}
+                                            : { cont
+                                                : _.reduceRight
+                                                  ( _.tail(elems)
+                                                  , (onOk, arg) =>
+                                                      makeCont
+                                                      ( cont =>
+                                                          ( { cont
+                                                            , arg
+                                                              : makeList
+                                                                ( [ arg
+                                                                  , onOk
+                                                                  , onErr])}))
+                                                  , onOk)
+                                              , arg: elems[0]})}
+                                : eq(begin, lBracket) && eq(end, rBracket)
+                                  ? {val: I}
+                                : eq(begin, lBrace) && eq(end, rBrace)
+                                  ? {val: makeMap}
+                                : { ok: false
+                                  , val
+                                    : strToChars
+                                      ("Unspecified delimited action")})})))}
+
+          : { ok: false
+            , val: strToChars("Symbol variable not found in environment")}
 
         : isString(varKey)
 
@@ -1083,9 +1147,11 @@ exports.strVal = strVal
             //: stringIs(varKey, "error")
             //  ? {val: quote(makeFun(msg => ({ok: false, val: msg})))}
 
-            : stringIs(varKey, "bracketed-var") ? {val: quote(bracketedVar)}
+            //: stringIs(varKey, "bracketed-var") ? {val: quote(bracketedVar)}
 
-            : stringIs(varKey, "braced-var") ? {val: quote(bracedVar)}
+            //: stringIs(varKey, "braced-var") ? {val: quote(bracedVar)}
+
+            : stringIs(varKey, "delimited-var") ? {val: quote(delimitedVar)}
 
             : stringIs(varKey, "just")
               ? {val: quote(makeFun(_.flow(just, val => ({val}))))}

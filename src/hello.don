@@ -2,9 +2,7 @@
 
 \"(unok \parse-prog-expr source-data env )(eval-file |"std-env.don|env )
 
-\say
-  [ \say \\->list \\fn "a "\+ [a 2 ]3
-    \error 2 ]
+(say [({2 3 }2 )({3 2 }2 )(fn delimited-var "([)(]}(fn 0 "(fn 0 "())))])
 
 \)
 

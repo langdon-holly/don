@@ -111,29 +111,40 @@
 ; function listContents()
   {return ps.around(ows(), ps.sepBy(expr(), ows()), ows())}
 
-; function parenCall()
-  { return (
-      ps.name
-      ( ps.map
-        ( ps.around(ps.string("("), listContents(), ps.string(")"))
-        , pt => ['call', pt])
-      , "paren-list"))}
+//; function parenCall()
+//  { return (
+//      ps.name
+//      ( ps.map
+//        ( ps.around(ps.string("("), listContents(), ps.string(")"))
+//        , pt => ['call', pt])
+//      , "paren-list"))}
+//
+//; function list()
+//  { return (
+//      ps.name
+//      ( ps.map
+//        ( ps.around(ps.string("["), listContents(), ps.string("]"))
+//        , pt => ['bracketed', pt])
+//      , "bracket-list"))}
+//
+//; function braced()
+//  { return (
+//      ps.name
+//      ( ps.map
+//        ( ps.around(ps.string("{"), listContents(), ps.string("}"))
+//        , pt => ['braced', pt])
+//      , "brace-list"))}
 
-; function list()
+; function delimited()
   { return (
       ps.name
       ( ps.map
-        ( ps.around(ps.string("["), listContents(), ps.string("]"))
-        , pt => ['bracketed', pt])
-      , "bracket-list"))}
-
-; function braced()
-  { return (
-      ps.name
-      ( ps.map
-        ( ps.around(ps.string("{"), listContents(), ps.string("}"))
-        , pt => ['braced', pt])
-      , "brace-list"))}
+        ( ps.seq
+          ( [ ps.or([ps.string("("), ps.string("["), ps.string("{")])
+            , listContents()
+            , ps.or([ps.string(")"), ps.string("]"), ps.string("}")])])
+        , pt => ['delimited', pt])
+      , "delimited-list"))}
 
 ; function quote()
   { return (
@@ -150,11 +161,12 @@
           : elem =>
               ps.parseElem
               ( ps.or
-                ( [ parenCall()
-                  , list()
+                ( [ delimited()
+                  //, parenCall()
+                  //, list()
                   , name()
                   , call()
-                  , braced()
+                  //, braced()
                   , ident
                   , heredoc
                   , quote()
