@@ -1,5 +1,4 @@
 * better syntax-error message
 * concurrency
-* configurable pareneds
 * object-orientation
 
