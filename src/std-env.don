@@ -6,35 +6,31 @@
                   " (fn "var
                       " (= var "parse-prog-expr true
                           (= var "Z true (= var "error ))
-                          "\this-env var
-                          "\new-env var
+                          "(this-env var )
+                          "(new-env var )
                           env )))
               env )
           ( call/onerr
             (fn "throw "(make-cont throw "err "(continue (err 2 )(err 0 ))))))
       (fn "f
         " (fn "x
-            " \f
-                (fn "v
-                  "(x x v ))
+            "(f (fn "v "(x x v )))
             (fn "x
-              " \f
-                  (fn "v
-                    "(x x v ))))))
+              "(f (fn "v "(x x v )))))))
   (fn "str 
     " (fn "parsed
-        " (\okp parsed
-            " \ok
+        " (okp parsed
+            " (ok
                 (fn "new-env
-                  " ("expr \unok parsed
+                  " ("expr (unok parsed )
                       (fn "var
                         " (= var "source-data
-                            "\q \"rest \unok parsed
-                            "\new-env var
-                            env ))))
-            "\err (unerr parsed |"file| )
+                            "(q ("rest (unok parsed )))
+                            "(new-env var )
+                            env )))))
+            "(err (unerr parsed |"file|))
             env )
-        \parse-prog str )))
+        (parse-prog str ))))
 
 \)
 

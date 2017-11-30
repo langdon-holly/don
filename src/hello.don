@@ -1,9 +1,9 @@
 #!/usr/bin/env don
 
-\"(unok \parse-prog-expr source-data env )(eval-file |"std-env.don|env )
+("(unok (parse-prog-expr source-data )env )(eval-file |"std-env.don|env ))
 
-(say [({2 3 }2 )({3 2 }2 )(fn delimited-var "([)(]}(fn 0 "(fn 0 "())))])
+(Z (fn "this "(fn "n "(= n 0 "(error 0 )"[(say n )(this (- [n 1 ]))]env ))) 3 )
 
-\)
+\
 
 HELO

@@ -35,15 +35,15 @@
 
 ; function ows() {return ps.many(ps.or([ps.wsChar, comment()]))}
 
-; function call()
-  { return (
-      ps.name
-      ( ps.map
-        ( ps.before
-          ( ps.seq([ps.string('\\'), ows()])
-          , ps.between([ps.nothing, expr(), ows(), expr()]))
-        , pt => ['call', pt])
-      , "function call"))}
+//; function call()
+//  { return (
+//      ps.name
+//      ( ps.map
+//        ( ps.before
+//          ( ps.seq([ps.string('\\'), ows()])
+//          , ps.between([ps.nothing, expr(), ows(), expr()]))
+//        , pt => ['call', pt])
+//      , "function call"))}
 
 ; const nameChar
   = ps.elemNot
@@ -162,11 +162,8 @@
               ps.parseElem
               ( ps.or
                 ( [ delimited()
-                  //, parenCall()
-                  //, list()
                   , name()
-                  , call()
-                  //, braced()
+                  //, call()
                   , ident
                   , heredoc
                   , quote()

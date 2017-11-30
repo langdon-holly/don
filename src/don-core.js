@@ -256,11 +256,11 @@ exports.strVal = strVal
   ; const data = pt[1]
 
   ; if (label === 'char') return quote(makeChar(data))
-  ; if (label === 'call')
-      return (
-        data.length === 0
-        ? quote(I)
-        : _.reduce(_.map(data, parseTreeToAST), makeCall))
+  //; if (label === 'call')
+  //    return (
+  //      data.length === 0
+  //      ? quote(I)
+  //      : _.reduce(_.map(data, parseTreeToAST), makeCall))
   ; if (label === 'delimited')
       return (
         makeCall
@@ -279,38 +279,6 @@ exports.strVal = strVal
                               , arg
                                 : makeFun
                                   (expr => ({fn: expr, arg: env}))}))}}))))
-  //; if (label === 'bracketed')
-  //    return (
-  //      makeCall
-  //      ( bracketedVar
-  //      , makeFun
-  //        ( env =>
-  //            ( { fn: syncMap
-  //              , arg: makeList(data.map(parseTreeToAST))
-  //              , okThen
-  //                : { fn
-  //                    : makeFun
-  //                      ( soFar =>
-  //                          ( { fn: soFar
-  //                            , arg
-  //                              : makeFun
-  //                                (expr => ({fn: expr, arg: env}))}))}}))))
-  //; if (label === 'braced')
-  //    return (
-  //      makeCall
-  //      ( bracedVar
-  //      , makeFun
-  //        ( env =>
-  //            ( { fn: syncMap
-  //              , arg: makeList(data.map(parseTreeToAST))
-  //              , okThen
-  //                : { fn
-  //                    : makeFun
-  //                      ( soFar =>
-  //                          ( { fn: soFar
-  //                            , arg
-  //                              : makeFun
-  //                                (expr => ({fn: expr, arg: env}))}))}}))))
   ; if (label === 'heredoc')
       return quote(makeList(data.map(parseTreeToAST)))
 
@@ -373,14 +341,6 @@ exports.strVal = strVal
 
 ; const contLabel = {label: 'cont'}
 ; exports.contLabel = contLabel
-
-//; const bracketedVarSym = gensym('bracketed-var')
-//; const bracketedVar = makeIdent(bracketedVarSym)
-//; exports.bracketedVar = bracketedVar
-//
-//; const bracedVarSym = gensym('braced-var')
-//; const bracedVar = makeIdent(bracedVarSym)
-//; exports.bracedVar = bracedVar
 
 ; const delimitedVarSym = gensym('delimited-var')
 ; const delimitedVar = makeIdent(delimitedVarSym)
@@ -487,7 +447,7 @@ exports.strVal = strVal
                     + "\n"
                     + " ".repeat(lineCol.col0)
                     + "^"
-                    + util.inspect(parsed.parser.traceStack, {depth: null})})}
+                    /*+ util.inspect(parsed.parser.traceStack, {depth: null})*/})}
 
         //; const trace = parsed.trace
         //; _.forEachRight(trace, function(frame) {console.log("in", frame[0])})
@@ -627,11 +587,8 @@ exports.strVal = strVal
     ( identLabel
     , varKey =>
         varKey.type === symLabel
-        ? //varKey === bracketedVarSym ? {val: quote(I)}
 
-          //: varKey === bracedVarSym ? {val: quote(makeMap)}
-
-          varKey === delimitedVarSym
+        ? varKey === delimitedVarSym
           ? { val
               : quote
                 ( makeFun
@@ -673,189 +630,6 @@ exports.strVal = strVal
             , val: strToChars("Symbol variable not found in environment")}
 
         : isString(varKey)
-
-  //          function default0(pt) {
-  //            if (pt[0]) return pt[1];
-  //              return 0}
-  //
-  //          function default1(pt) {
-  //            if (pt[0]) return pt[1];
-  //              return 1}
-  //
-  //          function multParts(pt) {
-  //            return pt[0] * pt[1]}
-  //
-  //          function addParts(pt) {
-  //            return pt[0] + pt[1]}
-  //
-  //          function digitToNum(chr) {
-  //            if (chr === '0') return 0;
-  //            if (chr === '1') return 1;
-  //            if (chr === '2') return 2;
-  //            if (chr === '3') return 3;
-  //            if (chr === '4') return 4;
-  //            if (chr === '5') return 5;
-  //            if (chr === '6') return 6;
-  //            if (chr === '7') return 7;
-  //            if (chr === '8') return 8;
-  //            if (chr === '9') return 9;
-  //            if (chr === 'A' || chr === 'a') return 10;
-  //            if (chr === 'B' || chr === 'b') return 11;
-  //            if (chr === 'C' || chr === 'c') return 12;
-  //            if (chr === 'D' || chr === 'd') return 13;
-  //            if (chr === 'E' || chr === 'e') return 14;
-  //            if (chr === 'F' || chr === 'f') return 15}
-  //
-  //          function digitsToNum(base) {
-  //            return function(digits) {
-  //                     if (digits.length == 0) return 0;
-  //                     if (digits.length == 1)
-  //                       return digitToNum(digits[0]);
-  //                     return digitsToNum(base)(digits.slice(
-  //                                                0,
-  //                                                digits.length - 1))
-  //                            * base
-  //                            + digitToNum(digits[digits.length - 1])}}
-  //
-  //          function fracDigitsToNum(base) {
-  //            return function(digits) {
-  //              return digitsToNum(1 / base)(digits.reverse()) / base}}
-  //
-  //          function digit(base) {
-  //            if (base == 2) return ps.or(ps.string('0'),
-  //                                        ps.string('1'));
-  //            if (base == 8) return ps.or(digit(2),
-  //                                        ps.string('2'),
-  //                                        ps.string('3'),
-  //                                        ps.string('4'),
-  //                                        ps.string('5'),
-  //                                        ps.string('6'),
-  //                                        ps.string('7'));
-  //            if (base == 10) return ps.or(digit(8),
-  //                                         ps.string('8'),
-  //                                         ps.string('9'));
-  //            if (base == 16) return ps.or(digit(10),
-  //                                         ps.string('A'),
-  //                                         ps.string('a'),
-  //                                         ps.string('B'),
-  //                                         ps.string('b'),
-  //                                         ps.string('C'),
-  //                                         ps.string('c'),
-  //                                         ps.string('D'),
-  //                                         ps.string('d'),
-  //                                         ps.string('E'),
-  //                                         ps.string('e'),
-  //                                         ps.string('F'),
-  //                                         ps.string('f'))}
-  //
-  //          function digits(base) {
-  //            return ps.many1(digit(base))}
-  //
-  //          var signParser = ps.mapParser(ps.or(ps.string('+'),
-  //                                              ps.string('-')),
-  //                                        function (pt) {
-  //                                          return pt === '+' ? 1
-  //                                                            : -1});
-  //
-  //          var numPartParserBase = function(base) {
-  //            return ps.or(
-  //              ps.mapParser(
-  //                digits(base),
-  //                digitsToNum(base)),
-  //              ps.mapParser(
-  //                ps.seq(
-  //                  ps.mapParser(
-  //                    ps.opt(
-  //                      ps.mapParser(
-  //                        digits(base),
-  //                        digitsToNum(base))),
-  //                    default0),
-  //                  ps.before(
-  //                    ps.string('.'),
-  //                    ps.mapParser(
-  //                      digits(base),
-  //                      fracDigitsToNum(base)))),
-  //                addParts))};
-  //
-  //          var urealParserBase = function(base) {
-  //            var prefix = base == 2 ? ps.string('0b') :
-  //                         base == 8 ? ps.string('0o') :
-  //                         base == 16 ? ps.string('0x') :
-  //                                      ps.or(ps.nothing,
-  //                                            ps.string('0d'));
-  //
-  //            return ps.before(prefix,
-  //                             ps.mapParser(
-  //                               ps.seq(
-  //                                 numPartParserBase(base),
-  //                                 ps.mapParser(
-  //                                   ps.opt(
-  //                                     ps.mapParser(
-  //                                       ps.before(
-  //                                         ps.or(ps.string('e'),
-  //                                               ps.string('E')),
-  //                                         ps.mapParser(
-  //                                           ps.seq(
-  //                                             ps.mapParser(
-  //                                               ps.opt(signParser),
-  //                                               default1),
-  //                                             numPartParserBase(base)),
-  //                                           multParts)),
-  //                                       function (pt) {
-  //                                         return Math.pow(base, pt)})),
-  //                                   default1)),
-  //                               multParts))}
-  //
-  //          var urealParser = ps.or(urealParserBase(2),
-  //                                  urealParserBase(8),
-  //                                  urealParserBase(10),
-  //                                  urealParserBase(16));
-  //
-  //          var realParser = ps.mapParser(ps.seq(ps.mapParser(
-  //                                                 ps.opt(signParser),
-  //                                                 default1),
-  //                                               urealParser),
-  //                                        multParts);
-  //
-  //          var numParser
-  //            = ps.or(ps.mapParser(realParser,
-  //                                 function (pt) {
-  //                                   return [pt, 0]}),
-  //                    ps.after(ps.seq(realParser,
-  //                                    ps.mapParser(
-  //                                      ps.seq(
-  //                                        signParser,
-  //                                        ps.mapParser(
-  //                                          ps.opt(urealParser),
-  //                                          default1)),
-  //                                      multParts)),
-  //                             ps.string('i')),
-  //                    ps.mapParser(ps.after(ps.mapParser(
-  //                                            ps.seq(
-  //                                              ps.mapParser(
-  //                                                ps.opt(signParser),
-  //                                                default1),
-  //                                              ps.mapParser(
-  //                                                ps.opt(urealParser),
-  //                                                default1)),
-  //                                            multParts),
-  //                                          ps.string('i')),
-  //                                 function (pt) {
-  //                                   return [0, pt]}));
-
-  //          if (maybeStr[1].charAt(0) === '"')
-  //            return valObj(strLabel,
-  //                          maybeStr[1].slice(1, maybeStr[1].length));
-
-  //          var varParts = maybeStr[1].split(':');
-  //          if (varParts.length >= 2) {
-  //            return _.reduce(varParts.slice(1, varParts.length),
-  //                            function(fn, argument) {
-  //                              return apply(fn,
-  //                                           valObj(strLabel,
-  //                                                  argument))},
-  //                            apply(env,
-  //                                  valObj(strLabel, varParts[0])))}
 
           ? stringIs(varKey, 'fn')
             ? { val
@@ -1144,13 +918,6 @@ exports.strVal = strVal
             : stringIs(varKey, "ident-key")
               ? {val: quote(fnOfType(identLabel, val => ({val})))}
 
-            //: stringIs(varKey, "error")
-            //  ? {val: quote(makeFun(msg => ({ok: false, val: msg})))}
-
-            //: stringIs(varKey, "bracketed-var") ? {val: quote(bracketedVar)}
-
-            //: stringIs(varKey, "braced-var") ? {val: quote(bracedVar)}
-
             : stringIs(varKey, "delimited-var") ? {val: quote(delimitedVar)}
 
             : stringIs(varKey, "just")
@@ -1252,6 +1019,16 @@ exports.strVal = strVal
 
             : varKey.data[0].data == '"'.codePointAt(0)
               ? {val: quote(makeList(varKey.data.slice(1)))}
+
+  //          var varParts = maybeStr[1].split(':');
+  //          if (varParts.length >= 2) {
+  //            return _.reduce(varParts.slice(1, varParts.length),
+  //                            function(fn, argument) {
+  //                              return apply(fn,
+  //                                           valObj(strLabel,
+  //                                                  argument))},
+  //                            apply(env,
+  //                                  valObj(strLabel, varParts[0])))}
 
             : (varStr =>
                 /^(\-|\+)?[0-9]+$/.test(varStr)
