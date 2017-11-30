@@ -9,9 +9,7 @@
     "type": "git",
     "url": "git+https://github.com/langdon-holly/don.git"
   },
-  "keywords": [
-    "lisp"
-  ],
+  "keywords": [],
   "author": "Langdon Holly <langdonzh@gmail.com>",
   "license": "SEE LICENSE IN LICENSE.TXT",
   "bugs": {
