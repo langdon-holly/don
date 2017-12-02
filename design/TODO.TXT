@@ -1,3 +1,4 @@
 * better syntax-error message
-* object-orientation
+* objects
+* input
 
