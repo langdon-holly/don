@@ -51,51 +51,51 @@
           ? apply(cont, ...argData)
           : Null("Fun requires arrayed continuations")
         : contType === listLabel
-          ? { cont
-              : fnOfType
-                ( intLabel
-                , idx =>
-                    idx < 0 || idx >= contData.length
-                    ? {ok: false, val: strToChars("Array index out of bounds")}
-                    : {val: contData[idx]})
-            , arg}
+          ? [ { cont
+                : fnOfType
+                  ( intLabel
+                  , idx =>
+                      idx < 0 || idx >= contData.length
+                      ? {ok: false, val: strToChars("Array index out of bounds")}
+                      : {val: contData[idx]})
+              , arg}]
           : contType === quoteLabel
-            ? {cont: makeFun(_.constant({val: contData})), arg}
+            ? [{cont: makeFun(_.constant({val: contData})), arg}]
             : contType === callLabel
-              ? { cont
-                  : makeFun
-                    ( (arg, ...ons) =>
-                        ( { fn: contData.fnExpr
-                          , arg
-                          , okThen
-                            : { fn
-                                : makeFun
-                                  ( fnVal =>
-                                    ( { fn: contData.argExpr
-                                      , arg
-                                      , okThen
-                                        : { fn
-                                            : makeFun
-                                              ( argVal =>
-                                                  ( { fn: fnVal
-                                                    , arg: argVal}))}}))}}))
-                , arg}
-              : contType === identLabel
-                ? { cont
+              ? [ { cont
                     : makeFun
-                      ( arg =>
-                          ( { fn: arg
-                            , arg: cont
+                      ( (arg, ...ons) =>
+                          ( { fn: contData.fnExpr
+                            , arg
                             , okThen
-                              : {fn: makeFun(expr => ({fn: expr, arg}))}}))
-                  , arg}
-                : contType === boolLabel
-                  ? { cont
+                              : { fn
+                                  : makeFun
+                                    ( fnVal =>
+                                      ( { fn: contData.argExpr
+                                        , arg
+                                        , okThen
+                                          : { fn
+                                              : makeFun
+                                                ( argVal =>
+                                                    ( { fn: fnVal
+                                                      , arg: argVal}))}}))}}))
+                  , arg}]
+              : contType === identLabel
+                ? [ { cont
                       : makeFun
-                        ( val =>
-                            ( { val
-                              : contData ? makeFun(_.constant({val})) : I}))
-                    , arg}
+                        ( arg =>
+                            ( { fn: arg
+                              , arg: cont
+                              , okThen
+                                : {fn: makeFun(expr => ({fn: expr, arg}))}}))
+                    , arg}]
+                : contType === boolLabel
+                  ? [ { cont
+                        : makeFun
+                          ( val =>
+                              ( { val
+                                : contData ? makeFun(_.constant({val})) : I}))
+                      , arg}]
                   : Null("Tried to continue a non-continuation"))}
 
 ; function mk(label, data) {return {type: label, data: data}}
@@ -115,7 +115,7 @@
     = (then, onOk, onErr) =>
         makeCont
         ( arg => 
-            ( { cont: then.fn
+            [ { cont: then.fn
               , arg
                 : makeList
                   ( [ arg
@@ -128,33 +128,37 @@
                       ? then.onErr
                       : then.hasOwnProperty('errThen')
                         ? makeThenOns(then.errThen, onOk, onErr)
-                        : onErr])}))
+                        : onErr])}])
+
+; const funResToThreads
+  = (res, onOk, onErr) =>
+      _.isArray(res)
+      ? _.flatMap(res, res => funResToThreads(res, onOk, onErr))
+      : res.hasOwnProperty('cont')
+        ? [res]
+        : res.hasOwnProperty('fn')
+          ? [ { cont: res.fn
+              , arg
+                : makeList
+                  ( [ res.hasOwnProperty('arg') ? res.arg : unit
+                    , res.hasOwnProperty('onOk')
+                      ? res.onOk
+                      : res.hasOwnProperty('okThen')
+                        ? makeThenOns(res.okThen, onOk, onErr)
+                        : onOk
+                    , res.hasOwnProperty('onErr')
+                      ? res.onErr
+                      : res.hasOwnProperty('errThen')
+                        ? makeThenOns(res.errThen, onOk, onErr)
+                        : onErr])}]
+          : [ { cont: !res.hasOwnProperty('ok') || res.ok ? onOk : onErr
+              , arg: res.val}]
 
 ; function makeFun(fn)
   { return (
       makeFn
       ( (arg, onOk, onErr) =>
-          ( res =>
-              res.hasOwnProperty('cont')
-              ? res
-              : res.hasOwnProperty('fn')
-                ? { cont: res.fn
-                  , arg
-                    : makeList
-                      ( [ res.hasOwnProperty('arg') ? res.arg : unit
-                        , res.hasOwnProperty('onOk')
-                          ? res.onOk
-                          : res.hasOwnProperty('okThen')
-                            ? makeThenOns(res.okThen, onOk, onErr)
-                            : onOk
-                        , res.hasOwnProperty('onErr')
-                          ? res.onErr
-                          : res.hasOwnProperty('errThen')
-                            ? makeThenOns(res.errThen, onOk, onErr)
-                            : onErr])}
-                : { cont: !res.hasOwnProperty('ok') || res.ok ? onOk : onErr
-                  , arg: res.val})
-          (fn(arg, onOk, onErr))))}
+          funResToThreads(fn(arg, onOk, onErr), onOk, onErr)))}
 
 ; function makeFn(fn) {return mk(fnLabel, fn)}
 
@@ -350,6 +354,9 @@ exports.strVal = strVal
   = (...args) => {throw new Error("Null: " + util.format(...args))}
 ; exports.Null = Null
 
+; const nullCont = makeCont(_.constant([]))
+; exports.nullCont = nullCont
+
 ; const nothing = mk(maybeLabel, {is: false})
 
 ; const I = makeFun(val => ({val}))
@@ -458,11 +465,14 @@ exports.strVal = strVal
 ; const srcDataIdent = makeIdent(strToChars('source-data'))
 
 ; const topApply
-  = (fn, ...stuf) => topContinue(fn, makeList(stuf))
+  = (fn, ...stuf) => topContinue([{cont: fn, arg: makeList(stuf)}])
 ; exports.topApply = topApply
 
+; const threadToList = t => [t.cont, t.arg]
+
 ; const topContinue
-  = (cont, arg) => {while (true) ({cont, arg} = Continue(cont, arg))}
+  = threads =>
+    {while (threads.length > 0) threads.push(...Continue(...threadToList(threads.shift())))}
 ; exports.topContinue = topContinue
 
 ; const evalProgram
@@ -573,10 +583,24 @@ exports.strVal = strVal
       makeCont
       ( res =>
           res.type !== listLabel
-          ? {cont, arg: strToChars("cont body must return list")}
+          ? [{cont, arg: strToChars("cont body must return list")}]
           : res.data.length !== 2
-            ? {cont, arg: strToChars("cont body must return doubleton list")}
-            : {cont: res.data[0], arg: res.data[1]})
+            ? [{cont, arg: strToChars("cont body must return doubleton list")}]
+            : [{cont: res.data[0], arg: res.data[1]}])
+
+; const makeSyncContOnOk
+  = (state, onErr) =>
+      makeCont
+      ( res =>
+          ( state.fn = res
+          , state.queue.length > 0
+            ? [ { cont: state.fn
+                , arg
+                  : makeList
+                    ( [ state.queue.shift()
+                      , makeSyncContOnOk(state, onErr)
+                      , onErr])}]
+            : (state.busy = false, [])))
 
 ; const
     [lParen, rParen, lBracket, rBracket, lBrace, rBrace]
@@ -609,12 +633,12 @@ exports.strVal = strVal
                                                   , (onOk, arg) =>
                                                       makeCont
                                                       ( cont =>
-                                                          ( { cont
+                                                          [ { cont
                                                             , arg
                                                               : makeList
                                                                 ( [ arg
                                                                   , onOk
-                                                                  , onErr])}))
+                                                                  , onErr])}])
                                                   , onOk)
                                               , arg: elems[0]})}
                                 : eq(begin, lBracket) && eq(end, rBracket)
@@ -667,38 +691,54 @@ exports.strVal = strVal
 
             : stringIs(varKey, 'make-cont')
               ? { val
+                  : quote
+                    ( makeFun
+                      ( onErr =>
+                          ( { val
+                              : makeFun
+                                ( fn =>
+                                    ( { val
+                                        : makeCont
+                                          ( arg =>
+                                              [ { cont: fn
+                                                , arg
+                                                  : makeList
+                                                    ( [ arg
+                                                      , makeContOnOk(onErr)
+                                                      , onErr])}])}))})))}
+
+            : stringIs(varKey, 'make-sync-cont')
+              ? { val
+                  : quote
+                    ( makeFun
+                      ( onErr =>
+                          ( { val
+                              : makeFun
+                                ( fn =>
+                                    ( state =>
+                                        ( { val
+                                            : makeCont
+                                              ( arg =>
+                                                  state.busy
+                                                  ? (state.queue.push(arg), [])
+                                                  : ( state.busy = true
+                                                    , [ { cont: state.fn
+                                                        , arg
+                                                          : makeList
+                                                            ( [ arg
+                                                              , makeSyncContOnOk
+                                                                (state, onErr)
+                                                              , onErr])}]))}))
+                                    ({fn, busy: false, queue: []}))})))}
+
+            : stringIs(varKey, "async")
+              ? { val
                   : makeFun
-                    ( env =>
+                    ( arg =>
                         ( { val
                             : makeFun
-                              ( onErr =>
-                                  ( { val
-                                      : makeFun
-                                        ( param =>
-                                            ( { val
-                                                : makeFun
-                                                  ( body =>
-                                                      ( { val
-                                                          : makeCont
-                                                            ( arg =>
-                                                                ( { cont: body
-                                                                  , arg
-                                                                    : makeList
-                                                                      ( [ makeFun
-                                                                          ( varKey =>
-                                                                              eq
-                                                                              ( varKey
-                                                                              , param)
-                                                                              ? { val
-                                                                                  : quote
-                                                                                    (arg)}
-                                                                              : { fn
-                                                                                  : env
-                                                                                , arg
-                                                                                  : varKey})
-                                                                        , makeContOnOk
-                                                                          (onErr)
-                                                                        , onErr])}))}))}))}))}))}
+                              ( fn =>
+                                  [{fn, arg, onOk: nullCont}, {val: unit}])}))}
 
             : stringIs(varKey, '+')
               ? { val

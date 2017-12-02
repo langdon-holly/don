@@ -31,11 +31,12 @@
         don.topApply
         ( don.bindRest(parsed.ast, parsed.rest)
         , don.initEnv
-        , don.makeCont(() => process.exit(0))
+        , don.nullCont
         , don.makeCont
           ( e =>
               ( console.error(red(don.strVal(don.toString(e))))
               , process.exit(1))))
+        , process.exit(0)
     ; else
         console.error(red(parsed.error(hasFileArg ? program.args[0] : "STDIN")))
         , process.exit(2)})

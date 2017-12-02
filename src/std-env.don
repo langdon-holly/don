@@ -10,8 +10,7 @@
                           "(new-env var )
                           env )))
               env )
-          ( call/onerr
-            (fn "throw "(make-cont throw "err "(continue (err 2 )(err 0 ))))))
+          (call/onerr make-cont (fn "err "(continue (err 2 )(err 0 )))))
       (fn "f
         " (fn "x
             "(f (fn "v "(x x v )))

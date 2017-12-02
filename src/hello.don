@@ -2,7 +2,16 @@
 
 ("(unok (parse-prog-expr source-data )env )(eval-file |"std-env.don|env ))
 
-(Z (fn "this "(fn "n "(= n 0 "(error 0 )"[(say n )(this (- [n 1 ]))]env ))) 3 )
+(fn "counter
+  "[ (async "(continue counter 2 ))
+     (async "(continue counter 4 ))
+     (continue counter 3 )]
+  (call/onerr
+    make-sync-cont
+    (Z
+      (fn "add
+        "(fn "a "(fn "b "(false (say (+ [a b ])) (add (+ [a b ]))))))
+      0 )))
 
 \
 
