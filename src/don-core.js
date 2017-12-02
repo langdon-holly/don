@@ -283,8 +283,8 @@ exports.strVal = strVal
                               , arg
                                 : makeFun
                                   (expr => ({fn: expr, arg: env}))}))}}))))
-  ; if (label === 'heredoc')
-      return quote(makeList(data.map(parseTreeToAST)))
+  //; if (label === 'heredoc')
+  //    return quote(makeList(data.map(parseTreeToAST)))
 
   ; if (label === 'quote') return quote(parseTreeToAST(data))
 

@@ -3,7 +3,7 @@ Allowed special characters:
 whitespace    used
 `             used
 ~           unused
-@             used
+@           unused
 #             used
 $           unused
 (             used

@@ -35,16 +35,6 @@
 
 ; function ows() {return ps.many(ps.or([ps.wsChar, comment()]))}
 
-//; function call()
-//  { return (
-//      ps.name
-//      ( ps.map
-//        ( ps.before
-//          ( ps.seq([ps.string('\\'), ows()])
-//          , ps.between([ps.nothing, expr(), ows(), expr()]))
-//        , pt => ['call', pt])
-//      , "function call"))}
-
 ; const nameChar
   = ps.elemNot
     ( [ ps.string('(')
@@ -69,24 +59,24 @@
         , pt => ['ident', pt.map(chr => chr.codePointAt(0))])
       , "short-identifier"))}
 
-; const heredoc
-  = ps.name
-    ( ps.map
-      ( ps.then
-        ( ps.around
-          ( ps.string('@')
-          , ps.many
-            ( ps.or
-              ( [ ps.elemNot([ps.string('@'), ps.string('\\')])
-                , ps.before
-                  ( ps.string('\\')
-                  , ps.or([ps.string('@'), ps.string('\\')]))]))
-          , ps.string('@'))
-        , [ endStr =>
-              ps.shortest
-              (ps.after(ps.anything, ps.seq(endStr.map(ps.string))))])
-      , pt => ['heredoc', pt.map(chr => ['char', chr.codePointAt(0)])])
-    , "heredoc")
+//; const heredoc
+//  = ps.name
+//    ( ps.map
+//      ( ps.then
+//        ( ps.around
+//          ( ps.string('@')
+//          , ps.many
+//            ( ps.or
+//              ( [ ps.elemNot([ps.string('@'), ps.string('\\')])
+//                , ps.before
+//                  ( ps.string('\\')
+//                  , ps.or([ps.string('@'), ps.string('\\')]))]))
+//          , ps.string('@'))
+//        , [ endStr =>
+//              ps.shortest
+//              (ps.after(ps.anything, ps.seq(endStr.map(ps.string))))])
+//      , pt => ['heredoc', pt.map(chr => ['char', chr.codePointAt(0)])])
+//    , "heredoc")
 
 ; const character
   = ps.name
@@ -163,9 +153,8 @@
               ( ps.or
                 ( [ delimited()
                   , name()
-                  //, call()
                   , ident
-                  , heredoc
+                  //, heredoc
                   , quote()
                   , character])
               , elem)
