@@ -25,6 +25,8 @@ unit
 (read-file filename-str )
 (parse-prog str )
 (eval-file filename-str )
+(gensym debug-info )
+(symbol-debug-info sym )
 (q o _ )
 (make-call fn-expr arg-expr )
 (call-fn-expr call )
@@ -45,5 +47,8 @@ nothing
 (cell-val cell )
 (set cell val )
 (cas cell old-val new-val )
+(cons first last )
+(car pair )
+(cdr pair )
 /^"/
 /^(\-|\+)?[0-9]+$/

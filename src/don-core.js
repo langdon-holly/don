@@ -15,17 +15,17 @@
 // Utility
 ; const
     debug = true
-  , log = (...args) => (debug ? console.log(...args) : undefined, _.last(args))
-  , promiseSyncMap
-    = (arrIn, promiseFn) =>
-        _.reduce
-        ( arrIn
-        , (prm, nextIn, idx) =>
-            prm.then
-            ( arrOut =>
-                promiseFn(nextIn).then
-                (newVal => (arrOut[idx] = newVal, Promise.resolve(arrOut))))
-        , Promise.resolve(Array(arrIn.length)))
+  , log = (...args) => (debug && console.log(...args), _.last(args))
+  //, promiseSyncMap
+  //  = (arrIn, promiseFn) =>
+  //      _.reduce
+  //      ( arrIn
+  //      , (prm, nextIn, idx) =>
+  //          prm.then
+  //          ( arrOut =>
+  //              promiseFn(nextIn).then
+  //              (newVal => (arrOut[idx] = newVal, Promise.resolve(arrOut))))
+  //      , Promise.resolve(Array(arrIn.length)))
 
 // Stuff
 
@@ -189,6 +189,8 @@
 ; function makeCont(fn) {return mk(contLabel, fn)}
 ; exports.makeCont = makeCont
 
+; function makePair(first, last) {return mk(pairLabel, {first, last})}
+
 ; const objToNsNotFoundStr = "Var not found in ns"
 
 ; function objToNs(o)
@@ -253,7 +255,10 @@ exports.strVal = strVal
           && (!val0.data.is || eq(val0.data.val, val1.data.val)))
         || val0.type === resultLabel
            && val0.data.ok === val1.data.ok
-           && eq(val0.data.val, val1.data.val))}
+           && eq(val0.data.val, val1.data.val)
+        || val0.type === pairLabel
+           && eq(val0.data.first, val1.data.first)
+           && eq(val0.data.last, val1.data.last))}
 
 ; function parseTreeToAST(pt)
   { const label = pt[0]
@@ -302,6 +307,42 @@ exports.strVal = strVal
 //; function ttyLog()
 //  { if (process.stdout.isTTY) console.log(...arguments)}
 
+//; const labels
+//  = _.fromPairs
+//    ( [ 'fn'
+//      , 'list'
+//      , 'int'
+//      , 'char'
+//      , 'sym'
+//      , 'quote'
+//      , 'unit'
+//      , 'call'
+//      , 'ident'
+//      , 'maybe'
+//      , 'bool'
+//      , 'result'
+//      , 'cell'
+//      , 'cont']
+//      .map(name => [name + 'Label', Symbol(name)]))
+//console.log(labels)
+//
+//; const
+//    { fnLabel
+//    , listLabel
+//    , intLabel
+//    , charLabel
+//    , symLabel
+//    , quoteLabel
+//    , unitLabel
+//    , callLabel
+//    , identLabel
+//    , maybeLabel
+//    , boolLabel
+//    , resultLabel
+//    , cellLabel
+//    , contLabel}
+//    = labels
+
 ; const fnLabel = {label: 'fn'}
 ; exports.fnLabel = fnLabel
 
@@ -346,7 +387,10 @@ exports.strVal = strVal
 ; const contLabel = {label: 'cont'}
 ; exports.contLabel = contLabel
 
-; const delimitedVarSym = gensym('delimited-var')
+; const pairLabel = {label: 'pair'}
+; exports.pairLabel = pairLabel
+
+; const delimitedVarSym = gensym(strToChars('delimited-var'))
 ; const delimitedVar = makeIdent(delimitedVarSym)
 ; exports.delimitedVar = delimitedVar
 
@@ -547,8 +591,8 @@ exports.strVal = strVal
   ; if (argLabel === symLabel)
       return (
         makeList
-        ( strToChars("(sym ").data.concat
-          (toString(strToChars(argData.sym)).data , [strToChar(")")])))
+        ( strToChars("(gensym ").data.concat
+          (toString(argData.sym).data , [strToChar(")")])))
 
   ; if (argLabel === maybeLabel)
       return (
@@ -574,6 +618,14 @@ exports.strVal = strVal
           (toString(argData.val).data, [strToChar(")")])))
 
   ; if (argLabel === contLabel) return strToChars("(cont ... )")
+
+  ; if (argLabel === pairLabel)
+      return (
+        makeList
+        ( strToChars("(cons ").data.concat
+          ( toString(argData.first).data
+          , toString(argData.last).data
+          , [strToChar(')')])))
 
   ; return Null("->str unknown type:", arg)}
 ; exports.toString = toString
@@ -932,6 +984,12 @@ exports.strVal = strVal
                               : strToChars
                                 ('Tried to eval-file of nonstring')}))}
 
+            : stringIs(varKey, "gensym")
+              ? {val: quote(makeFun(_.flow(gensym, val => ({val}))))}
+
+            : stringIs(varKey, "symbol-debug-info")
+              ? {val: quote(fnOfType(symLabel, data => ({val: data.sym})))}
+
             : stringIs(varKey, "q")
               ? {val: quote(makeFun(_.flow(quote, val => ({val}))))}
 
@@ -1056,6 +1114,21 @@ exports.strVal = strVal
                                                     ? ( cell.val = newVal
                                                       , oldVal)
                                                     : newVal}))}))})))}
+
+            : stringIs(varKey, "cons")
+              ? { val
+                : quote
+                  ( makeFun
+                    ( first =>
+                        ( { val
+                            : makeFun
+                              (last => ({val: makePair(first, last)}))})))}
+
+            : stringIs(varKey, "car")
+              ? {val: quote(fnOfType(pairLabel, ({first}) => ({val: first})))}
+
+            : stringIs(varKey, "cdr")
+              ? {val: quote(fnOfType(pairLabel, ({last}) => ({val: last})))}
 
             : varKey.data[0].data == '"'.codePointAt(0)
               ? {val: quote(makeList(varKey.data.slice(1)))}

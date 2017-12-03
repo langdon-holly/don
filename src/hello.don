@@ -2,16 +2,22 @@
 
 ("(unok (parse-prog-expr source-data )env )(eval-file |"std-env.don|env ))
 
-(fn "counter
-  "[ (async "(continue counter 2 ))
-     (async "(continue counter 4 ))
-     (continue counter 3 )]
-  (call/onerr
-    make-sync-cont
-    (Z
-      (fn "add
-        "(fn "a "(fn "b "(false (say (+ [a b ])) (add (+ [a b ]))))))
-      0 )))
+[ (say
+    [ (cons 1 3 )
+      (car (cons 1 3 ))
+      (cdr (cons 1 3 ))
+      (= (cons 1 3 ) (cons 1 3 ))
+      (= (cons 1 2 ) (cons 1 3 ))
+      (= (cons 1 3 ) (cons 2 3 ))
+      (= (cons 1 2 ) (cons 2 3 ))
+    ])
+  (print [(unicode->char 10 )])
+  (say
+    [ (gensym false )
+      (symbol-debug-info (gensym 4 ))
+      (= (gensym 4 ) (gensym 4 ))
+      (= (gensym 4 ) (gensym 5 ))
+    ])]
 
 \
 
