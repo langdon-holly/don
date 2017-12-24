@@ -31,12 +31,12 @@
 
 ; exports = module.exports
 
-; function apply(fn, ...ons)
-  { return (
-      fn.type === fnLabel
-      ? fn.data(...ons)
-      : Continue(fn, makeList(ons)))}
-; exports.apply = apply
+//; function apply(fn, ...ons)
+//  { return (
+//      fn.type === fnLabel
+//      ? fn.data(...ons)
+//      : Continue(fn, makeList(ons)))}
+//; exports.apply = apply
 
 ; function Continue(cont, arg)
   { const
@@ -44,12 +44,12 @@
     , {type: argType, data: argData} = arg
   ; return (
       contType === contLabel ? contData(arg)
-      : contType === fnLabel
-        ? _.isArray(argData)
-          && argData[1].type === contLabel
-          && argData[2].type === contLabel
-          ? apply(cont, ...argData)
-          : Null("Fun requires arrayed continuations")
+      //: contType === fnLabel
+      //  ? _.isArray(argData)
+      //    && argData[1].type === contLabel
+      //    && argData[2].type === contLabel
+      //    ? apply(cont, ...argData)
+      //    : Null("Fun requires arrayed continuations")
         : contType === listLabel
           ? [ { cont
                 : fnOfType
@@ -115,20 +115,20 @@
     = (then, onOk, onErr) =>
         makeCont
         ( arg => 
-            [ { cont: then.fn
+            [ mCall
+              ( then.fn
+              , applySym
               , arg
-                : makeList
-                  ( [ arg
-                    , then.hasOwnProperty('onOk')
-                      ? then.onOk
-                      : then.hasOwnProperty('okThen')
-                        ? makeThenOns(then.okThen, onOk, onErr)
-                        : onOk
-                    , then.hasOwnProperty('onErr')
-                      ? then.onErr
-                      : then.hasOwnProperty('errThen')
-                        ? makeThenOns(then.errThen, onOk, onErr)
-                        : onErr])}])
+              , then.hasOwnProperty('onOk')
+                ? then.onOk
+                : then.hasOwnProperty('okThen')
+                  ? makeThenOns(then.okThen, onOk, onErr)
+                  : onOk
+              , then.hasOwnProperty('onErr')
+                ? then.onErr
+                : then.hasOwnProperty('errThen')
+                  ? makeThenOns(then.errThen, onOk, onErr)
+                  : onErr)])
 
 ; const funResToThreads
   = (res, onOk, onErr) =>
@@ -137,20 +137,20 @@
       : res.hasOwnProperty('cont')
         ? [res]
         : res.hasOwnProperty('fn')
-          ? [ { cont: res.fn
-              , arg
-                : makeList
-                  ( [ res.hasOwnProperty('arg') ? res.arg : unit
-                    , res.hasOwnProperty('onOk')
-                      ? res.onOk
-                      : res.hasOwnProperty('okThen')
-                        ? makeThenOns(res.okThen, onOk, onErr)
-                        : onOk
-                    , res.hasOwnProperty('onErr')
-                      ? res.onErr
-                      : res.hasOwnProperty('errThen')
-                        ? makeThenOns(res.errThen, onOk, onErr)
-                        : onErr])}]
+          ? [ mCall
+              ( res.fn
+              , applySym
+              , res.hasOwnProperty('arg') ? res.arg : unit
+              , res.hasOwnProperty('onOk')
+                ? res.onOk
+                : res.hasOwnProperty('okThen')
+                  ? makeThenOns(res.okThen, onOk, onErr)
+                  : onOk
+              , res.hasOwnProperty('onErr')
+                ? res.onErr
+                : res.hasOwnProperty('errThen')
+                  ? makeThenOns(res.errThen, onOk, onErr)
+                  : onErr)]
           : [ { cont: !res.hasOwnProperty('ok') || res.ok ? onOk : onErr
               , arg: res.val}]
 
@@ -160,7 +160,29 @@
       ( (arg, onOk, onErr) =>
           funResToThreads(fn(arg, onOk, onErr), onOk, onErr)))}
 
-; function makeFn(fn) {return mk(fnLabel, fn)}
+//; function makeFn(fn) {return mk(fnLabel, fn)}
+
+; function makeFn(fn)
+  { return (
+      arrToObj
+      ( [ [ applySym
+          , makeCont
+            ( arg =>
+                arg.type === listLabel
+                && arg.data[1].type === contLabel
+                && arg.data[2].type === contLabel
+                ? fn(...arg.data)
+                : Null("Fun requires arrayed continuations"))]]))}
+
+//; function makeFn(fn)
+//  { return (
+//      makeCont
+//      ( arg =>
+//          arg.type === listLabel
+//          && arg.data[1].type === contLabel
+//          && arg.data[2].type === contLabel
+//          ? fn(...arg.data)
+//          : Null("Fun requires arrayed continuations")))}
 
 //; function constFn(val) {return makeFn(_.constant(val))}
 
@@ -177,6 +199,18 @@
 ; function gensym(debugId) {return mk(symLabel, {sym: debugId})}
 
 ; function makeIdent(val) {return mk(identLabel, val)}
+//; function makeIdent(key)
+//  { const This
+//    = arrToObj
+//      ( [ [ applySym
+//          , makeFun
+//            ( arg =>
+//                ( { fn: arg
+//                  , arg: This
+//                  , okThen
+//                    : {fn: makeFun(fn => ({fn, arg}))}}))]
+//        , [identKeySym, quote(key)]])
+//  ; return This}
 
 ; function makeBool(val) {return mk(boolLabel, val)}
 
@@ -190,6 +224,18 @@
 ; exports.makeCont = makeCont
 
 ; function makePair(first, last) {return mk(pairLabel, {first, last})}
+
+; function makeStrable(fn)
+  { return (
+      makeCont
+      ( msg =>
+          msg.type === pairLabel
+          && msg.data.first === toStrSym
+          && msg.data.last.type === pairLabel
+          && msg.data.last.data.first.type === contLabel
+          && msg.data.last.data.last.type === contLabel
+          ? fn(msg.data.last.data.first, msg.data.last.data.last)
+          : []))}
 
 ; const objToNsNotFoundStr = "Var not found in ns"
 
@@ -211,6 +257,19 @@
                     + ": "
                     + strVal(toString(makeIdent(identKey))))})}))}
 
+; function arrToObj(arr)
+  { return (
+      makeCont
+      ( msg =>
+          msg.type === pairLabel
+          && msg.data.first.type === symLabel
+          ? ( index =>
+                index >= 0
+                ? [{cont: arr[index][1], arg: msg.data.last}]
+                : Null("Wrong message type"))
+            (_.findIndex(arr, p => eq(p[0], msg.data.first)))
+          : Null("Bad message")))}
+
 ; function isString(val)
   { return (
       val.type === listLabel
@@ -231,8 +290,12 @@ exports.strVal = strVal
 
 ; function strToChar(chr) {return makeChar(chr.codePointAt(0))}
 
-; function strToChars(str)
-  {return makeList(Array.from(str).map(strToChar))}
+; function strToChars(str) {return makeList(Array.from(str).map(strToChar))}
+
+; function mCast(cont, mSym, arg) {return {cont, arg: makePair(mSym, arg)}}
+
+; function mCall(cont, mSym, arg, onOk, onErr)
+  {return {cont, arg: makePair(mSym, makeList([arg, onOk, onErr]))}}
 
 ; function eq(val0, val1)
   { return (
@@ -343,8 +406,8 @@ exports.strVal = strVal
 //    , contLabel}
 //    = labels
 
-; const fnLabel = {label: 'fn'}
-; exports.fnLabel = fnLabel
+//; const fnLabel = {label: 'fn'}
+//; exports.fnLabel = fnLabel
 
 ; const listLabel = {label: 'list'}
 ; exports.listLabel = listLabel
@@ -389,6 +452,10 @@ exports.strVal = strVal
 
 ; const pairLabel = {label: 'pair'}
 ; exports.pairLabel = pairLabel
+
+; const toStrSym = gensym(strToChars('to-str-sym'))
+; const applySym = gensym(strToChars('apply-sym'))
+; const identKeySym = gensym(strToChars('ident-key-sym'))
 
 ; const delimitedVarSym = gensym(strToChars('delimited-var'))
 ; const delimitedVar = makeIdent(delimitedVarSym)
@@ -509,7 +576,7 @@ exports.strVal = strVal
 ; const srcDataIdent = makeIdent(strToChars('source-data'))
 
 ; const topApply
-  = (fn, ...stuf) => topContinue([{cont: fn, arg: makeList(stuf)}])
+  = (fn, ...stuf) => topContinue([mCall(fn, applySym, ...stuf)])
 ; exports.topApply = topApply
 
 ; const threadToList = t => [t.cont, t.arg]
@@ -586,7 +653,7 @@ exports.strVal = strVal
           : strToChars("(make-ident ").data.concat
             (toString(argData).data, [strToChar(")")])))
 
-  ; if (argLabel === fnLabel) return strToChars("(fn ... )")
+  //; if (argLabel === fnLabel) return strToChars("(fn ... )")
 
   ; if (argLabel === symLabel)
       return (
@@ -646,12 +713,12 @@ exports.strVal = strVal
       ( res =>
           ( state.fn = res
           , state.queue.length > 0
-            ? [ { cont: state.fn
-                , arg
-                  : makeList
-                    ( [ state.queue.shift()
-                      , makeSyncContOnOk(state, onErr)
-                      , onErr])}]
+            ? [ mCall
+                ( state.fn
+                , applySym
+                , state.queue.shift()
+                , makeSyncContOnOk(state, onErr)
+                , onErr)]
             : (state.busy = false, [])))
 
 ; const
@@ -684,13 +751,13 @@ exports.strVal = strVal
                                                   ( _.tail(elems)
                                                   , (onOk, arg) =>
                                                       makeCont
-                                                      ( cont =>
-                                                          [ { cont
+                                                      ( fn =>
+                                                          [ mCall
+                                                            ( fn
+                                                            , applySym
                                                             , arg
-                                                              : makeList
-                                                                ( [ arg
-                                                                  , onOk
-                                                                  , onErr])}])
+                                                            , onOk
+                                                            , onErr)])
                                                   , onOk)
                                               , arg: elems[0]})}
                                 : eq(begin, lBracket) && eq(end, rBracket)
@@ -752,12 +819,12 @@ exports.strVal = strVal
                                     ( { val
                                         : makeCont
                                           ( arg =>
-                                              [ { cont: fn
+                                              [ mCall
+                                                ( fn
+                                                , applySym
                                                 , arg
-                                                  : makeList
-                                                    ( [ arg
-                                                      , makeContOnOk(onErr)
-                                                      , onErr])}])}))})))}
+                                                , makeContOnOk(onErr)
+                                                , onErr)])}))})))}
 
             : stringIs(varKey, 'make-sync-cont')
               ? { val
@@ -774,13 +841,13 @@ exports.strVal = strVal
                                                   state.busy
                                                   ? (state.queue.push(arg), [])
                                                   : ( state.busy = true
-                                                    , [ { cont: state.fn
+                                                    , [ mCall
+                                                        ( state.fn
+                                                        , applySym
                                                         , arg
-                                                          : makeList
-                                                            ( [ arg
-                                                              , makeSyncContOnOk
-                                                                (state, onErr)
-                                                              , onErr])}]))}))
+                                                        , makeSyncContOnOk
+                                                          (state, onErr)
+                                                        , onErr)]))}))
                                     ({fn, busy: false, queue: []}))})))}
 
             : stringIs(varKey, "async")
@@ -1129,6 +1196,28 @@ exports.strVal = strVal
 
             : stringIs(varKey, "cdr")
               ? {val: quote(fnOfType(pairLabel, ({last}) => ({val: last})))}
+
+            : stringIs(varKey, "to-str-m")
+              ? {val: quote(toStrSym)}
+
+            : stringIs(varKey, "strable")
+              ? { val
+                  : quote
+                    ( makeFun
+                      ( fn =>
+                          ( { val
+                              : arrToObj
+                                ( [ [ toStrSym
+                                    , makeCont
+                                      ( msg =>
+                                          msg.type === pairLabel
+                                          ? [ mCall
+                                              ( fn
+                                              , applySym
+                                              , unit
+                                              , msg.data.first
+                                              , msg.data.last)]
+                                          : [])]])})))}
 
             : varKey.data[0].data == '"'.codePointAt(0)
               ? {val: quote(makeList(varKey.data.slice(1)))}
