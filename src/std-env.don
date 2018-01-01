@@ -4,11 +4,13 @@
           " (fn "this-env
               " (fn "new-env
                   " (fn "var
-                      " (= var "parse-prog-expr true
-                          (= var "Z true (= var "error ))
-                          "(this-env var )
-                          "(new-env var )
-                          env )))
+                      " (fn "var-key
+                          " (= var-key |"parse-prog-expr| true
+                              (= var-key |"Z| true (= var-key |"error| )))
+                          (ident-key var )
+                          this-env
+                          new-env
+                          var )))
               env )
           (call/onerr make-cont (fn "err "(continue (err 2 )(err 0 )))))
       (fn "f
@@ -23,7 +25,7 @@
                 (fn "new-env
                   " ("expr (unok parsed )
                       (fn "var
-                        " (= var "source-data
+                        " (= (ident-key var ) |"source-data|
                             "(q ("rest (unok parsed )))
                             "(new-env var )
                             env )))))

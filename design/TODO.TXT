@@ -1,4 +1,6 @@
 * better syntax-error message
 * objects
 * input
+* thread supervisors
+* better runtime errors
 

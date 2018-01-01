@@ -1,5 +1,3 @@
-'use strict'
-
 // Dependencies
 
 ; const
@@ -16,6 +14,7 @@
 ; const
     debug = true
   , log = (...args) => (debug && console.log(...args), _.last(args))
+  , inspect = o => util.inspect(o, {depth: null, colors: true})
   //, promiseSyncMap
   //  = (arrIn, promiseFn) =>
   //      _.reduce
@@ -50,53 +49,54 @@
       //    && argData[2].type === contLabel
       //    ? apply(cont, ...argData)
       //    : Null("Fun requires arrayed continuations")
-        : contType === listLabel
-          ? [ { cont
-                : fnOfType
-                  ( intLabel
-                  , idx =>
-                      idx < 0 || idx >= contData.length
-                      ? {ok: false, val: strToChars("Array index out of bounds")}
-                      : {val: contData[idx]})
-              , arg}]
-          : contType === quoteLabel
-            ? [{cont: makeFun(_.constant({val: contData})), arg}]
-            : contType === callLabel
+      : contType === listLabel
+        ? [ { cont
+              : fnOfType
+                ( intLabel
+                , idx =>
+                    idx < 0 || idx >= contData.length
+                    ? { ok: false
+                      , val: strToChars("Array index out of bounds")}
+                    : {val: contData[idx]})
+            , arg}]
+        : contType === quoteLabel
+          ? [{cont: makeFun(_.constant({val: contData})), arg}]
+          : contType === callLabel
+            ? [ { cont
+                  : makeFun
+                    ( (arg, ...ons) =>
+                        ( { fn: contData.fnExpr
+                          , arg
+                          , okThen
+                            : { fn
+                                : makeFun
+                                  ( fnVal =>
+                                    ( { fn: contData.argExpr
+                                      , arg
+                                      , okThen
+                                        : { fn
+                                            : makeFun
+                                              ( argVal =>
+                                                  ( { fn: fnVal
+                                                    , arg: argVal}))}}))}}))
+                , arg}]
+            //: contType === identLabel
+            //  ? [ { cont
+            //        : makeFun
+            //          ( arg =>
+            //              ( { fn: arg
+            //                , arg: cont
+            //                , okThen
+            //                  : {fn: makeFun(expr => ({fn: expr, arg}))}}))
+            //      , arg}]
+            : contType === boolLabel
               ? [ { cont
                     : makeFun
-                      ( (arg, ...ons) =>
-                          ( { fn: contData.fnExpr
-                            , arg
-                            , okThen
-                              : { fn
-                                  : makeFun
-                                    ( fnVal =>
-                                      ( { fn: contData.argExpr
-                                        , arg
-                                        , okThen
-                                          : { fn
-                                              : makeFun
-                                                ( argVal =>
-                                                    ( { fn: fnVal
-                                                      , arg: argVal}))}}))}}))
+                      ( val =>
+                          ( { val
+                            : contData ? makeFun(_.constant({val})) : I}))
                   , arg}]
-              : contType === identLabel
-                ? [ { cont
-                      : makeFun
-                        ( arg =>
-                            ( { fn: arg
-                              , arg: cont
-                              , okThen
-                                : {fn: makeFun(expr => ({fn: expr, arg}))}}))
-                    , arg}]
-                : contType === boolLabel
-                  ? [ { cont
-                        : makeFun
-                          ( val =>
-                              ( { val
-                                : contData ? makeFun(_.constant({val})) : I}))
-                      , arg}]
-                  : Null("Tried to continue a non-continuation"))}
+              : Null("Tried to continue a non-continuation"))}
 
 ; function mk(label, data) {return {type: label, data: data}}
 
@@ -198,19 +198,19 @@
 
 ; function gensym(debugId) {return mk(symLabel, {sym: debugId})}
 
-; function makeIdent(val) {return mk(identLabel, val)}
-//; function makeIdent(key)
-//  { const This
-//    = arrToObj
-//      ( [ [ applySym
-//          , makeFun
-//            ( arg =>
-//                ( { fn: arg
-//                  , arg: This
-//                  , okThen
-//                    : {fn: makeFun(fn => ({fn, arg}))}}))]
-//        , [identKeySym, quote(key)]])
-//  ; return This}
+//; function makeIdent(val) {return mk(identLabel, val)}
+; function makeIdent(key)
+  { const
+      appFun
+      = makeFun
+        ( arg =>
+          ({fn: arg, arg: This, okThen: {fn: makeFun(fn => ({fn, arg}))}}))
+    , This
+      = arrToObj
+        ( [ [ applySym
+            , makeCont(arg => ([mCast(appFun, applySym, arg)]))]
+          , [identKeySym, makeCont(cont => ([{cont, arg: key}]))]])
+  ; return This}
 
 ; function makeBool(val) {return mk(boolLabel, val)}
 
@@ -241,21 +241,39 @@
 
 ; function objToNs(o)
   { return (
-      fnOfType
-      ( identLabel
-      , identKey =>
-        { if (!isString(identKey))
-            return {ok: false, val: strToChars(objToNsNotFoundStr)}
-        ; const keyStr = strVal(identKey)
-        ; return (
-            o.hasOwnProperty(keyStr)
-            ? {val: o[keyStr]}
-            : { ok: false
-              , val
-                : strToChars
-                  ( objToNsNotFoundStr
-                    + ": "
-                    + strVal(toString(makeIdent(identKey))))})}))}
+      makeFun
+      ( (ident, ...ons) =>
+        mCast
+        ( ident
+        , identKeySym
+        , makeCont
+          ( identKey =>
+            funResToThreads
+            ( isString(identKey)
+              ? ( keyStr =>
+                  o.hasOwnProperty(keyStr)
+                  ? {val: o[keyStr]}
+                  : { ok: false
+                    , val
+                      : strToChars
+                        ( objToNsNotFoundStr
+                          + ": "
+                          + strVal(toString(makeIdent(identKey))))})
+                (strVal(identKey))
+              : {ok: false, val: strToChars(objToNsNotFoundStr)}
+            , ...ons)))))}
+//        { if (!isString(identKey))
+//            return {ok: false, val: strToChars(objToNsNotFoundStr)}
+//        ; const keyStr = strVal(identKey)
+//        ; return (
+//            o.hasOwnProperty(keyStr)
+//            ? {val: o[keyStr]}
+//            : { ok: false
+//              , val
+//                : strToChars
+//                  ( objToNsNotFoundStr
+//                    + ": "
+//                    + strVal(toString(makeIdent(identKey))))})}))}
 
 ; function arrToObj(arr)
   { return (
@@ -268,7 +286,7 @@
                 ? [{cont: arr[index][1], arg: msg.data.last}]
                 : Null("Wrong message type"))
             (_.findIndex(arr, p => eq(p[0], msg.data.first)))
-          : Null("Bad message")))}
+          : Null("Bad message:\n%s\n\n%s", inspect(msg), inspect(arr))))}
 
 ; function isString(val)
   { return (
@@ -307,7 +325,7 @@ exports.strVal = strVal
           && val0.data.length == val1.data.length
           && _.every(val0.data, (elem, index) => eq(elem, val1.data[index]))
         || val0.type === quoteLabel && eq(val0.data, val1.data)
-        || val0.type === identLabel && eq(val0.data, val1.data)
+        //|| val0.type === identLabel && eq(val0.data, val1.data)
         ||
           val0.type === callLabel
           && eq(val0.data.fnExpr, val1.data.fnExpr)
@@ -432,8 +450,8 @@ exports.strVal = strVal
 ; const callLabel = {label: 'call'}
 ; exports.callLabel = callLabel
 
-; const identLabel = {label: 'ident'}
-; exports.identLabel = identLabel
+//; const identLabel = {label: 'ident'}
+//; exports.identLabel = identLabel
 
 ; const maybeLabel = {label: 'maybe'}
 ; exports.maybeLabel = maybeLabel
@@ -573,7 +591,7 @@ exports.strVal = strVal
         }}
 ; exports.parse = parseFile
 
-; const srcDataIdent = makeIdent(strToChars('source-data'))
+//; const srcDataIdent = makeIdent(strToChars('source-data'))
 
 ; const topApply
   = (fn, ...stuf) => topContinue([mCall(fn, applySym, ...stuf)])
@@ -583,7 +601,8 @@ exports.strVal = strVal
 
 ; const topContinue
   = threads =>
-    {while (threads.length > 0) threads.push(...Continue(...threadToList(threads.shift())))}
+    { while (threads.length > 0)
+        threads.push(...Continue(...threadToList(threads.shift())))}
 ; exports.topContinue = topContinue
 
 ; const evalProgram
@@ -597,10 +616,18 @@ exports.strVal = strVal
               ( { fn: expr
                 , arg
                   : makeFun
-                    ( Var =>
-                        eq(Var, srcDataIdent)
-                        ? quotedSourceDataVal
-                        : {fn: env, arg: Var})})))
+                    ( (Var, ...ons) =>
+                        mCast
+                        ( Var
+                        , identKeySym
+                        , makeCont
+                          ( varKey =>
+                              funResToThreads
+                              ( eq(varKey, strToChars('source-data'))
+                                ? quotedSourceDataVal
+                                : {fn: env, arg: Var}
+                              , ...ons)))
+                      )})))
       ({val: quote(strToChars(rest))})
 ; exports.bindRest = bindRest
 
@@ -644,14 +671,14 @@ exports.strVal = strVal
           , toString(argData.argExpr).data
           , [strToChar(")")])))
 
-  ; if (argLabel === identLabel)
-      return (
-        makeList
-        ( isString(argData)
-          ? strToChars('"|').data.concat
-            (escInIdent(argData.data), [strToChar("|")])
-          : strToChars("(make-ident ").data.concat
-            (toString(argData).data, [strToChar(")")])))
+  //; if (argLabel === identLabel)
+  //    return (
+  //      makeList
+  //      ( isString(argData)
+  //        ? strToChars('"|').data.concat
+  //          (escInIdent(argData.data), [strToChar("|")])
+  //        : strToChars("(make-ident ").data.concat
+  //          (toString(argData).data, [strToChar(")")])))
 
   //; if (argLabel === fnLabel) return strToChars("(fn ... )")
 
@@ -726,523 +753,583 @@ exports.strVal = strVal
     = Array.from('()[]{}').map(strToChar)
 
 ; const initEnv
-  = fnOfType
-    ( identLabel
-    , varKey =>
-        varKey.type === symLabel
+  = makeFun
+    ( (Var, ...ons) =>
+      ( mCast
+        ( Var
+        , identKeySym
+        , makeCont
+          ( varKey =>
+            funResToThreads
+            ( varKey.type === symLabel
 
-        ? varKey === delimitedVarSym
-          ? { val
-              : quote
-                ( makeFun
-                  ( begin =>
-                      ( { val
-                          : makeFun
-                            ( end =>
-                                eq(begin, lParen) && eq(end, rParen)
-                                ? { val
-                                    : fnOfType
-                                      ( listLabel
-                                        , (elems, onOk, onErr) =>
-                                            elems.length === 0
-                                            ? {val: I}
-                                            : { cont
-                                                : _.reduceRight
-                                                  ( _.tail(elems)
-                                                  , (onOk, arg) =>
-                                                      makeCont
-                                                      ( fn =>
-                                                          [ mCall
-                                                            ( fn
-                                                            , applySym
-                                                            , arg
-                                                            , onOk
-                                                            , onErr)])
-                                                  , onOk)
-                                              , arg: elems[0]})}
-                                : eq(begin, lBracket) && eq(end, rBracket)
-                                  ? {val: I}
-                                : eq(begin, lBrace) && eq(end, rBrace)
-                                  ? {val: makeMap}
-                                : { ok: false
-                                  , val
-                                    : strToChars
-                                      ("Unspecified delimited action")})})))}
+              ? varKey === delimitedVarSym
+                ? { val
+                    : quote
+                      ( makeFun
+                        ( begin =>
+                            ( { val
+                                : makeFun
+                                  ( end =>
+                                      eq(begin, lParen) && eq(end, rParen)
+                                      ? { val
+                                          : fnOfType
+                                            ( listLabel
+                                              , (elems, onOk, onErr) =>
+                                                  elems.length === 0
+                                                  ? {val: I}
+                                                  : { cont
+                                                      : _.reduceRight
+                                                        ( _.tail(elems)
+                                                        , (onOk, arg) =>
+                                                            makeCont
+                                                            ( fn =>
+                                                                [ mCall
+                                                                  ( fn
+                                                                  , applySym
+                                                                  , arg
+                                                                  , onOk
+                                                                  , onErr)])
+                                                        , onOk)
+                                                    , arg: elems[0]})}
+                                      : eq(begin, lBracket) && eq(end, rBracket)
+                                        ? {val: I}
+                                      : eq(begin, lBrace) && eq(end, rBrace)
+                                        ? {val: makeMap}
+                                      : { ok: false
+                                        , val
+                                          : strToChars
+                                            ( "Unspecified delimited "
+                                              + "action")})})))}
 
-          : { ok: false
-            , val: strToChars("Symbol variable not found in environment")}
+                : { ok: false
+                  , val: strToChars("Symbol variable not found in environment")}
 
-        : isString(varKey)
+              : isString(varKey)
 
-          ? stringIs(varKey, 'fn')
-            ? { val
-                : makeFun
-                  ( env =>
-                      ( { val
-                          : makeFun
-                            ( param =>
-                                ( { val
-                                    : makeFun
-                                      ( body =>
-                                          ( { val
-                                              : makeFun
-                                                ( arg =>
+                ? stringIs(varKey, 'fn')
+                  ? { val
+                      : makeFun
+                        ( env =>
+                          ( { val
+                              : makeFun
+                                ( (param, ...ons) =>
+                                  mCast
+                                  ( param
+                                  , identKeySym
+                                  , makeCont
+                                    ( paramKey =>
+                                      funResToThreads
+                                      ( { val
+                                        : makeFun
+                                          ( body =>
+                                            ( { val
+                                                : makeFun
+                                                  ( arg =>
                                                     ( { fn: body
                                                       , arg
                                                         : makeFun
-                                                          ( varKey =>
-                                                              eq(varKey, param)
-                                                              ? {val: quote(arg)}
-                                                              : { fn: env
-                                                                , arg
-                                                                  : varKey})}))}))}))}))}
+                                                          ( (Var, ...ons) =>
+                                                            mCast
+                                                            ( Var
+                                                            , identKeySym
+                                                            , makeCont
+                                                              ( varKey =>
+                                                                funResToThreads
+                                                                ( eq
+                                                                  ( paramKey
+                                                                  , varKey)
+                                                                  ? { val
+                                                                    : quote
+                                                                      (arg)}
+                                                                  : { fn: env
+                                                                    , arg: Var}
+                                                                , ...
+                                                                  ons))))}))}))}
+                                      ,...ons))))}))}
 
-            : stringIs(varKey, 'continue')
-              ? { val
-                  : quote
-                    (makeFun(cont => ({val: makeFun(arg => ({cont, arg}))})))}
+                  : stringIs(varKey, 'continue')
+                    ? { val
+                        : quote
+                          ( makeFun
+                            (cont => ({val: makeFun(arg => ({cont, arg}))})))}
 
-            : stringIs(varKey, 'call/cc')
-              ? {val: quote(makeFun((fn, arg) => ({fn, arg})))}
+                  : stringIs(varKey, 'call/cc')
+                    ? {val: quote(makeFun((fn, arg) => ({fn, arg})))}
 
-            : stringIs(varKey, 'call/onerr')
-              ? {val: quote(makeFun((...[fn,, arg]) => ({fn, arg})))}
+                  : stringIs(varKey, 'call/onerr')
+                    ? {val: quote(makeFun((...[fn,, arg]) => ({fn, arg})))}
 
-            : stringIs(varKey, 'make-cont')
-              ? { val
-                  : quote
-                    ( makeFun
-                      ( onErr =>
-                          ( { val
-                              : makeFun
-                                ( fn =>
-                                    ( { val
-                                        : makeCont
-                                          ( arg =>
-                                              [ mCall
-                                                ( fn
-                                                , applySym
-                                                , arg
-                                                , makeContOnOk(onErr)
-                                                , onErr)])}))})))}
+                  : stringIs(varKey, 'make-cont')
+                    ? { val
+                        : quote
+                          ( makeFun
+                            ( onErr =>
+                                ( { val
+                                    : makeFun
+                                      ( fn =>
+                                          ( { val
+                                              : makeCont
+                                                ( arg =>
+                                                    [ mCall
+                                                      ( fn
+                                                      , applySym
+                                                      , arg
+                                                      , makeContOnOk(onErr)
+                                                      , onErr)])}))})))}
 
-            : stringIs(varKey, 'make-sync-cont')
-              ? { val
-                  : quote
-                    ( makeFun
-                      ( onErr =>
-                          ( { val
-                              : makeFun
-                                ( fn =>
-                                    ( state =>
-                                        ( { val
-                                            : makeCont
-                                              ( arg =>
-                                                  state.busy
-                                                  ? (state.queue.push(arg), [])
-                                                  : ( state.busy = true
-                                                    , [ mCall
-                                                        ( state.fn
-                                                        , applySym
-                                                        , arg
-                                                        , makeSyncContOnOk
-                                                          (state, onErr)
-                                                        , onErr)]))}))
-                                    ({fn, busy: false, queue: []}))})))}
-
-            : stringIs(varKey, "async")
-              ? { val
-                  : makeFun
-                    ( arg =>
-                        ( { val
-                            : makeFun
-                              ( fn =>
-                                  [{fn, arg, onOk: nullCont}, {val: unit}])}))}
-
-            : stringIs(varKey, '+')
-              ? { val
-                  : quote
-                    ( fnOfType
-                      ( listLabel
-                      , args =>
-                          _.every(args, arg => arg.type === intLabel)
-                          ? { val
-                              : _.reduce
-                                ( args
-                                , (arg0, arg1) => makeInt(arg0.data + arg1.data)
-                                , makeInt(0))}
-                          : { ok: false
-                            , val
-                              : strToChars
-                                ("Additional argument wasn't integral")}))}
-
-            : stringIs(varKey, '-')
-              ? { val
-                  : quote
-                    ( fnOfType
-                      ( listLabel
-                      , args =>
-                        { if (args.length === 0) return {val: makeInt(-1)}
-
-                        ; if (args[0].type !== intLabel) return {ok: false}
-                        ; if (args.length === 1)
-                            return {val: makeInt(-args[0].data)}
-
-                        ; return (
-                            _.every(args, arg => arg.type === intLabel)
-                            ? { val
-                                : _.reduce
-                                  ( args
-                                  , (arg0, arg1) =>
-                                      makeInt(arg0.data - arg1.data))}
-                            : { ok: false
-                              , val
-                                : strToChars
-                                  ( "Subtractional argument wasn't integral"
-                                    + "")})}))}
-
-            : stringIs(varKey, '<')
-              ? { val
-                  : quote
-                    ( fnOfType
-                      ( intLabel
-                      , arg0 =>
-                          ( { val
-                              : fnOfType
-                                ( intLabel
-                                , arg1 => ({val: makeBool(arg0 < arg1)}))})))}
-
-            : stringIs(varKey, '=')
-              ? { val
-                  : quote
-                    ( makeFun
-                      ( arg0 =>
-                          ( { val
-                              : makeFun
-                                ( arg1 =>
-                                    ({val: makeBool(eq(arg0, arg1))}))})))}
-
-            : stringIs(varKey, "env") ? {val: I}
-
-            : stringIs(varKey, "init-env") ? {val: quote(initEnv)}
-
-            : stringIs(varKey, "print")
-              ? { val
-                  : quote
-                    ( makeFun
-                      ( arg =>
-                          isString(arg)
-                          ? ( process.stdout.write(strVal(arg))
-                            , {val: unit})
-                          : { ok: false
-                            , val: strToChars('Tried to print nonstring')}))}
-
-            : stringIs(varKey, "say")
-              ? { val
-                  : quote
-                    ( makeFun
-                      ( _.flow
-                        ( toString
-                        , strVal
-                        , process.stdout.write.bind(process.stdout)
-                        , _.constant({val: unit}))))}
-
-            : stringIs(varKey, "->str")
-              ? {val: quote(makeFun(_.flow(toString, val => ({val}))))}
-
-            : stringIs(varKey, "char->unicode")
-              ? { val
-                  : quote
-                    ( fnOfType
-                      (charLabel, _.flow(makeInt, val => ({val}))))}
-
-            : stringIs(varKey, "unicode->char")
-              ? { val
-                  : quote
-                    ( fnOfType
-                      (intLabel, _.flow(makeChar, val => ({val}))))}
-
-            : stringIs(varKey, "length")
-              ? { val
-                  : quote
-                    ( fnOfType
-                      (listLabel, arg => ({val: makeInt(arg.length)})))}
-
-            : stringIs(varKey, "->list")
-              ? { val
-                  : quote
-                    ( makeFun
-                      ( arg =>
-                          ( { val
-                              : fnOfType
-                                ( intLabel
-                                , length =>
-                                    length < 0
-                                    ? { ok: false
-                                      , val
-                                        : strToChars
-                                          ( "Lists must be nonnegative in "
-                                            + "length")}
-                                    : { fn: syncMap
-                                      , arg
-                                        : makeList(_.range(length).map(makeInt))
-                                      , okThen
-                                        : { fn
-                                            : makeFun
-                                              (fn => ({fn, arg}))}})})))}
-
-            : stringIs(varKey, "true") ? {val: quote(makeBool(true))}
-
-            : stringIs(varKey, "false") ? {val: quote(makeBool(false))}
-
-            : stringIs(varKey, "unit") ? {val: quote(unit)}
-
-            : stringIs(varKey, "read-file")
-              ? { val
-                  : quote
-                    ( makeFun
-                      ( arg =>
-                          isString(arg)
-                          ? {val: strToChars(readFile(strVal(arg)))}
-                          : { ok: false
-                            , val
-                              : strToChars
-                                ('Tried to read-file of nonstring')}))}
-
-            : stringIs(varKey, "parse-prog")
-              ? { val
-                  : quote
-                    ( makeFun
-                      ( arg =>
-                          isString(arg)
-                          ? { val
-                              : ( parsed =>
-                                    parsed.success
-                                    ? okResult
-                                      ( objToNs
-                                        ( { expr: quote(parsed.ast)
-                                          , rest
-                                            : quote(strToChars(parsed.rest))}))
-                                    : errResult
-                                      ( makeFun
-                                        ( _.flow
-                                          ( strVal
-                                          , parsed.error
-                                          , strToChars
-                                          , val => ({val})))))
-                                (parseFile(strVal(arg)))}
-                          : { ok: false
-                            , val: strToChars('Tried to parse nonstring')}))}
-
-            : stringIs(varKey, "eval-file")
-              ? { val
-                  : quote
-                    ( makeFun
-                      ( (arg, ...ons) =>
-                          isString(arg)
-                          ? ( parsed =>
-                                parsed.success
-                                ? evalProgram(parsed.ast, parsed.rest)
-                                : { ok: false
-                                  , val: strToChars(parsed.error(strVal(arg)))})
-                            (parseFile(readFile(strVal(arg))))
-                          : { ok: false
-                            , val
-                              : strToChars
-                                ('Tried to eval-file of nonstring')}))}
-
-            : stringIs(varKey, "gensym")
-              ? {val: quote(makeFun(_.flow(gensym, val => ({val}))))}
-
-            : stringIs(varKey, "symbol-debug-info")
-              ? {val: quote(fnOfType(symLabel, data => ({val: data.sym})))}
-
-            : stringIs(varKey, "q")
-              ? {val: quote(makeFun(_.flow(quote, val => ({val}))))}
-
-            : stringIs(varKey, "make-call")
-              ? { val
-                  : quote
-                    ( makeFun
-                      ( fnExpr =>
-                          ( { val
-                              : makeFun
-                                ( argExpr =>
-                                    ({val: makeCall(fnExpr, argExpr)}))})))}
-
-            : stringIs(varKey, "call-fn-expr")
-              ? {val: quote(fnOfType(callLabel, ({fnExpr}) => ({val: fnExpr})))}
-
-            : stringIs(varKey, "call-arg-expr")
-              ? { val
-                  : quote(fnOfType(callLabel, ({argExpr}) => ({val: argExpr})))}
-
-            : stringIs(varKey, "make-ident")
-              ? {val: quote(makeFun(_.flow(makeIdent, val => ({val}))))}
-
-            : stringIs(varKey, "ident-key")
-              ? {val: quote(fnOfType(identLabel, val => ({val})))}
-
-            : stringIs(varKey, "delimited-var") ? {val: quote(delimitedVar)}
-
-            : stringIs(varKey, "just")
-              ? {val: quote(makeFun(_.flow(just, val => ({val}))))}
-
-            : stringIs(varKey, "nothing") ? {val: quote(nothing)}
-
-            : stringIs(varKey, "justp")
-              ? { val
-                  : quote
-                    ( fnOfType(maybeLabel, arg => ({val: makeBool(arg.is)})))}
-
-            : stringIs(varKey, "unjust")
-              ? { val
-                  : quote
-                    ( fnOfType
-                      ( maybeLabel
-                      , arg =>
-                          arg.is
-                          ? {val: arg.val}
-                          : { ok: false
-                            , val: strToChars("Nothing was unjustified")}))}
-
-            : stringIs(varKey, "ok")
-              ? {val: quote(makeFun(_.flow(okResult, val => ({val}))))}
-
-            : stringIs(varKey, "err")
-              ? {val: quote(makeFun(_.flow(errResult, val => ({val}))))}
-
-            : stringIs(varKey, "okp")
-              ? { val
-                  : quote
-                    ( fnOfType
-                      (resultLabel, arg => ({val: makeBool(arg.ok)})))}
-
-            : stringIs(varKey, "unok")
-              ? { val
-                  : quote
-                    ( fnOfType
-                      ( resultLabel
-                      , arg =>
-                          arg.ok
-                          ? {val: arg.val}
-                          : { ok: false
-                            , val
-                              : strToChars
-                                ( isString(arg.val)
-                                  ? "Err: " + strVal(arg.val)
-                                  : "Result was not ok")}))}
-
-            : stringIs(varKey, "unerr")
-              ? { val
-                  : quote
-                    ( fnOfType
-                      ( resultLabel
-                      , arg =>
-                          arg.ok
-                          ? { ok: false
-                            , val
-                              : strToChars
-                                ( isString(arg.val)
-                                  ? "Ok: " + strVal(arg.val)
-                                  : "Result was ok")}
-                          : {val: arg.val}))}
-
-            : stringIs(varKey, "make-cell")
-              ? {val: quote(makeFun(_.flow(makeCell, val => ({val}))))}
-
-            : stringIs(varKey, "cell-val")
-              ? {val: quote(fnOfType(cellLabel, ({val}) => ({val})))}
-
-            : stringIs(varKey, "set")
-              ? { val
-                  : quote
-                    ( fnOfType
-                      ( cellLabel
-                      , cell =>
-                          ( { val
-                              : makeFun
-                                (val => (cell.val = val, {val: unit}))})))}
-
-            : stringIs(varKey, "cas")
-              ? { val
-                  : quote
-                    ( fnOfType
-                      ( cellLabel
-                      , cell =>
-                          ( { val
-                              : makeFun
-                                ( oldVal =>
-                                    ( { val
-                                        : makeFun
-                                          ( newVal =>
+                  : stringIs(varKey, 'make-sync-cont')
+                    ? { val
+                        : quote
+                          ( makeFun
+                            ( onErr =>
+                                ( { val
+                                    : makeFun
+                                      ( fn =>
+                                          ( state =>
                                               ( { val
-                                                  : eq(cell.val, oldVal)
-                                                    ? ( cell.val = newVal
-                                                      , oldVal)
-                                                    : newVal}))}))})))}
+                                                  : makeCont
+                                                    ( arg =>
+                                                        state.busy
+                                                        ? ( state.queue
+                                                            .push(arg)
+                                                          , [])
+                                                        : ( state.busy = true
+                                                          , [ mCall
+                                                              ( state.fn
+                                                              , applySym
+                                                              , arg
+                                                              , makeSyncContOnOk
+                                                                (state, onErr)
+                                                              , onErr)]))}))
+                                          ({fn, busy: false, queue: []}))})))}
 
-            : stringIs(varKey, "cons")
-              ? { val
-                : quote
-                  ( makeFun
-                    ( first =>
-                        ( { val
-                            : makeFun
-                              (last => ({val: makePair(first, last)}))})))}
+                  : stringIs(varKey, "async")
+                    ? { val
+                        : makeFun
+                          ( arg =>
+                              ( { val
+                                  : makeFun
+                                    ( fn =>
+                                        [ {fn, arg, onOk: nullCont}
+                                        , {val: unit}])}))}
 
-            : stringIs(varKey, "car")
-              ? {val: quote(fnOfType(pairLabel, ({first}) => ({val: first})))}
+                  : stringIs(varKey, '+')
+                    ? { val
+                        : quote
+                          ( fnOfType
+                            ( listLabel
+                            , args =>
+                                _.every(args, arg => arg.type === intLabel)
+                                ? { val
+                                    : _.reduce
+                                      ( args
+                                      , (arg0, arg1) =>
+                                        makeInt(arg0.data + arg1.data)
+                                      , makeInt(0))}
+                                : { ok: false
+                                  , val
+                                    : strToChars
+                                      ( "Additional argument wasn't "
+                                        + "integral")}))}
 
-            : stringIs(varKey, "cdr")
-              ? {val: quote(fnOfType(pairLabel, ({last}) => ({val: last})))}
+                  : stringIs(varKey, '-')
+                    ? { val
+                        : quote
+                          ( fnOfType
+                            ( listLabel
+                            , args =>
+                              { if (args.length === 0) return {val: makeInt(-1)}
 
-            : stringIs(varKey, "to-str-m")
-              ? {val: quote(toStrSym)}
+                              ; if (args[0].type !== intLabel)
+                                  return {ok: false}
+                              ; if (args.length === 1)
+                                  return {val: makeInt(-args[0].data)}
 
-            : stringIs(varKey, "strable")
-              ? { val
-                  : quote
-                    ( makeFun
-                      ( fn =>
-                          ( { val
-                              : arrToObj
-                                ( [ [ toStrSym
-                                    , makeCont
-                                      ( msg =>
-                                          msg.type === pairLabel
-                                          ? [ mCall
-                                              ( fn
-                                              , applySym
-                                              , unit
-                                              , msg.data.first
-                                              , msg.data.last)]
-                                          : [])]])})))}
+                              ; return (
+                                  _.every(args, arg => arg.type === intLabel)
+                                  ? { val
+                                      : _.reduce
+                                        ( args
+                                        , (arg0, arg1) =>
+                                            makeInt(arg0.data - arg1.data))}
+                                  : { ok: false
+                                    , val
+                                      : strToChars
+                                        ( "Subtractional argument wasn't "
+                                          + "integral")})}))}
 
-            : varKey.data[0].data == '"'.codePointAt(0)
-              ? {val: quote(makeList(varKey.data.slice(1)))}
+                  : stringIs(varKey, '<')
+                    ? { val
+                        : quote
+                          ( fnOfType
+                            ( intLabel
+                            , arg0 =>
+                                ( { val
+                                    : fnOfType
+                                      ( intLabel
+                                      , arg1 =>
+                                        ({val: makeBool(arg0 < arg1)}))})))}
 
-  //          var varParts = maybeStr[1].split(':');
-  //          if (varParts.length >= 2) {
-  //            return _.reduce(varParts.slice(1, varParts.length),
-  //                            function(fn, argument) {
-  //                              return apply(fn,
-  //                                           valObj(strLabel,
-  //                                                  argument))},
-  //                            apply(env,
-  //                                  valObj(strLabel, varParts[0])))}
+                  : stringIs(varKey, '=')
+                    ? { val
+                        : quote
+                          ( makeFun
+                            ( arg0 =>
+                                ( { val
+                                    : makeFun
+                                      ( arg1 =>
+                                          ( { val
+                                              : makeBool(eq(arg0, arg1))}))})))}
 
-            : (varStr =>
-                /^(\-|\+)?[0-9]+$/.test(varStr)
-                ? {val: quote(makeInt(parseInt(varStr, 10)))}
-                : { ok: false
-                  , val
-                    : strToChars
-                      ( 'string variable not found in environment: "'
-                        + strVal(varKey))})
-              (strVal(varKey))
-        : {ok: false, val: strToChars("unknown variable: " + strVal(toString(varKey)))})
+                  : stringIs(varKey, "env") ? {val: I}
+
+                  : stringIs(varKey, "init-env") ? {val: quote(initEnv)}
+
+                  : stringIs(varKey, "print")
+                    ? { val
+                        : quote
+                          ( makeFun
+                            ( arg =>
+                                isString(arg)
+                                ? ( process.stdout.write(strVal(arg))
+                                  , {val: unit})
+                                : { ok: false
+                                  , val
+                                    : strToChars('Tried to print nonstring')}))}
+
+                  : stringIs(varKey, "say")
+                    ? { val
+                        : quote
+                          ( makeFun
+                            ( _.flow
+                              ( toString
+                              , strVal
+                              , process.stdout.write.bind(process.stdout)
+                              , _.constant({val: unit}))))}
+
+                  : stringIs(varKey, "->str")
+                    ? {val: quote(makeFun(_.flow(toString, val => ({val}))))}
+
+                  : stringIs(varKey, "char->unicode")
+                    ? { val
+                        : quote
+                          ( fnOfType
+                            (charLabel, _.flow(makeInt, val => ({val}))))}
+
+                  : stringIs(varKey, "unicode->char")
+                    ? { val
+                        : quote
+                          ( fnOfType
+                            (intLabel, _.flow(makeChar, val => ({val}))))}
+
+                  : stringIs(varKey, "length")
+                    ? { val
+                        : quote
+                          ( fnOfType
+                            (listLabel, arg => ({val: makeInt(arg.length)})))}
+
+                  : stringIs(varKey, "->list")
+                    ? { val
+                        : quote
+                          ( makeFun
+                            ( arg =>
+                                ( { val
+                                    : fnOfType
+                                      ( intLabel
+                                      , length =>
+                                          length < 0
+                                          ? { ok: false
+                                            , val
+                                              : strToChars
+                                                ( "Lists must be nonnegative in"
+                                                  + " length")}
+                                          : { fn: syncMap
+                                            , arg
+                                              : makeList
+                                                (_.range(length).map(makeInt))
+                                            , okThen
+                                              : { fn
+                                                  : makeFun
+                                                    (fn => ({fn, arg}))}})})))}
+
+                  : stringIs(varKey, "true") ? {val: quote(makeBool(true))}
+
+                  : stringIs(varKey, "false") ? {val: quote(makeBool(false))}
+
+                  : stringIs(varKey, "unit") ? {val: quote(unit)}
+
+                  : stringIs(varKey, "read-file")
+                    ? { val
+                        : quote
+                          ( makeFun
+                            ( arg =>
+                                isString(arg)
+                                ? {val: strToChars(readFile(strVal(arg)))}
+                                : { ok: false
+                                  , val
+                                    : strToChars
+                                      ('Tried to read-file of nonstring')}))}
+
+                  : stringIs(varKey, "parse-prog")
+                    ? { val
+                        : quote
+                          ( makeFun
+                            ( arg =>
+                                isString(arg)
+                                ? { val
+                                    : ( parsed =>
+                                          parsed.success
+                                          ? okResult
+                                            ( objToNs
+                                              ( { expr: quote(parsed.ast)
+                                                , rest
+                                                  : quote
+                                                    (strToChars(parsed.rest))}))
+                                          : errResult
+                                            ( makeFun
+                                              ( _.flow
+                                                ( strVal
+                                                , parsed.error
+                                                , strToChars
+                                                , val => ({val})))))
+                                      (parseFile(strVal(arg)))}
+                                : { ok: false
+                                  , val
+                                    : strToChars('Tried to parse nonstring')}))}
+
+                  : stringIs(varKey, "eval-file")
+                    ? { val
+                        : quote
+                          ( makeFun
+                            ( (arg, ...ons) =>
+                                isString(arg)
+                                ? ( parsed =>
+                                      parsed.success
+                                      ? evalProgram(parsed.ast, parsed.rest)
+                                      : { ok: false
+                                        , val
+                                          : strToChars
+                                            (parsed.error(strVal(arg)))})
+                                  (parseFile(readFile(strVal(arg))))
+                                : { ok: false
+                                  , val
+                                    : strToChars
+                                      ('Tried to eval-file of nonstring')}))}
+
+                  : stringIs(varKey, "gensym")
+                    ? {val: quote(makeFun(_.flow(gensym, val => ({val}))))}
+
+                  : stringIs(varKey, "symbol-debug-info")
+                    ? { val
+                        : quote(fnOfType(symLabel, data => ({val: data.sym})))}
+
+                  : stringIs(varKey, "q")
+                    ? {val: quote(makeFun(_.flow(quote, val => ({val}))))}
+
+                  : stringIs(varKey, "make-call")
+                    ? { val
+                        : quote
+                          ( makeFun
+                            ( fnExpr =>
+                                ( { val
+                                    : makeFun
+                                      ( argExpr =>
+                                          ( { val
+                                              : makeCall
+                                                (fnExpr, argExpr)}))})))}
+
+                  : stringIs(varKey, "call-fn-expr")
+                    ? { val
+                        : quote
+                          (fnOfType(callLabel, ({fnExpr}) => ({val: fnExpr})))}
+
+                  : stringIs(varKey, "call-arg-expr")
+                    ? { val
+                        : quote
+                          ( fnOfType
+                            (callLabel, ({argExpr}) => ({val: argExpr})))}
+
+                  : stringIs(varKey, "make-ident")
+                    ? {val: quote(makeFun(_.flow(makeIdent, val => ({val}))))}
+
+                  : stringIs(varKey, "ident-key")
+                    //? {val: quote(fnOfType(identLabel, val => ({val})))}
+                    ? { val
+                        : quote
+                          ( makeFun
+                            ((ident, onOk) => mCast(ident, identKeySym, onOk)))}
+
+                  : stringIs(varKey, "delimited-var")
+                    ? {val: quote(delimitedVar)}
+
+                  : stringIs(varKey, "just")
+                    ? {val: quote(makeFun(_.flow(just, val => ({val}))))}
+
+                  : stringIs(varKey, "nothing") ? {val: quote(nothing)}
+
+                  : stringIs(varKey, "justp")
+                    ? { val
+                        : quote
+                          ( fnOfType
+                            (maybeLabel, arg => ({val: makeBool(arg.is)})))}
+
+                  : stringIs(varKey, "unjust")
+                    ? { val
+                        : quote
+                          ( fnOfType
+                            ( maybeLabel
+                            , arg =>
+                                arg.is
+                                ? {val: arg.val}
+                                : { ok: false
+                                  , val
+                                    : strToChars("Nothing was unjustified")}))}
+
+                  : stringIs(varKey, "ok")
+                    ? {val: quote(makeFun(_.flow(okResult, val => ({val}))))}
+
+                  : stringIs(varKey, "err")
+                    ? {val: quote(makeFun(_.flow(errResult, val => ({val}))))}
+
+                  : stringIs(varKey, "okp")
+                    ? { val
+                        : quote
+                          ( fnOfType
+                            (resultLabel, arg => ({val: makeBool(arg.ok)})))}
+
+                  : stringIs(varKey, "unok")
+                    ? { val
+                        : quote
+                          ( fnOfType
+                            ( resultLabel
+                            , arg =>
+                                arg.ok
+                                ? {val: arg.val}
+                                : { ok: false
+                                  , val
+                                    : strToChars
+                                      ( isString(arg.val)
+                                        ? "Err: " + strVal(arg.val)
+                                        : "Result was not ok")}))}
+
+                  : stringIs(varKey, "unerr")
+                    ? { val
+                        : quote
+                          ( fnOfType
+                            ( resultLabel
+                            , arg =>
+                                arg.ok
+                                ? { ok: false
+                                  , val
+                                    : strToChars
+                                      ( isString(arg.val)
+                                        ? "Ok: " + strVal(arg.val)
+                                        : "Result was ok")}
+                                : {val: arg.val}))}
+
+                  : stringIs(varKey, "make-cell")
+                    ? {val: quote(makeFun(_.flow(makeCell, val => ({val}))))}
+
+                  : stringIs(varKey, "cell-val")
+                    ? {val: quote(fnOfType(cellLabel, ({val}) => ({val})))}
+
+                  : stringIs(varKey, "set")
+                    ? { val
+                        : quote
+                          ( fnOfType
+                            ( cellLabel
+                            , cell =>
+                                ( { val
+                                    : makeFun
+                                      ( val =>
+                                        (cell.val = val, {val: unit}))})))}
+
+                  : stringIs(varKey, "cas")
+                    ? { val
+                        : quote
+                          ( fnOfType
+                            ( cellLabel
+                            , cell =>
+                                ( { val
+                                    : makeFun
+                                      ( oldVal =>
+                                          ( { val
+                                              : makeFun
+                                                ( newVal =>
+                                                    ( { val
+                                                        : eq(cell.val, oldVal)
+                                                          ? ( cell.val = newVal
+                                                            , oldVal)
+                                                          : newVal}))}))})))}
+
+                  : stringIs(varKey, "cons")
+                    ? { val
+                      : quote
+                        ( makeFun
+                          ( first =>
+                              ( { val
+                                  : makeFun
+                                    ( last =>
+                                      ({val: makePair(first, last)}))})))}
+
+                  : stringIs(varKey, "car")
+                    ? { val
+                        : quote
+                          (fnOfType(pairLabel, ({first}) => ({val: first})))}
+
+                  : stringIs(varKey, "cdr")
+                    ? { val
+                        : quote(fnOfType(pairLabel, ({last}) => ({val: last})))}
+
+                  : stringIs(varKey, "to-str-m")
+                    ? {val: quote(toStrSym)}
+
+                  : stringIs(varKey, "strable")
+                    ? { val
+                        : quote
+                          ( makeFun
+                            ( fn =>
+                                ( { val
+                                    : arrToObj
+                                      ( [ [ toStrSym
+                                          , makeCont
+                                            ( msg =>
+                                                msg.type === pairLabel
+                                                ? [ mCall
+                                                    ( fn
+                                                    , applySym
+                                                    , unit
+                                                    , msg.data.first
+                                                    , msg.data.last)]
+                                                : [])]])})))}
+
+                  : varKey.data[0].data == '"'.codePointAt(0)
+                    ? {val: quote(makeList(varKey.data.slice(1)))}
+
+        //          var varParts = maybeStr[1].split(':');
+        //          if (varParts.length >= 2) {
+        //            return _.reduce(varParts.slice(1, varParts.length),
+        //                            function(fn, argument) {
+        //                              return apply(fn,
+        //                                           valObj(strLabel,
+        //                                                  argument))},
+        //                            apply(env,
+        //                                  valObj(strLabel, varParts[0])))}
+
+                  : (varStr =>
+                      /^(\-|\+)?[0-9]+$/.test(varStr)
+                      ? {val: quote(makeInt(parseInt(varStr, 10)))}
+                      : { ok: false
+                        , val
+                          : strToChars
+                            ("unknown variable: " + strVal(toString(varKey)))})
+                    (strVal(varKey))
+              : { ok: false
+                , val
+                  : strToChars("unknown variable: " + strVal(toString(varKey)))}
+                  , ...ons)))))
 ; exports.initEnv = initEnv
 
-; Error.stackTraceLimit = Infinity
+//; Error.stackTraceLimit = Infinity
 
