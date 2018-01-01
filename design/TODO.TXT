@@ -1,4 +1,5 @@
 * better syntax-error message
+* streams
 * objects
 * input
 * thread supervisors

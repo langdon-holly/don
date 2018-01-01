@@ -2,7 +2,9 @@
 
 ("(unok (parse-prog-expr source-data )env )(eval-file |"std-env.don|env ))
 
-(say (call/cc (fn "return "(continue (strable (q 56 )) (cons to-str-m (cons return return ))))))
+(say
+  [ (call/cc (fn "ret "(continue "54 (cons apply-m [env ret ret ]))))
+    (call/cc (fn "ret "(continue "57 (cons ident-key-m ret ))))])
 
 [ (say
     [ (cons 1 3 )

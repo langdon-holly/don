@@ -848,6 +848,8 @@ exports.strVal = strVal
                                                                   ons))))}))}))}
                                       ,...ons))))}))}
 
+                  : stringIs(varKey, "apply-m") ? {val: quote(applySym)}
+
                   : stringIs(varKey, 'continue')
                     ? { val
                         : quote
@@ -1160,6 +1162,8 @@ exports.strVal = strVal
                           ( makeFun
                             ((ident, onOk) => mCast(ident, identKeySym, onOk)))}
 
+                  : stringIs(varKey, "ident-key-m") ? {val: quote(identKeySym)}
+
                   : stringIs(varKey, "delimited-var")
                     ? {val: quote(delimitedVar)}
 
@@ -1282,8 +1286,7 @@ exports.strVal = strVal
                     ? { val
                         : quote(fnOfType(pairLabel, ({last}) => ({val: last})))}
 
-                  : stringIs(varKey, "to-str-m")
-                    ? {val: quote(toStrSym)}
+                  : stringIs(varKey, "to-str-m") ? {val: quote(toStrSym)}
 
                   : stringIs(varKey, "strable")
                     ? { val
