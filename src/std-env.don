@@ -1,35 +1,33 @@
-(fn "parse-prog-expr
-  " (fn "Z
-      " (fn "error
-          " (fn "this-env
-              " (fn "new-env
-                  " (fn "var
-                      " (fn "var-key
-                          " (= var-key |"parse-prog-expr| true
-                              (= var-key |"Z| true (= var-key |"error| )))
-                          (ident-key var )
+(fn 'parse-prog-expr
+  " (fn 'Z
+      " (fn 'error
+          " (fn 'this-env
+              " (fn 'new-env
+                  " (fn 'var-key
+                      " ( (= var-key 'parse-prog-expr true
+                              (= var-key 'Z true (= var-key 'error )))
                           this-env
                           new-env
-                          var )))
+                          var-key )))
               env )
-          (call/onerr make-cont (fn "err "(continue (err 2 )(err 0 )))))
-      (fn "f
-        " (fn "x
-            "(f (fn "v "(x x v )))
-            (fn "x
-              "(f (fn "v "(x x v )))))))
-  (fn "str 
-    " (fn "parsed
+          (call/onerr make-cont (fn 'err "(continue (err 2 )(err 0 )))))
+      (fn 'f
+        " (fn 'x
+            "(f (fn 'v "(x x v )))
+            (fn 'x
+              "(f (fn 'v "(x x v )))))))
+  (fn 'str
+    " (fn 'parsed
         " (okp parsed
             " (ok
-                (fn "new-env
+                (fn 'new-env
                   " ("expr (unok parsed )
-                      (fn "var
-                        " (= (ident-key var ) |"source-data|
+                      (fn 'var-key
+                        " (= var-key 'source-data
                             "(q ("rest (unok parsed )))
-                            "(new-env var )
+                            "(new-env var-key )
                             env )))))
-            "(err (unerr parsed |"file|))
+            "(err (unerr parsed 'file ))
             env )
         (parse-prog str ))))
 

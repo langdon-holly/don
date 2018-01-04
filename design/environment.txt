@@ -54,5 +54,5 @@ nothing
 (cdr pair )
 to-str-m
 (strable fn )
-/^"/
+/^'/
 /^(\-|\+)?[0-9]+$/
