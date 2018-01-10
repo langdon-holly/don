@@ -13,7 +13,8 @@
 // Utility
 ; const
     debug = true
-  , log = (...args) => (debug && console.log(...args), _.last(args))
+  , log = (...args) =>
+    (debug && console.log(args.map(inspect).join("\n")), _.last(args))
   , inspect = o => util.inspect(o, {depth: null, colors: true})
   //, promiseSyncMap
   //  = (arrIn, promiseFn) =>
@@ -43,61 +44,46 @@
     , {type: argType, data: argData} = arg
   ; return (
       contType === contLabel ? contData(arg)
-      //: contType === fnLabel
-      //  ? _.isArray(argData)
-      //    && argData[1].type === contLabel
-      //    && argData[2].type === contLabel
-      //    ? apply(cont, ...argData)
-      //    : Null("Fun requires arrayed continuations")
-      : contType === listLabel
-        ? [ { cont
-              : fnOfType
-                ( intLabel
-                , idx =>
-                    idx < 0 || idx >= contData.length
-                    ? { ok: false
-                      , val: strToChars("Array index out of bounds")}
-                    : {val: contData[idx]})
-            , arg}]
-        : contType === quoteLabel
-          ? [{cont: makeFun(_.constant({val: contData})), arg}]
-          : contType === callLabel
+      //: contType === listLabel
+      //  ? [ { cont
+      //        : fnOfType
+      //          ( intLabel
+      //          , idx =>
+      //              idx < 0 || idx >= contData.length
+      //              ? { ok: false
+      //                , val: strToChars("Array index out of bounds")}
+      //              : {val: contData[idx]})
+      //      , arg}]
+      : contType === quoteLabel
+        ? [{cont: makeFun(_.constant({val: contData})), arg}]
+        : contType === callLabel
+          ? [ { cont
+                : makeFun
+                  ( arg =>
+                      ( { fn: contData.fnExpr
+                        , arg
+                        , okThen
+                          : { fn
+                              : makeFun
+                                ( fnVal =>
+                                  ( { fn: contData.argExpr
+                                    , arg
+                                    , okThen
+                                      : { fn
+                                          : makeFun
+                                            ( argVal =>
+                                                ( { fn: fnVal
+                                                  , arg: argVal}))}}))}}))
+              , arg}]
+          : contType === boolLabel
             ? [ { cont
                   : makeFun
-                    ( (arg, ...ons) =>
-                        ( { fn: contData.fnExpr
-                          , arg
-                          , okThen
-                            : { fn
-                                : makeFun
-                                  ( fnVal =>
-                                    ( { fn: contData.argExpr
-                                      , arg
-                                      , okThen
-                                        : { fn
-                                            : makeFun
-                                              ( argVal =>
-                                                  ( { fn: fnVal
-                                                    , arg: argVal}))}}))}}))
+                    ( val =>
+                        ( { val
+                          : contData ? makeFun(_.constant({val})) : I}))
                 , arg}]
-            //: contType === identLabel
-            //  ? [ { cont
-            //        : makeFun
-            //          ( arg =>
-            //              ( { fn: arg
-            //                , arg: cont
-            //                , okThen
-            //                  : {fn: makeFun(expr => ({fn: expr, arg}))}}))
-            //      , arg}]
-            : contType === boolLabel
-              ? [ { cont
-                    : makeFun
-                      ( val =>
-                          ( { val
-                            : contData ? makeFun(_.constant({val})) : I}))
-                  , arg}]
-              : Null
-                ("Tried to continue a non-continuation:\n" + inspect(cont)))}
+            : Null
+              ("Tried to continue a non-continuation:\n" + inspect(cont)))}
 
 ; function mk(label, data) {return {type: label, data: data}}
 
@@ -169,11 +155,14 @@
       ( [ [ applySym
           , makeCont
             ( arg =>
-                arg.type === listLabel
-                && arg.data[1].type === contLabel
-                && arg.data[2].type === contLabel
-                ? fn(...arg.data)
-                : Null("Fun requires arrayed continuations"))]]))}
+              { let cc, onerr
+              ; return (
+                  arg.type === pairLabel
+                  && (cc = arg.data.first).type === contLabel
+                  && arg.data.last.type === pairLabel
+                  && (onerr = arg.data.last.data.last).type === contLabel
+                  ? fn(arg.data.last.data.first, cc, onerr)
+                  : Null("Function requires enpaired continuations"))})]]))}
 
 //; function makeFn(fn)
 //  { return (
@@ -189,7 +178,10 @@
 
 ; function quote(val) {return mk(quoteLabel, val)}
 
-; function makeList(vals) {return mk(listLabel, vals)}
+//; function makeList(vals) {return mk(listLabel, vals)}
+
+; function makeList(vals)
+  {return _.reduceRight(vals, _.ary(_.flip(makePair), 2), unit)}
 
 ; function just(val) {return mk(maybeLabel, {is: true, val})}
 
@@ -238,8 +230,6 @@
           ? fn(msg.data.last.data.first, msg.data.last.data.last)
           : []))}
 
-; const objToNsNotFoundStr = "Var not found in ns"
-
 ; function objToNs(o)
   { return (
       makeFun
@@ -250,24 +240,12 @@
             ? {val: o[keyStr]}
             : { ok: false
               , val
-                : strToChars
-                  ( objToNsNotFoundStr
-                    + ": "
-                    + strVal(toString(makeIdent(identKey))))})
+                : listsConcat
+                  ( [ objToNsNotFoundStr
+                    , strToChars(": ")
+                    , toString(makeIdent(identKey))])})
           (strVal(identKey))
-        : {ok: false, val: strToChars(objToNsNotFoundStr)}))}
-//        { if (!isString(identKey))
-//            return {ok: false, val: strToChars(objToNsNotFoundStr)}
-//        ; const keyStr = strVal(identKey)
-//        ; return (
-//            o.hasOwnProperty(keyStr)
-//            ? {val: o[keyStr]}
-//            : { ok: false
-//              , val
-//                : strToChars
-//                  ( objToNsNotFoundStr
-//                    + ": "
-//                    + strVal(toString(makeIdent(identKey))))})}))}
+        : {ok: false, val: objToNsNotFoundStr}))}
 
 ; function arrToObj(arr)
   { return (
@@ -282,14 +260,44 @@
             (_.findIndex(arr, p => eq(p[0], msg.data.first)))
           : Null("Bad message:\n%s\n\n%s", inspect(msg), inspect(arr))))}
 
+; function isList(val)
+  { while (val.type === pairLabel) val = val.data.last
+  ; return val === unit}
+
+; function* listIter(list)
+  { while (list.type === pairLabel) yield list.data.first, list = list.data.last
+  ; return list === unit}
+
+; function reverseConcat(list0, list1)
+  { while (list0 !== unit)
+      list1 = makePair(list0.data.first, list1), list0 = list0.data.last
+  ; return list1}
+
+; function listReverse(list) {return reverseConcat(list, unit)}
+
+; function listConcat(list0, list1)
+  {return list1 === unit ? list0 : reverseConcat(listReverse(list0), list1)}
+
+; function listsConcat(lists)
+  {return lists.reduceRight((list1, list0) => listConcat(list0, list1), unit)}
+
+//; function isString(val)
+//  { while (val.type === pairLabel)
+//    { if (val.data.first.type !== charLabel) return false
+//    ; val = val.data.last}
+//  ; return val.type === unitLabel}
+
 ; function isString(val)
   { return (
-      val.type === listLabel
-      && _.every(val.data, elem => elem.type === charLabel))}
+      isList(val)
+      && _.every([...listIter(val)], elem => elem.type === charLabel))}
 
 ; function strVal(list)
-  { if (list.type !== listLabel) return Null("Tried to strVal nonlist")
-  ; return list.data.reduce((soFar, chr) => soFar + charToStr(chr), '')}
+  { if (!isString(list)) return Null("Tried to strVal nonlist")
+  ; let str = ""
+  ; while (list.type === pairLabel)
+      str += charToStr(list.data.first), list = list.data.last
+  ; return str}
 exports.strVal = strVal
 
 ; function stringIs(list, str)
@@ -307,17 +315,17 @@ exports.strVal = strVal
 ; function mCast(cont, mSym, arg) {return {cont, arg: makePair(mSym, arg)}}
 
 ; function mCall(cont, mSym, arg, onOk, onErr)
-  {return {cont, arg: makePair(mSym, makeList([arg, onOk, onErr]))}}
+  {return {cont, arg: makePair(mSym, makePair(onOk, makePair(arg, onErr)))}}
 
 ; function eq(val0, val1)
   { return (
       val0.type === val1.type
       &&
         ( val0.data === val1.data
-        ||
-          val0.type === listLabel
-          && val0.data.length == val1.data.length
-          && _.every(val0.data, (elem, index) => eq(elem, val1.data[index]))
+        //||
+        //  val0.type === listLabel
+        //  && val0.data.length == val1.data.length
+        //  && _.every(val0.data, (elem, index) => eq(elem, val1.data[index]))
         || val0.type === quoteLabel && eq(val0.data, val1.data)
         //|| val0.type === identLabel && eq(val0.data, val1.data)
         ||
@@ -327,13 +335,13 @@ exports.strVal = strVal
         ||
           val0.type === maybeLabel
           && val0.data.is === val1.data.is
-          && (!val0.data.is || eq(val0.data.val, val1.data.val)))
+          && (!val0.data.is || eq(val0.data.val, val1.data.val))
         || val0.type === resultLabel
            && val0.data.ok === val1.data.ok
            && eq(val0.data.val, val1.data.val)
         || val0.type === pairLabel
            && eq(val0.data.first, val1.data.first)
-           && eq(val0.data.last, val1.data.last))}
+           && eq(val0.data.last, val1.data.last)))}
 
 ; function parseTreeToAST(pt)
   { const label = pt[0]
@@ -354,15 +362,14 @@ exports.strVal = strVal
         , makeFun
           ( env =>
               ( { fn: syncMap
-                , arg: makeList(data[1].map(parseTreeToAST))
+                , arg: makeFun(expr => ({fn: expr, arg: env}))
                 , okThen
                   : { fn
                       : makeFun
                         ( soFar =>
                             ( { fn: soFar
                               , arg
-                                : makeFun
-                                  (expr => ({fn: expr, arg: env}))}))}}))))
+                                : makeList(data[1].map(parseTreeToAST))}))}}))))
   //; if (label === 'heredoc')
   //    return quote(makeList(data.map(parseTreeToAST)))
 
@@ -382,47 +389,8 @@ exports.strVal = strVal
 //; function ttyLog()
 //  { if (process.stdout.isTTY) console.log(...arguments)}
 
-//; const labels
-//  = _.fromPairs
-//    ( [ 'fn'
-//      , 'list'
-//      , 'int'
-//      , 'char'
-//      , 'sym'
-//      , 'quote'
-//      , 'unit'
-//      , 'call'
-//      , 'ident'
-//      , 'maybe'
-//      , 'bool'
-//      , 'result'
-//      , 'cell'
-//      , 'cont']
-//      .map(name => [name + 'Label', Symbol(name)]))
-//console.log(labels)
-//
-//; const
-//    { fnLabel
-//    , listLabel
-//    , intLabel
-//    , charLabel
-//    , symLabel
-//    , quoteLabel
-//    , unitLabel
-//    , callLabel
-//    , identLabel
-//    , maybeLabel
-//    , boolLabel
-//    , resultLabel
-//    , cellLabel
-//    , contLabel}
-//    = labels
-
-//; const fnLabel = {label: 'fn'}
-//; exports.fnLabel = fnLabel
-
-; const listLabel = {label: 'list'}
-; exports.listLabel = listLabel
+//; const listLabel = {label: 'list'}
+//; exports.listLabel = listLabel
 
 ; const intLabel = {label: 'int'}
 ; exports.intLabel = intLabel
@@ -436,9 +404,10 @@ exports.strVal = strVal
 ; const quoteLabel = {label: 'quote'}
 ; exports.quoteLabel = quoteLabel
 
-; const unitLabel = {label: 'unit'}
-; exports.unitLabel = unitLabel
-; const unit = mk(unitLabel)
+//; const unitLabel = {label: 'unit'}
+; const unit = mk({label: 'unit'})
+//; exports.unitLabel = unitLabel
+//; const unit = mk(unitLabel)
 ; exports.unit = unit
 
 ; const callLabel = {label: 'call'}
@@ -484,11 +453,15 @@ exports.strVal = strVal
 
 ; const I = makeFun(val => ({val}))
 
+; const objToNsNotFoundStr = strToChars("Var not found in ns")
+
 ; const makeMap
-    = fnOfType
-      ( listLabel
-      , args =>
-        { if (args.length % 2 != 0)
+    = makeFun
+      ( arg =>
+        { if (!isList(arg))
+            return {ok: false, val: strToChars("Insequential cartography")}
+        ; const args = [...listIter(arg)]
+        ; if (args.length % 2 != 0)
             return {ok: false, val: strToChars("Tried to brace oddity")}
         ; const pairs = _.chunk(args, 2)
         ; return (
@@ -506,25 +479,35 @@ exports.strVal = strVal
 
 ; const
     syncMap
-    = fnOfType
-      ( listLabel
-      , arrIn =>
-          ( { val
-              : makeFun
-                ( (fn, ...ons) =>
-                    ( arrOut =>
-                        _.reduceRight
-                        ( arrIn
-                        , (doNext, nextIn, idx) =>
-                            ( { fn
-                              , arg: nextIn
-                              , okThen
-                                : { fn
-                                    : makeFun
-                                      ( newVal =>
-                                          (arrOut[idx] = newVal, doNext))}})
-                        , {val: makeList(arrOut)}))
-                    (Array(arrIn.length)))}))
+    = makeFun
+      ( fn =>
+        { const listFn
+            = makeFun
+              ( list =>
+                { if (!isList(list))
+                    return (
+                      { ok: false
+                      , val: strToChars("Insequential synchronous cartography")})
+                ; return (
+                    list === unit
+                    ? {val: unit}
+                    : { fn
+                      , arg: list.data.first
+                      , okThen
+                        : { fn
+                            : makeFun
+                              ( newHead =>
+                                  ( { fn: listFn
+                                    , arg: list.data.last
+                                    , okThen
+                                      : { fn
+                                          : makeFun
+                                            ( newTail =>
+                                                ( { val
+                                                    : makePair
+                                                      ( newHead
+                                                      , newTail)}))}}))}})})
+        ; return {val: listFn}})
 
 ; const readFile = filename => fs.readFileSync(filename, 'utf8')
 
@@ -627,35 +610,50 @@ exports.strVal = strVal
           : [chr]))}
 
 ; function toString(arg)
-  { const argLabel = arg.type, argData = arg.data
+  { const {type: argLabel, data: argData} = arg
   ; if (argLabel === charLabel) return makeList([strToChar("`"), arg])
 
   ; if (argLabel === intLabel) return strToChars(argData.toString() + ' ')
 
-  ; if (argLabel === listLabel)
+  ; if (isString(arg) && arg !== unit)
       return (
-        makeList
-        ( argData.length > 0 && isString(arg)
-          ? strToChars('|"').data.concat(escInIdent(argData), [strToChar('|')])
-          : [strToChar('[')].concat
-            ( _.reduce
-              ( argData.map(o => toString(o).data)
-              , (soFar, elem) => soFar.concat(elem)
-              , [])
-            , [strToChar(']')])))
+        listsConcat
+        ( [ strToChars("|'")
+          , makeList(escInIdent([...listIter(arg)]))
+          , strToChars('|')]))
+
+  ; if (isList(arg))
+      return (
+        listsConcat
+        ( [ strToChars('[')
+          , ...[...listIter(arg)].map(o => toString(o))
+          , strToChars(']')]))
+
+  //; if (argLabel === listLabel)
+  //    return (
+  //      makeList
+  //      ( argData.length > 0 && isString(arg)
+  //        ? strToChars('|"').data.concat(escInIdent(argData), [strToChar('|')])
+  //        : [strToChar('[')].concat
+  //          ( _.reduce
+  //            ( argData.map(o => toString(o).data)
+  //            , (soFar, elem) => soFar.concat(elem)
+  //            , [])
+  //          , [strToChar(']')])))
 
   ; if (argLabel === quoteLabel)
-      return makeList([makeChar(34)].concat(toString(argData).data))
+      return (
+        listsConcat([strToChars("(q "), toString(argData), strToChars(")")]))
 
-  ; if (argLabel === unitLabel) return strToChars('unit ')
+  //; if (argLabel === unitLabel) return strToChars('unit ')
 
   ; if (argLabel === callLabel)
       return (
-        makeList
-        ( strToChars("(make-call ").data.concat
-          ( toString(argData.fnExpr).data
-          , toString(argData.argExpr).data
-          , [strToChar(")")])))
+        listsConcat
+        ( [ strToChars("(make-call ")
+          , toString(argData.fnExpr)
+          , toString(argData.argExpr)
+          , strToChars(")")]))
 
   //; if (argLabel === identLabel)
   //    return (
@@ -670,16 +668,14 @@ exports.strVal = strVal
 
   ; if (argLabel === symLabel)
       return (
-        makeList
-        ( strToChars("(gensym ").data.concat
-          (toString(argData.sym).data , [strToChar(")")])))
+        listsConcat
+        ([strToChars("(gensym "), toString(argData.sym), strToChars(")")]))
 
   ; if (argLabel === maybeLabel)
       return (
         argData.is
-        ? makeList
-          ( strToChars("(just ").data.concat
-            (toString(argData.val).data, [strToChar(")")]))
+        ? listsConcat
+          ([strToChars("(just "), toString(argData.val), strToChars(")")])
         : strToChars("nothing "))
 
   ; if (argLabel === boolLabel)
@@ -687,38 +683,40 @@ exports.strVal = strVal
 
   ; if (argLabel === resultLabel)
       return (
-        makeList
-        ( strToChars(argData.ok ? "(ok " : "(err ").data.concat
-          (toString(argData.val).data, [strToChar(")")])))
+        listsConcat
+        ( [ strToChars(argData.ok ? "(ok " : "(err ")
+          , toString(argData.val)
+          , strToChars(")")]))
 
   ; if (argLabel === cellLabel)
       return (
-        makeList
-        ( strToChars("(make-cell ").data.concat
-          (toString(argData.val).data, [strToChar(")")])))
+        listsConcat
+        ([strToChars("(make-cell "), toString(argData.val), strToChars(")")]))
 
   ; if (argLabel === contLabel) return strToChars("(cont ... )")
 
   ; if (argLabel === pairLabel)
       return (
-        makeList
-        ( strToChars("(cons ").data.concat
-          ( toString(argData.first).data
-          , toString(argData.last).data
-          , [strToChar(')')])))
+        listsConcat
+        ( [ strToChars("(cons ")
+          , toString(argData.first)
+          , toString(argData.last)
+          , strToChars(')')]))
 
   ; return Null("->str unknown type:", arg)}
 ; exports.toString = toString
 
-; const makeContOnOk
-  = cont =>
-      makeCont
-      ( res =>
-          res.type !== listLabel
-          ? [{cont, arg: strToChars("cont body must return list")}]
-          : res.data.length !== 2
-            ? [{cont, arg: strToChars("cont body must return doubleton list")}]
-            : [{cont: res.data[0], arg: res.data[1]}])
+//; const makeContOnOk
+//  = cont =>
+//      makeCont
+//      ( res =>
+//          !isList(res)
+//          ? [{cont, arg: strToChars("cont body must return list")}]
+//          : [...listIter(res)].map
+//            ( thread =>
+//              thread.type !== pairLabel
+//              ? {cont, arg: strToChars("cont body value had non-pair")}
+//              : {cont: thread.data.first, arg: res.data.last}))
 
 ; const makeSyncContOnOk
   = (state, onErr) =>
@@ -738,6 +736,14 @@ exports.strVal = strVal
     [lParen, rParen, lBracket, rBracket, lBrace, rBrace]
     = Array.from('()[]{}').map(strToChar)
 
+; const unknownKeyThread
+  = key =>
+    ( { ok: false
+      , val
+        : listConcat
+          ( strToChars("unknown variable key: ")
+          , toString(key))})
+
 ; const initEnv
   = makeFun
     ( varKey =>
@@ -753,14 +759,18 @@ exports.strVal = strVal
                           ( end =>
                               eq(begin, lParen) && eq(end, rParen)
                               ? { val
-                                  : fnOfType
-                                    ( listLabel
-                                      , (elems, onOk, onErr) =>
-                                          elems.length === 0
+                                  : makeFun
+                                    ( (elems, onOk, onErr) =>
+                                        !isList(elems)
+                                        ? { ok: false
+                                          , value
+                                            : strToChars
+                                              ("Insequential delimition")}
+                                        : elems === unit
                                           ? {val: I}
                                           : { cont
                                               : _.reduceRight
-                                                ( _.tail(elems)
+                                                ( [...listIter(elems.data.last)]
                                                 , (onOk, arg) =>
                                                     makeCont
                                                     ( fn =>
@@ -771,7 +781,7 @@ exports.strVal = strVal
                                                           , onOk
                                                           , onErr)])
                                                 , onOk)
-                                            , arg: elems[0]})}
+                                            , arg: elems.data.first})}
                               : eq(begin, lBracket) && eq(end, rBracket)
                                 ? {val: I}
                               : eq(begin, lBrace) && eq(end, rBrace)
@@ -838,7 +848,7 @@ exports.strVal = strVal
                                               ( fn
                                               , applySym
                                               , arg
-                                              , makeContOnOk(onErr)
+                                              , nullCont
                                               , onErr)])}))})))}
 
           : stringIs(varKey, 'make-sync-cont')
@@ -881,46 +891,25 @@ exports.strVal = strVal
             ? { val
                 : quote
                   ( fnOfType
-                    ( listLabel
-                    , args =>
-                        _.every(args, arg => arg.type === intLabel)
-                        ? { val
-                            : _.reduce
-                              ( args
-                              , (arg0, arg1) =>
-                                makeInt(arg0.data + arg1.data)
-                              , makeInt(0))}
-                        : { ok: false
-                          , val
-                            : strToChars
-                              ( "Additional argument wasn't "
-                                + "integral")}))}
+                    ( intLabel
+                    , int0 =>
+                        ( { val
+                            : fnOfType
+                              ( intLabel
+                              , int1 =>
+                                  ({val: makeInt(int0.data + int1.data)}))})))}
 
           : stringIs(varKey, '-')
             ? { val
                 : quote
                   ( fnOfType
-                    ( listLabel
-                    , args =>
-                      { if (args.length === 0) return {val: makeInt(-1)}
-
-                      ; if (args[0].type !== intLabel)
-                          return {ok: false}
-                      ; if (args.length === 1)
-                          return {val: makeInt(-args[0].data)}
-
-                      ; return (
-                          _.every(args, arg => arg.type === intLabel)
-                          ? { val
-                              : _.reduce
-                                ( args
-                                , (arg0, arg1) =>
-                                    makeInt(arg0.data - arg1.data))}
-                          : { ok: false
-                            , val
-                              : strToChars
-                                ( "Subtractional argument wasn't "
-                                  + "integral")})}))}
+                    ( intLabel
+                    , int0 =>
+                        ( { val
+                            : fnOfType
+                              ( intLabel
+                              , int1 =>
+                                  ({val: makeInt(int0.data - int1.data)}))})))}
 
           : stringIs(varKey, '<')
             ? { val
@@ -986,35 +975,35 @@ exports.strVal = strVal
                   ( fnOfType
                     (intLabel, _.flow(makeChar, val => ({val}))))}
 
-          : stringIs(varKey, "length")
-            ? { val
-                : quote
-                  ( fnOfType
-                    (listLabel, arg => ({val: makeInt(arg.length)})))}
+          //: stringIs(varKey, "length")
+          //  ? { val
+          //      : quote
+          //        ( fnOfType
+          //          (listLabel, arg => ({val: makeInt(arg.length)})))}
 
-          : stringIs(varKey, "->list")
-            ? { val
-                : quote
-                  ( makeFun
-                    ( arg =>
-                        ( { val
-                            : fnOfType
-                              ( intLabel
-                              , length =>
-                                  length < 0
-                                  ? { ok: false
-                                    , val
-                                      : strToChars
-                                        ( "Lists must be nonnegative in"
-                                          + " length")}
-                                  : { fn: syncMap
-                                    , arg
-                                      : makeList
-                                        (_.range(length).map(makeInt))
-                                    , okThen
-                                      : { fn
-                                          : makeFun
-                                            (fn => ({fn, arg}))}})})))}
+          //: stringIs(varKey, "->list")
+          //  ? { val
+          //      : quote
+          //        ( makeFun
+          //          ( arg =>
+          //              ( { val
+          //                  : fnOfType
+          //                    ( intLabel
+          //                    , length =>
+          //                        length < 0
+          //                        ? { ok: false
+          //                          , val
+          //                            : strToChars
+          //                              ( "Lists must be nonnegative in"
+          //                                + " length")}
+          //                        : { fn: syncMap
+          //                          , arg
+          //                            : makeList
+          //                              (_.range(length).map(makeInt))
+          //                          , okThen
+          //                            : { fn
+          //                                : makeFun
+          //                                  (fn => ({fn, arg}))}})})))}
 
           : stringIs(varKey, "true") ? {val: quote(makeBool(true))}
 
@@ -1065,7 +1054,7 @@ exports.strVal = strVal
             ? { val
                 : quote
                   ( makeFun
-                    ( (arg, ...ons) =>
+                    ( arg =>
                         isString(arg)
                         ? ( parsed =>
                               parsed.success
@@ -1173,10 +1162,8 @@ exports.strVal = strVal
                         ? {val: arg.val}
                         : { ok: false
                           , val
-                            : strToChars
-                              ( isString(arg.val)
-                                ? "Err: " + strVal(arg.val)
-                                : "Result was not ok")}))}
+                            : listConcat
+                              (strToChars("Err: "), toString(arg.val))}))}
 
           : stringIs(varKey, "unerr")
             ? { val
@@ -1187,10 +1174,7 @@ exports.strVal = strVal
                         arg.ok
                         ? { ok: false
                           , val
-                            : strToChars
-                              ( isString(arg.val)
-                                ? "Ok: " + strVal(arg.val)
-                                : "Result was ok")}
+                            : listConcat(strToChars("Ok: "), toString(arg.val))}
                         : {val: arg.val}))}
 
           : stringIs(varKey, "make-cell")
@@ -1268,8 +1252,8 @@ exports.strVal = strVal
                                             , msg.data.last)]
                                         : [])]])})))}
 
-          : varKey.data[0].data == "'".codePointAt(0)
-            ? {val: quote(makeList(varKey.data.slice(1)))}
+          : varKey.data.first.data === "'".codePointAt(0)
+            ? {val: quote(varKey.data.last)}
 
 //          var varParts = maybeStr[1].split(':');
 //          if (varParts.length >= 2) {
@@ -1284,14 +1268,9 @@ exports.strVal = strVal
           : (varStr =>
               /^(\-|\+)?[0-9]+$/.test(varStr)
               ? {val: quote(makeInt(parseInt(varStr, 10)))}
-              : { ok: false
-                , val
-                  : strToChars
-                    ("unknown variable: " + strVal(toString(varKey)))})
+              : unknownKeyThread(varKey))
             (strVal(varKey))
-      : { ok: false
-        , val
-          : strToChars("unknown variable: " + strVal(toString(varKey)))})
+      : unknownKeyThread(varKey))
 ; exports.initEnv = initEnv
 
 //; Error.stackTraceLimit = Infinity

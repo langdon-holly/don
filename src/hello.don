@@ -2,26 +2,35 @@
 
 ("(unok (parse-prog-expr source-data )env )(eval-file |'std-env.don|env ))
 
-(say
-  [ (call/cc (fn 'ret "(continue "54 (cons apply-m [env ret ret ]))))
-    (call/cc (fn 'ret "(continue "57 (cons ident-key-m ret ))))])
-
 [ (say
-    [ (cons 1 3 )
-      (car (cons 1 3 ))
-      (cdr (cons 1 3 ))
-      (= (cons 1 3 ) (cons 1 3 ))
-      (= (cons 1 2 ) (cons 1 3 ))
-      (= (cons 1 3 ) (cons 2 3 ))
-      (= (cons 1 2 ) (cons 2 3 ))
-    ])
-  (print [(unicode->char 10 )])
-  (say
-    [ (gensym false )
-      (symbol-debug-info (gensym 4 ))
-      (= (gensym 4 ) (gensym 4 ))
-      (= (gensym 4 ) (gensym 5 ))
-    ])]
+    [ []
+      unit
+      '
+      [0 1 ]
+      'fd
+      |'f\|\\|
+      [`a`b]
+      (cons 3 unit )
+      (cons 3 [4 ])
+      (cons `s'tr )
+      (cons 2 3 )
+      (call/cc
+        (fn 'ret
+          " (call/onerr
+              (fn 'onerr
+                "(continue ()(cons apply-m (cons ret (cons 4 onerr ))))))))
+      (q 0 )
+      "()
+      ident-key-m
+      (just 3 )
+      (ok 4 )
+      (err 2 )
+      (make-cell 15 )
+      (call/cc
+        (fn 'ret
+          " (continue
+              (make-cont ret (fn 'arg "(async "(continue ret (cons arg [])))))
+              4 )))])]
 
 \
 
