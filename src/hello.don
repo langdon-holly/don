@@ -2,13 +2,7 @@
 
 ("(unok (parse-prog-expr source-data )env )(eval-file |'std-env.don|env ))
 
-(say
-  [ `z
-    (fn char-var-sym "`A ())
-    (fn char-var-sym "`A (fn 'cp "(unicode->char (+ cp 1 ))))
-    (fn delimited-var-sym
-      "[0 }
-      (fn 'l "(fn 'r "(fn 'elems "[l r elems ]))))])
+((make-ident (gensym 0 )) env )
 
 \
 

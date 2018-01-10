@@ -213,12 +213,12 @@
             ? {val: o[keyStr]}
             : { ok: false
               , val
-                : listsConcat
-                  ( [ objToNsNotFoundStr
-                    , strToChars(": ")
-                    , toString(makeIdent(identKey))])})
+                : listConcat
+                  (objToNsNotFoundStr, toString(makeIdent(identKey)))})
           (strVal(identKey))
-        : {ok: false, val: objToNsNotFoundStr}))}
+        : { ok: false
+          , val
+            : listConcat(objToNsNotFoundStr, toString(makeIdent(identKey)))}))}
 
 ; function arrToObj(arr)
   { return (
@@ -398,7 +398,7 @@ exports.strVal = strVal
 
 ; const I = makeFun(val => ({val}))
 
-; const objToNsNotFoundStr = strToChars("Var not found in ns")
+; const objToNsNotFoundStr = strToChars("Var not found in ns: ")
 
 ; const makeMap
     = makeFun
@@ -647,7 +647,7 @@ exports.strVal = strVal
     ( { ok: false
       , val
         : listConcat
-          ( strToChars("unknown variable key: ")
+          ( strToChars("Unknown variable key: ")
           , toString(key))})
 
 ; const unicode2Char = fnOfType(intLabel, _.flow(makeChar, val => ({val})))
@@ -702,8 +702,7 @@ exports.strVal = strVal
 
         : varKey === charVarSym ? {val: quote(unicode2Char)}
 
-          : { ok: false
-            , val: strToChars("Symbol variable not found in environment")}
+          : unknownKeyThread(varKey)
 
       : isString(varKey)
 
