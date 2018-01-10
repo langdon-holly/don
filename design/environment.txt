@@ -33,7 +33,8 @@ unit
 (make-ident o )
 (ident-key ident )
 ident-key-m 
-delimited-var 
+delimited-var-sym 
+char-var-sym 
 (just o )
 nothing 
 (justp maybe )

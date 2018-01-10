@@ -44,16 +44,6 @@
     , {type: argType, data: argData} = arg
   ; return (
       contType === contLabel ? contData(arg)
-      //: contType === listLabel
-      //  ? [ { cont
-      //        : fnOfType
-      //          ( intLabel
-      //          , idx =>
-      //              idx < 0 || idx >= contData.length
-      //              ? { ok: false
-      //                , val: strToChars("Array index out of bounds")}
-      //              : {val: contData[idx]})
-      //      , arg}]
       : contType === quoteLabel
         ? [{cont: makeFun(_.constant({val: contData})), arg}]
         : contType === callLabel
@@ -147,8 +137,6 @@
       ( (arg, onOk, onErr) =>
           funResToThreads(fn(arg, onOk, onErr), onOk, onErr)))}
 
-//; function makeFn(fn) {return mk(fnLabel, fn)}
-
 ; function makeFn(fn)
   { return (
       arrToObj
@@ -164,21 +152,7 @@
                   ? fn(arg.data.last.data.first, cc, onerr)
                   : Null("Function requires enpaired continuations"))})]]))}
 
-//; function makeFn(fn)
-//  { return (
-//      makeCont
-//      ( arg =>
-//          arg.type === listLabel
-//          && arg.data[1].type === contLabel
-//          && arg.data[2].type === contLabel
-//          ? fn(...arg.data)
-//          : Null("Fun requires arrayed continuations")))}
-
-//; function constFn(val) {return makeFn(_.constant(val))}
-
 ; function quote(val) {return mk(quoteLabel, val)}
-
-//; function makeList(vals) {return mk(listLabel, vals)}
 
 ; function makeList(vals)
   {return _.reduceRight(vals, _.ary(_.flip(makePair), 2), unit)}
@@ -191,7 +165,6 @@
 
 ; function gensym(debugId) {return mk(symLabel, {sym: debugId})}
 
-//; function makeIdent(val) {return mk(identLabel, val)}
 ; function makeIdent(key)
   { const
       appFun
@@ -281,12 +254,6 @@
 ; function listsConcat(lists)
   {return lists.reduceRight((list1, list0) => listConcat(list0, list1), unit)}
 
-//; function isString(val)
-//  { while (val.type === pairLabel)
-//    { if (val.data.first.type !== charLabel) return false
-//    ; val = val.data.last}
-//  ; return val.type === unitLabel}
-
 ; function isString(val)
   { return (
       isList(val)
@@ -322,12 +289,7 @@ exports.strVal = strVal
       val0.type === val1.type
       &&
         ( val0.data === val1.data
-        //||
-        //  val0.type === listLabel
-        //  && val0.data.length == val1.data.length
-        //  && _.every(val0.data, (elem, index) => eq(elem, val1.data[index]))
         || val0.type === quoteLabel && eq(val0.data, val1.data)
-        //|| val0.type === identLabel && eq(val0.data, val1.data)
         ||
           val0.type === callLabel
           && eq(val0.data.fnExpr, val1.data.fnExpr)
@@ -343,16 +305,9 @@ exports.strVal = strVal
            && eq(val0.data.first, val1.data.first)
            && eq(val0.data.last, val1.data.last)))}
 
-; function parseTreeToAST(pt)
-  { const label = pt[0]
-  ; const data = pt[1]
+; function parseTreeToAST([label, data])
+  { if (label === 'char') return makeCall(charVar, quote(makeInt(data)))
 
-  ; if (label === 'char') return quote(makeChar(data))
-  //; if (label === 'call')
-  //    return (
-  //      data.length === 0
-  //      ? quote(I)
-  //      : _.reduce(_.map(data, parseTreeToAST), makeCall))
   ; if (label === 'delimited')
       return (
         makeCall
@@ -370,8 +325,6 @@ exports.strVal = strVal
                             ( { fn: soFar
                               , arg
                                 : makeList(data[1].map(parseTreeToAST))}))}}))))
-  //; if (label === 'heredoc')
-  //    return quote(makeList(data.map(parseTreeToAST)))
 
   ; if (label === 'quote') return quote(parseTreeToAST(data))
 
@@ -386,12 +339,6 @@ exports.strVal = strVal
       ? _.assign({ast: parseTreeToAST(parsed.result)}, parsed)
       : parsed)}
 
-//; function ttyLog()
-//  { if (process.stdout.isTTY) console.log(...arguments)}
-
-//; const listLabel = {label: 'list'}
-//; exports.listLabel = listLabel
-
 ; const intLabel = {label: 'int'}
 ; exports.intLabel = intLabel
 
@@ -404,17 +351,11 @@ exports.strVal = strVal
 ; const quoteLabel = {label: 'quote'}
 ; exports.quoteLabel = quoteLabel
 
-//; const unitLabel = {label: 'unit'}
 ; const unit = mk({label: 'unit'})
-//; exports.unitLabel = unitLabel
-//; const unit = mk(unitLabel)
 ; exports.unit = unit
 
 ; const callLabel = {label: 'call'}
 ; exports.callLabel = callLabel
-
-//; const identLabel = {label: 'ident'}
-//; exports.identLabel = identLabel
 
 ; const maybeLabel = {label: 'maybe'}
 ; exports.maybeLabel = maybeLabel
@@ -441,6 +382,10 @@ exports.strVal = strVal
 ; const delimitedVarSym = gensym(strToChars('delimited-var'))
 ; const delimitedVar = makeIdent(delimitedVarSym)
 ; exports.delimitedVar = delimitedVar
+
+; const charVarSym = gensym(strToChars('char-var'))
+; const charVar = makeIdent(charVarSym)
+; exports.charVar = charVar
 
 ; const Null
   = (...args) => {throw new Error("Null: " + util.format(...args))}
@@ -560,15 +505,13 @@ exports.strVal = strVal
                     + "\n"
                     + " ".repeat(lineCol.col0)
                     + "^"
-                    /*+ util.inspect(parsed.parser.traceStack, {depth: null})*/})}
+                    /*+ inspect(parsed.parser.traceStack)*/})}
 
         //; const trace = parsed.trace
         //; _.forEachRight(trace, function(frame) {console.log("in", frame[0])})
         //; console.log(parsed.parser)
         }}
 ; exports.parse = parseFile
-
-//; const srcDataIdent = makeIdent(strToChars('source-data'))
 
 ; const topApply
   = (fn, ...stuf) => topContinue([mCall(fn, applySym, ...stuf)])
@@ -629,23 +572,9 @@ exports.strVal = strVal
           , ...[...listIter(arg)].map(o => toString(o))
           , strToChars(']')]))
 
-  //; if (argLabel === listLabel)
-  //    return (
-  //      makeList
-  //      ( argData.length > 0 && isString(arg)
-  //        ? strToChars('|"').data.concat(escInIdent(argData), [strToChar('|')])
-  //        : [strToChar('[')].concat
-  //          ( _.reduce
-  //            ( argData.map(o => toString(o).data)
-  //            , (soFar, elem) => soFar.concat(elem)
-  //            , [])
-  //          , [strToChar(']')])))
-
   ; if (argLabel === quoteLabel)
       return (
         listsConcat([strToChars("(q "), toString(argData), strToChars(")")]))
-
-  //; if (argLabel === unitLabel) return strToChars('unit ')
 
   ; if (argLabel === callLabel)
       return (
@@ -654,17 +583,6 @@ exports.strVal = strVal
           , toString(argData.fnExpr)
           , toString(argData.argExpr)
           , strToChars(")")]))
-
-  //; if (argLabel === identLabel)
-  //    return (
-  //      makeList
-  //      ( isString(argData)
-  //        ? strToChars('"|').data.concat
-  //          (escInIdent(argData.data), [strToChar("|")])
-  //        : strToChars("(make-ident ").data.concat
-  //          (toString(argData).data, [strToChar(")")])))
-
-  //; if (argLabel === fnLabel) return strToChars("(fn ... )")
 
   ; if (argLabel === symLabel)
       return (
@@ -706,18 +624,6 @@ exports.strVal = strVal
   ; return Null("->str unknown type:", arg)}
 ; exports.toString = toString
 
-//; const makeContOnOk
-//  = cont =>
-//      makeCont
-//      ( res =>
-//          !isList(res)
-//          ? [{cont, arg: strToChars("cont body must return list")}]
-//          : [...listIter(res)].map
-//            ( thread =>
-//              thread.type !== pairLabel
-//              ? {cont, arg: strToChars("cont body value had non-pair")}
-//              : {cont: thread.data.first, arg: res.data.last}))
-
 ; const makeSyncContOnOk
   = (state, onErr) =>
       makeCont
@@ -743,6 +649,8 @@ exports.strVal = strVal
         : listConcat
           ( strToChars("unknown variable key: ")
           , toString(key))})
+
+; const unicode2Char = fnOfType(intLabel, _.flow(makeChar, val => ({val})))
 
 ; const initEnv
   = makeFun
@@ -792,8 +700,10 @@ exports.strVal = strVal
                                     ( "Unspecified delimited "
                                       + "action")})})))}
 
-        : { ok: false
-          , val: strToChars("Symbol variable not found in environment")}
+        : varKey === charVarSym ? {val: quote(unicode2Char)}
+
+          : { ok: false
+            , val: strToChars("Symbol variable not found in environment")}
 
       : isString(varKey)
 
@@ -897,7 +807,7 @@ exports.strVal = strVal
                             : fnOfType
                               ( intLabel
                               , int1 =>
-                                  ({val: makeInt(int0.data + int1.data)}))})))}
+                                  ({val: makeInt(int0 + int1)}))})))}
 
           : stringIs(varKey, '-')
             ? { val
@@ -909,7 +819,7 @@ exports.strVal = strVal
                             : fnOfType
                               ( intLabel
                               , int1 =>
-                                  ({val: makeInt(int0.data - int1.data)}))})))}
+                                  ({val: makeInt(int0 - int1)}))})))}
 
           : stringIs(varKey, '<')
             ? { val
@@ -969,11 +879,7 @@ exports.strVal = strVal
                   ( fnOfType
                     (charLabel, _.flow(makeInt, val => ({val}))))}
 
-          : stringIs(varKey, "unicode->char")
-            ? { val
-                : quote
-                  ( fnOfType
-                    (intLabel, _.flow(makeChar, val => ({val}))))}
+          : stringIs(varKey, "unicode->char") ? {val: quote(unicode2Char)}
 
           //: stringIs(varKey, "length")
           //  ? { val
@@ -1106,7 +1012,6 @@ exports.strVal = strVal
             ? {val: quote(makeFun(_.flow(makeIdent, val => ({val}))))}
 
           : stringIs(varKey, "ident-key")
-            //? {val: quote(fnOfType(identLabel, val => ({val})))}
             ? { val
                 : quote
                   ( makeFun
@@ -1114,8 +1019,10 @@ exports.strVal = strVal
 
           : stringIs(varKey, "ident-key-m") ? {val: quote(identKeySym)}
 
-          : stringIs(varKey, "delimited-var")
-            ? {val: quote(delimitedVar)}
+          : stringIs(varKey, "delimited-var-sym")
+            ? {val: quote(delimitedVarSym)}
+
+          : stringIs(varKey, "char-var-sym") ? {val: quote(charVarSym)}
 
           : stringIs(varKey, "just")
             ? {val: quote(makeFun(_.flow(just, val => ({val}))))}

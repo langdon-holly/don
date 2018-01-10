@@ -2,35 +2,13 @@
 
 ("(unok (parse-prog-expr source-data )env )(eval-file |'std-env.don|env ))
 
-[ (say
-    [ []
-      unit
-      '
-      [0 1 ]
-      'fd
-      |'f\|\\|
-      [`a`b]
-      (cons 3 unit )
-      (cons 3 [4 ])
-      (cons `s'tr )
-      (cons 2 3 )
-      (call/cc
-        (fn 'ret
-          " (call/onerr
-              (fn 'onerr
-                "(continue ()(cons apply-m (cons ret (cons 4 onerr ))))))))
-      (q 0 )
-      "()
-      ident-key-m
-      (just 3 )
-      (ok 4 )
-      (err 2 )
-      (make-cell 15 )
-      (call/cc
-        (fn 'ret
-          " (continue
-              (make-cont ret (fn 'arg "(async "(continue ret (cons arg [])))))
-              4 )))])]
+(say
+  [ `z
+    (fn char-var-sym "`A ())
+    (fn char-var-sym "`A (fn 'cp "(unicode->char (+ cp 1 ))))
+    (fn delimited-var-sym
+      "[0 }
+      (fn 'l "(fn 'r "(fn 'elems "[l r elems ]))))])
 
 \
 
