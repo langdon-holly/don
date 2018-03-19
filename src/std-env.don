@@ -10,7 +10,7 @@
                           new-env
                           var-key )))
               env )
-          (call/onerr make-cont (fn 'err "(continue (err 2 )(err 0 )))))
+          (fn 'err "(call/onerr continue err )))
       (fn 'f
         " (fn 'x
             "(f (fn 'v "(x x v )))

@@ -8,9 +8,31 @@
 
 // Export
 
-; module.exports = parseFile
+; module.exports = parseStream
 
 // Stuff
+
+; const
+    [ lParen
+    , rParen
+    , lBracket
+    , rBracket
+    , lBrace
+    , rBrace
+    , backtick
+    , backslash
+    , pipe
+    , semicolon
+    , hash
+    , dQuote
+    , space
+    , tab
+    , cr
+    , lf]
+    = Array.from('()[]{}`\\|;#" \t\r\n').map(ps.string)
+  , wsChar = ps.name(ps.or([space, lf, tab, cr]), "ws-char")
+
+; const hashComment = ps.seq([hash, ps.seq([ps.many(ps.elemNot([lf])), lf])])
 
 ; function comment()
   { return (
@@ -19,129 +41,75 @@
         ( { parseElem
             : elem =>
                 ps.parseElem
-                ( ps.or
-                  ( [ ps.seq([ps.string(';'), ows(), expr()])
-                    , ps.seq
-                      ( [ ps.string('#')
-                        , ps.seq
-                          ( [ ps.many(ps.elemNot([ps.string('\u000A')]))
-                            , ps.string('\u000A')])])])
-                , elem)
+                (ps.or([ps.seq([semicolon, ows(), expr()]), hashComment]), elem)
           , match: false
           , result: undefined
           , noMore: false
           , futureSuccess: false})
       , "comment"))}
 
-; function ows() {return ps.many(ps.or([ps.wsChar, comment()]))}
+; function ows() {return ps.many(ps.or([wsChar, comment()]))}
 
-; const nameChar
-  = ps.elemNot
-    ( [ ps.string('(')
-      , ps.string(')')
-      , ps.string('[')
-      , ps.string(']')
-      , ps.string('{')
-      , ps.string('}')
-      , ps.string('`')
-      , ps.wsChar
-      , ps.string('\\')
-      , ps.string('|')
-      , ps.string(';')
-      , ps.string('#')
-      , ps.string('"')])
-
-; function name()
-  { return (
-      ps.name
-      ( ps.map
-        ( ps.after(ps.many1(nameChar), ps.wsChar)
-        , pt => ['ident', pt.map(chr => chr.codePointAt(0))])
-      , "short-identifier"))}
-
-//; const heredoc
-//  = ps.name
-//    ( ps.map
-//      ( ps.then
-//        ( ps.around
-//          ( ps.string('@')
-//          , ps.many
-//            ( ps.or
-//              ( [ ps.elemNot([ps.string('@'), ps.string('\\')])
-//                , ps.before
-//                  ( ps.string('\\')
-//                  , ps.or([ps.string('@'), ps.string('\\')]))]))
-//          , ps.string('@'))
-//        , [ endStr =>
-//              ps.shortest
-//              (ps.after(ps.anything, ps.seq(endStr.map(ps.string))))])
-//      , pt => ['heredoc', pt.map(chr => ['char', chr.codePointAt(0)])])
-//    , "heredoc")
+; const name
+  = ps.name
+    ( ps.map
+      ( ps.after
+        ( ps.many1
+          ( ps.elemNot
+            ( [ wsChar
+              , lParen
+              , rParen
+              , lBracket
+              , rBracket
+              , lBrace
+              , rBrace
+              , backtick
+              , backslash
+              , pipe
+              , semicolon
+              , hash
+              , dQuote]))
+        , wsChar)
+      , pt => ['ident', pt.map(chr => chr.codePointAt(0))])
+    , "short-identifier")
 
 ; const character
   = ps.name
     ( ps.map
-      (ps.before(ps.string('`'), ps.oneElem), pt => ['char', pt.codePointAt(0)])
+      (ps.before(backtick, ps.oneElem), pt => ['char', pt.codePointAt(0)])
     , "character-literal")
 
 ; const ident
   = ps.name
     ( ps.map
       ( ps.around
-        ( ps.string('|')
+        ( pipe
         , ps.many
           ( ps.or
-            ( [ ps.elemNot([ps.string('\\'), ps.string('|')])
-              , ps.before
-                (ps.string('\\'), ps.or([ps.string('|'), ps.string('\\')]))]))
-        , ps.string('|'))
+            ( [ ps.elemNot([backslash, pipe])
+              , ps.before(backslash, ps.or([pipe, backslash]))]))
+        , pipe)
       , pt => ['ident', pt.map(chr => chr.codePointAt(0))])
     , "long-identifier")
 
 ; function listContents()
   {return ps.around(ows(), ps.sepBy(expr(), ows()), ows())}
 
-//; function parenCall()
-//  { return (
-//      ps.name
-//      ( ps.map
-//        ( ps.around(ps.string("("), listContents(), ps.string(")"))
-//        , pt => ['call', pt])
-//      , "paren-list"))}
-//
-//; function list()
-//  { return (
-//      ps.name
-//      ( ps.map
-//        ( ps.around(ps.string("["), listContents(), ps.string("]"))
-//        , pt => ['bracketed', pt])
-//      , "bracket-list"))}
-//
-//; function braced()
-//  { return (
-//      ps.name
-//      ( ps.map
-//        ( ps.around(ps.string("{"), listContents(), ps.string("}"))
-//        , pt => ['braced', pt])
-//      , "brace-list"))}
-
 ; function delimited()
   { return (
       ps.name
       ( ps.map
         ( ps.seq
-          ( [ ps.or([ps.string("("), ps.string("["), ps.string("{")])
+          ( [ ps.or([lParen, lBracket, lBrace])
             , listContents()
-            , ps.or([ps.string(")"), ps.string("]"), ps.string("}")])])
+            , ps.or([rParen, rBracket, rBrace])])
         , pt => ['delimited', pt])
       , "delimited-list"))}
 
 ; function quote()
   { return (
       ps.name
-      ( ps.map
-        ( ps.before(ps.seq([ps.string('"'), ows()]), expr())
-        , pt => ['quote', pt])
+      ( ps.map(ps.before(ps.seq([dQuote, ows()]), expr()), pt => ['quote', pt])
       , "quotation"))}
 
 ; function expr()
@@ -152,9 +120,8 @@
               ps.parseElem
               ( ps.or
                 ( [ delimited()
-                  , name()
+                  , name
                   , ident
-                  //, heredoc
                   , quote()
                   , character])
               , elem)
@@ -163,12 +130,15 @@
         , noMore: false
         , futureSuccess: false}))}
 
-; function parseFile(str)
-  { const
-      arr = _.toArray(str)
-    , parsed = ps.shortestMatch(ps.before(ows(), expr()), arr)
-  ; return (
-      parsed.status === 'match'
-      ? _.assign({rest: arr.slice(parsed.index)}, parsed)
-      : parsed)}
+//; function parseFile(str)
+//  { const
+//      arr = _.toArray(str)
+//    , parsed = ps.shortestMatch(ps.before(ows(), expr()), arr)
+//  ; return (
+//      parsed.status === 'match'
+//      ? _.assign({rest: arr.slice(parsed.index)}, parsed)
+//      : parsed)}
+
+; function parseStream(str)
+  {return ps.streamShortestMatch(ps.before(ows(), expr()), str)}
 

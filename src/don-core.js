@@ -3,9 +3,11 @@
 ; const
     fs = require('fs')
   , util = require('util')
+  , {Duplex, Writable, Readable, Transform} = require('stream')
 
   , _ = require('lodash')
   //, bigInt = require('big-integer')
+  , weak = require('weak')
 
   , ps = require('list-parsing')
   , parser = require('./don-parse.js')
@@ -13,9 +15,22 @@
 // Utility
 ; const
     debug = true
-  , log = (...args) =>
-    (debug && console.log(args.map(inspect).join("\n")), _.last(args))
+  , log = (...args) => (console.log(args.map(inspect).join("\n")), _.last(args))
   , inspect = o => util.inspect(o, {depth: null, colors: true})
+  , strStream2chrStream
+    = () =>
+      Transform
+      ( { transform(str, enc, cb)
+          {Array.from(str).forEach(chr => this.push(chr, enc)); cb(null)}
+        , decodeStrings: false})
+      .setEncoding("utf8")
+  //, onDemandStream
+  //  = stream =>
+  //    Duplex
+  //    ( { read(size) {stream.pipe(this)}
+  //      , write(chunk, enc, cb)
+  //        {stream.unpipe(this); this.push(chunk, enc); cb(null)}
+  //      , decodeStrings: false})
   //, promiseSyncMap
   //  = (arrIn, promiseFn) =>
   //      _.reduce
@@ -26,6 +41,8 @@
   //              promiseFn(nextIn).then
   //              (newVal => (arrOut[idx] = newVal, Promise.resolve(arrOut))))
   //      , Promise.resolve(Array(arrIn.length)))
+
+exports.strStream2chrStream = strStream2chrStream
 
 // Stuff
 
@@ -84,7 +101,13 @@
       makeFun
       ( (arg, ...ons) =>
           arg.type !== type
-          ? {ok: false, val: strToChars("typed function received garbage")}
+          ? { ok: false
+            , val
+              : strToChars
+                ( "Typed function received garbage:\n"
+                  + inspect(type)
+                  + "\n"
+                  + inspect(arg))}
           : fn(arg.data, ...ons)))}
 
 ; const
@@ -134,8 +157,7 @@
 ; function makeFun(fn)
   { return (
       makeFn
-      ( (arg, onOk, onErr) =>
-          funResToThreads(fn(arg, onOk, onErr), onOk, onErr)))}
+      (async (arg, ...ons) => funResToThreads(await fn(arg, ...ons), ...ons)))}
 
 ; function makeFn(fn)
   { return (
@@ -202,6 +224,74 @@
           && msg.data.last.data.last.type === contLabel
           ? fn(msg.data.last.data.first, msg.data.last.data.last)
           : []))}
+
+; function makeDeferred()
+  { let res
+  ; const
+      data
+      = { val: new Promise(reso => res = reso).then(o => (data.is = true, o))
+        , is: false}
+  ; return (
+      { o
+        : fnOfType
+          ( boolLabel
+          , (block, onOk) =>
+            block
+            ? data.val.then(val => ({val}))
+            : data.is
+              ? data.val.then(val => ({val: just(val)}))
+              : {val: nothing})
+      , res})}
+
+const
+  chrStream2charStream
+  = () =>
+    Transform
+    ( { transform(chr, enc, cb)
+        { this.push(makeChar(chr.codePointAt(0)))
+        ; cb(null)}
+      , decodeStrings: false
+      , readableObjectMode: true})
+
+const
+  unmakeCharStream
+  = (cs, onErr) =>
+    { let execDone = Promise.resolve()
+    ; const
+        rs
+        = Readable
+          ( { encoding: 'utf8'
+            , read()
+              { execDone
+                = Promise.all([execDone, topContinue(getNext())]).then(_.noop)}})
+      , nextCont
+        = makeCont
+          ( next =>
+            next.type === maybeLabel
+            ? next.data.is
+              ? next.data.val.type === pairLabel
+                ? next.data.val.data.first.type === charLabel
+                  ? ( cs = next.data.val.data.last
+                    , rs.push(charToStr(next.data.val.data.first))
+                    , [])
+                  : Null("Non-character stream element")
+                : Null("Stream returned just a non-pair")
+              : (rs.push(null), [])
+            : Null("Stream returned non-maybe"))
+      , getNext
+        = () => [mCall(cs, applySym, makeBool(true), nextCont, onErr)]
+    ; return {rStream: rs, execWait: () => execDone}}
+
+; function makeStream(rStream, cleanup)
+  { let {o, res} = makeDeferred()
+  ; rStream.pipe
+    ( Writable
+      ( { write(chunk, enc, cb)
+          { res(just(makePair(chunk, ({res} = makeDeferred()).o)))
+          ; cb(null)}
+        , final(cb) {res(nothing); cb(null)}
+        , objectMode: true}))
+  ; return weak(o, cleanup), o}
 
 ; function objToNs(o)
   { return (
@@ -333,11 +423,12 @@ exports.strVal = strVal
   ; return Null('unknown parse-tree type "' + label)}
 
 ; function parseStr(str)
-  { const parsed = parser(str)
-  ; return (
-      parsed.status === 'match'
-      ? _.assign({ast: parseTreeToAST(parsed.result)}, parsed)
-      : parsed)}
+  { return (
+      parser(str).then
+      ( parsed =>
+          parsed.status === 'match'
+          ? _.assign({ast: parseTreeToAST(parsed.result)}, parsed)
+          : parsed))}
 
 ; const intLabel = {label: 'int'}
 ; exports.intLabel = intLabel
@@ -454,7 +545,15 @@ exports.strVal = strVal
                                                       , newTail)}))}}))}})})
         ; return {val: listFn}})
 
-; const readFile = filename => fs.readFileSync(filename, 'utf8')
+; const
+    readFile
+    = filename =>
+      { const 
+          pipeFrom = fs.createReadStream(filename, {encoding: 'utf8'})
+        , pipeTo = strStream2chrStream()
+      ; return (
+          {file: pipeFrom.pipe(pipeTo), cleanup() {pipeFrom.unpipe(pipeTo)}})}
+exports.readFile = readFile
 
 ; const indexToLineColumn
   = (index, string) =>
@@ -469,11 +568,11 @@ exports.strVal = strVal
                   ("indexToLineColumn: index=" + index + " is out of bounds")}
 
 ; const parseFile
-  = data =>
-      { const parsed = parseStr(data)
+  = async stream =>
+      { const parsed = await parseStr(stream)
 
       ; if (parsed.status === 'match')
-          return {success: true, ast: parsed.ast, rest: parsed.rest}
+          return {success: true, ast: parsed.ast, rest: stream}
       ; else if (parsed.status === 'eof')
           return (
             { success: false
@@ -482,29 +581,30 @@ exports.strVal = strVal
                   "Syntax error: "
                   + filename
                   + " should have at least "
-                  + (Array.from(data).length + 1)
+                  + parsed.index
                   + " codepoints"})
       ; else
         { const errAt = parsed.index
         ; if (errAt == 0)
             return {success: false, error: _.constant("Error in the syntax")}
         ; else
-          { const lineCol = indexToLineColumn(errAt - 1, data)
+          { //const lineCol = indexToLineColumn(errAt - 1, data)
           ; return (
               { success: false
               , error
                 : filename =>
                     "Syntax error at "
                     + filename
-                    + " "
-                    + lineCol.line1
-                    + ","
-                    + lineCol.col1
-                    + ":\n"
-                    + data.split('\n')[lineCol.line0]
-                    + "\n"
-                    + " ".repeat(lineCol.col0)
-                    + "^"
+                    + " at codepoint #"
+                    + errAt
+                    //+ lineCol.line1
+                    //+ ","
+                    //+ lineCol.col1
+                    //+ ":\n"
+                    //+ data.split('\n')[lineCol.line0]
+                    //+ "\n"
+                    //+ " ".repeat(lineCol.col0)
+                    //+ "^"
                     /*+ inspect(parsed.parser.traceStack)*/})}
 
         //; const trace = parsed.trace
@@ -521,16 +621,23 @@ exports.strVal = strVal
 
 ; const topContinue
   = threads =>
-    { while (threads.length > 0)
-        threads.push(...Continue(...threadToList(threads.shift())))}
+      Promise.all
+      ( threads.map
+        ( t =>
+          new Promise
+          ( res =>
+            setImmediate
+            ( () =>
+              Promise.resolve(Continue(...threadToList(t))).then(topContinue)
+              .then(res)))))
+      .then(_.noop)
 ; exports.topContinue = topContinue
 
-; const evalProgram
-  = (expr, rest) => ({fn: bindRest(expr, rest), arg: initEnv})
+; const evalProgram = (...args) => ({fn: bindRest(...args), arg: initEnv})
 
 ; const bindRest
-  = (expr, rest) =>
-      ( quotedSourceDataVal =>
+  = (expr, {rest, input}) =>
+      ( (quotedSourceDataVal, quotedStdinVal) =>
           makeFun
           ( env =>
               ( { fn: expr
@@ -539,9 +646,42 @@ exports.strVal = strVal
                     ( varKey =>
                         eq(varKey, strToChars('source-data'))
                         ? quotedSourceDataVal
-                        : {fn: env, arg: varKey})})))
-      ({val: quote(strToChars(rest))})
+                        : eq(varKey, strToChars('stdin'))
+                          ? quotedStdinVal
+                          : {fn: env, arg: varKey})})))
+      ( { val
+          : quote
+            (makeStream(rest.file.pipe(chrStream2charStream()), rest.cleanup))}
+      , { val
+          : quote
+            ( makeStream
+              (input.file.pipe(chrStream2charStream()), input.cleanup))})
+      //( quotedSourceDataVal =>
+      //    makeFun
+      //    ( env =>
+      //        ( { fn: expr
+      //          , arg
+      //            : makeFun
+      //              ( varKey =>
+      //                  eq(varKey, strToChars('source-data'))
+      //                  ? quotedSourceDataVal
+      //                  : {fn: env, arg: varKey})})))
+      //({val: quote(strToChars(rest))})
 ; exports.bindRest = bindRest
+
+//; const bindStdin
+//  = (expr, inStream) =>
+//      ( quotedStdinVal =>
+//          makeFun
+//          ( env =>
+//              ( { fn: expr
+//                , arg
+//                  : makeFun
+//                    ( varKey =>
+//                        eq(varKey, strToChars('stdin'))
+//                        ? quotedStdinVal
+//                        : {fn: env, arg: varKey})})))
+//      ({val: quote(makeStream(inStream.pipe(strStream2chrStream()).pipe(chrStream2charStream())))})
 
 ; function escInIdent(charArr)
   { return (
@@ -621,7 +761,7 @@ exports.strVal = strVal
           , toString(argData.last)
           , strToChars(')')]))
 
-  ; return Null("->str unknown type:", arg)}
+  ; return Null("->str unknown type:", inspect(arg))}
 ; exports.toString = toString
 
 ; const makeSyncContOnOk
@@ -651,6 +791,47 @@ exports.strVal = strVal
           , toString(key))})
 
 ; const unicode2Char = fnOfType(intLabel, _.flow(makeChar, val => ({val})))
+
+; const stdin
+  = () =>
+    ( toChars =>
+      ( { file: process.stdin.setEncoding('utf8').pipe(toChars)
+        , cleanup() {process.stdin.unpipe(toChars)}}))
+    (strStream2chrStream())
+; exports.stdin = stdin
+
+//; const stdinStream
+//  = ( ({file, cleanup}) =>
+//      makeStream(file.pipe(chrStream2charStream()), cleanup))
+//    (stdin())
+
+; const stdout
+  = ( (toWrite, writable, prmRes, nextPrmRes, prm, nextPrm) =>
+      { const
+          getNextPrm = () => nextPrm = new Promise(res => nextPrmRes = res)
+          , writeIt
+            = str =>
+              { writable = false
+              ; prmRes = nextPrmRes, getNextPrm()
+              ; process.stdout.write
+                ( str
+                , 'utf8'
+                , () =>
+                  { writable = true
+                  ; prmRes([])
+                  ; toWrite && writeIt((o => o)(toWrite, toWrite = ''))})}
+      ; getNextPrm()
+      ; return (
+          str =>
+          str
+          ? (prm = nextPrm, writable ? writeIt(str) : toWrite += str, prm)
+          : Promise.resolve())})
+    ('', true)
+
+; const
+    retEmptyArr = _.constant([])
+  , promiseWaitThread
+    = prm => ({cont: makeCont(() => prm.then(retEmptyArr)), arg: unit})
 
 ; const initEnv
   = makeFun
@@ -853,8 +1034,8 @@ exports.strVal = strVal
                   ( makeFun
                     ( arg =>
                         isString(arg)
-                        ? ( process.stdout.write(strVal(arg))
-                          , {val: unit})
+                        ? [ promiseWaitThread(stdout(strVal(arg)))
+                          , {val: unit}]
                         : { ok: false
                           , val
                             : strToChars('Tried to print nonstring')}))}
@@ -866,8 +1047,8 @@ exports.strVal = strVal
                     ( _.flow
                       ( toString
                       , strVal
-                      , process.stdout.write.bind(process.stdout)
-                      , _.constant({val: unit}))))}
+                      , stdout
+                      , prm => [promiseWaitThread(prm), {val: unit}])))}
 
           : stringIs(varKey, "->str")
             ? {val: quote(makeFun(_.flow(toString, val => ({val}))))}
@@ -922,7 +1103,11 @@ exports.strVal = strVal
                   ( makeFun
                     ( arg =>
                         isString(arg)
-                        ? {val: strToChars(readFile(strVal(arg)))}
+                        ? { val
+                            : ( ({file, cleanup}) =>
+                                makeStream
+                                (file.pipe(chrStream2charStream()), cleanup))
+                              (readFile(strVal(arg)))}
                         : { ok: false
                           , val
                             : strToChars
@@ -932,43 +1117,52 @@ exports.strVal = strVal
             ? { val
                 : quote
                   ( makeFun
-                    ( arg =>
-                        isString(arg)
-                        ? { val
-                            : ( parsed =>
-                                  parsed.success
-                                  ? okResult
-                                    ( objToNs
-                                      ( { expr: quote(parsed.ast)
-                                        , rest
-                                          : quote
-                                            (strToChars(parsed.rest))}))
-                                  : errResult
-                                    ( makeFun
-                                      ( _.flow
-                                        ( strVal
-                                        , parsed.error
-                                        , strToChars
-                                        , val => ({val})))))
-                              (parseFile(strVal(arg)))}
-                        : { ok: false
-                          , val
-                            : strToChars('Tried to parse nonstring')}))}
+                    ( (arg, onOk, onErr) =>
+                        { const {rStream, execWait} = unmakeCharStream(arg, onErr)
+                        ; return (
+                            parseFile(rStream).then
+                            ( parsed =>
+                              [ promiseWaitThread(execWait())
+                              , { cont: onOk
+                                , arg
+                                  : parsed.success
+                                    ? okResult
+                                      ( objToNs
+                                        ( { expr: quote(parsed.ast)
+                                          , rest
+                                            : quote
+                                              (strToChars(parsed.rest))}))
+                                    : errResult
+                                      ( makeFun
+                                        ( _.flow
+                                          ( strVal
+                                          , parsed.error
+                                          , strToChars
+                                          , val => ({val}))))}]))}))}
 
           : stringIs(varKey, "eval-file")
             ? { val
                 : quote
                   ( makeFun
-                    ( arg =>
+                    ( (arg, ...ons) =>
                         isString(arg)
-                        ? ( parsed =>
-                              parsed.success
-                              ? evalProgram(parsed.ast, parsed.rest)
-                              : { ok: false
-                                , val
-                                  : strToChars
-                                    (parsed.error(strVal(arg)))})
-                          (parseFile(readFile(strVal(arg))))
+                        ? ( ({file, cleanup}) =>
+                              parseFile(file).then
+                              ( parsed =>
+                                  parsed.success
+                                  ? evalProgram
+                                    ( parsed.ast
+                                    , { rest: {file: parsed.rest, cleanup}
+                                      , input
+                                        : { file
+                                            : Readable
+                                              ({read() {this.push(null)}})
+                                          , cleanup: ()=>0}})
+                                  : { ok: false
+                                    , val
+                                      : strToChars
+                                        (parsed.error(strVal(arg)))}))
+                          (readFile(strVal(arg)))
                         : { ok: false
                           , val
                             : strToChars
@@ -1157,6 +1351,9 @@ exports.strVal = strVal
                                             , msg.data.first
                                             , msg.data.last)]
                                         : [])]])})))}
+
+          //: stringIs(varKey, "stdin")
+          //  ? {val: quote(stdinStream)}
 
           : varKey.data.first.data === "'".codePointAt(0)
             ? {val: quote(varKey.data.last)}

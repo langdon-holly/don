@@ -1,8 +1,16 @@
 #!/usr/bin/env don
 
+;[(print 'fjdsk-fds )(say 0 )]
+
+;(say (unok ("parse-prog-expr (eval-file 'std-env.don env )(fn ' "(just (cons `0(fn ' "(just (cons ` (fn ' "nothing ))))))))env ))
+
+;(say (car (unjust (stdin true ))))
+
 ("(unok (parse-prog-expr source-data )env )(eval-file |'std-env.don|env ))
 
-((make-ident (gensym 0 )) env )
+(say
+  (char->unicode
+    (car (unjust (cdr (unjust (read-file '/dev/zero true ))true )))))
 
 \
 
