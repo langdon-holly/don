@@ -1,20 +1,20 @@
 Allowed special characters:
 
-whitespace    used
-`             used
+whitespace    used : ends name, ignored elsewhere
+`             used : character literal
 ~           unused
 @           unused
-#             used
+#             used : end-of-line comment
 $           unused
-(             used
-)             used
-[             used
-]             used
-{             used
-}             used
-\             used
-|             used
-;             used
-"             used
+(             used : start delimiter (function call)
+)             used : end delimiter (function call)
+[             used : start delimiter (list)
+]             used : end delimiter (list)
+{             used : start delimiter (map)
+}             used : end delimiter (map)
+\             used : escapes in identifier
+|             used : delimits identifier
+;             used : comment expression
+"             used : quote
 ,           unused
 
