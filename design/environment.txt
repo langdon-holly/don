@@ -1,4 +1,5 @@
 source-data 
+stdin 
 (fn param-key body arg )
 apply-m 
 (continue cont arg )
