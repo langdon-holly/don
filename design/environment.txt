@@ -6,7 +6,7 @@ apply-m
 (call/cc fn )
 (call/onerr fn )
 (make-cont on-err-cont fn )
-(make-sync-cont on-err-cont fn )
+make-channel 
 (async expr )
 (+ int0 int1 )
 (- int0 int1 )

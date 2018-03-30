@@ -1,15 +1,35 @@
 (fn 'parse-prog-expr
   " (fn 'Z
       " (fn 'error
-          " (fn 'this-env
-              " (fn 'new-env
-                  " (fn 'var-key
-                      " ( (= var-key 'parse-prog-expr true
-                              (= var-key 'Z true (= var-key 'error )))
-                          this-env
-                          new-env
-                          var-key )))
-              env )
+          " (fn 'make-sync-cont
+              " (fn 'this-env
+                  " (fn 'new-env
+                      " (fn 'var-key
+                          " ( (= var-key 'parse-prog-expr true
+                                (= var-key 'Z true
+                                  (= var-key 'error true
+                                    (= var-key 'make-sync-cont ))))
+                              this-env
+                              new-env
+                              var-key )))
+                  env )
+              (fn 'on-err-cont
+                " (fn 'fun
+                    " (fn 'channel
+                        " (false
+                            (async
+                              " (Z
+                                  (fn 'next-state
+                                    " (fn 'state
+                                        " (continue
+                                            (cdr channel )
+                                            (make-cont
+                                              on-err-cont
+                                              (fn 'msg
+                                                "(next-state (state msg )))))))
+                                  fun ))
+                            (car channel ))
+                        make-channel ))))
           (fn 'err "(call/onerr continue err )))
       (fn 'f
         " (fn 'x

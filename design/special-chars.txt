@@ -14,7 +14,7 @@ $           unused
 }             used : end delimiter (map)
 \             used : escapes in identifier
 |             used : delimits identifier
-;             used : comment expression
+;             used : expression comment
 "             used : quote
 ,           unused
 

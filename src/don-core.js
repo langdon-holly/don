@@ -15,7 +15,9 @@
 // Utility
 ; const
     debug = true
-  , log = (...args) => (console.log(args.map(inspect).join("\n")), _.last(args))
+  , log
+    = (...args) =>
+      (debug && console.log(args.map(inspect).join("\n")), _.last(args))
   , inspect = o => util.inspect(o, {depth: null, colors: true})
   , strStream2chrStream
     = () =>
@@ -47,13 +49,6 @@ exports.strStream2chrStream = strStream2chrStream
 // Stuff
 
 ; exports = module.exports
-
-//; function apply(fn, ...ons)
-//  { return (
-//      fn.type === fnLabel
-//      ? fn.data(...ons)
-//      : Continue(fn, makeList(ons)))}
-//; exports.apply = apply
 
 ; function Continue(cont, arg)
   { const
@@ -243,6 +238,20 @@ exports.strStream2chrStream = strStream2chrStream
               : {val: nothing})
       , res})}
 
+; function makeChannel()
+  { let mode, queue = []
+  ; return [
+      makeCont
+      ( arg =>
+          mode || !queue.length
+          ? (mode = true, queue.push(arg), [])
+          : [{cont: queue.pop(), arg}])
+    , makeCont
+      ( cont =>
+          !mode || !queue.length
+          ? (mode = false, queue.push(cont), [])
+          : [{cont, arg: queue.pop()}])]}
+
 const
   chrStream2charStream
   = () =>
@@ -396,31 +405,32 @@ exports.strVal = strVal
            && eq(val0.data.last, val1.data.last)))}
 
 ; function parseTreeToAST([label, data])
-  { if (label === 'char') return makeCall(charVar, quote(makeInt(data)))
+  { switch (label)
+    { case 'char': return makeCall(charVar, quote(makeInt(data)))
 
-  ; if (label === 'delimited')
-      return (
-        makeCall
-        ( makeCall
-          ( makeCall(delimitedVar, quote(strToChar(data[0])))
-          , quote(strToChar(data[2])))
-        , makeFun
-          ( env =>
+    ; case 'delimited':
+        return (
+          makeCall
+          ( makeCall
+            ( makeCall(delimitedVar, quote(strToChar(data[0])))
+            , quote(strToChar(data[2])))
+          , makeFun
+            ( env =>
               ( { fn: syncMap
                 , arg: makeFun(expr => ({fn: expr, arg: env}))
                 , okThen
                   : { fn
                       : makeFun
                         ( soFar =>
-                            ( { fn: soFar
-                              , arg
-                                : makeList(data[1].map(parseTreeToAST))}))}}))))
+                          ( { fn: soFar
+                            , arg
+                              : makeList(data[1].map(parseTreeToAST))}))}}))))
 
-  ; if (label === 'quote') return quote(parseTreeToAST(data))
+      ; case 'quote': return quote(parseTreeToAST(data))
 
-  ; if (label === 'ident') return makeIdent(makeList(data.map(makeChar)))
+      ; case 'ident': return makeIdent(makeList(data.map(makeChar)))
 
-  ; return Null('unknown parse-tree type "' + label)}
+      ; default: return Null("unknown parse-tree type '" + label)}}
 
 ; function parseStr(str)
   { return (
@@ -656,32 +666,7 @@ exports.readFile = readFile
           : quote
             ( makeStream
               (input.file.pipe(chrStream2charStream()), input.cleanup))})
-      //( quotedSourceDataVal =>
-      //    makeFun
-      //    ( env =>
-      //        ( { fn: expr
-      //          , arg
-      //            : makeFun
-      //              ( varKey =>
-      //                  eq(varKey, strToChars('source-data'))
-      //                  ? quotedSourceDataVal
-      //                  : {fn: env, arg: varKey})})))
-      //({val: quote(strToChars(rest))})
 ; exports.bindRest = bindRest
-
-//; const bindStdin
-//  = (expr, inStream) =>
-//      ( quotedStdinVal =>
-//          makeFun
-//          ( env =>
-//              ( { fn: expr
-//                , arg
-//                  : makeFun
-//                    ( varKey =>
-//                        eq(varKey, strToChars('stdin'))
-//                        ? quotedStdinVal
-//                        : {fn: env, arg: varKey})})))
-//      ({val: quote(makeStream(inStream.pipe(strStream2chrStream()).pipe(chrStream2charStream())))})
 
 ; function escInIdent(charArr)
   { return (
@@ -764,19 +749,19 @@ exports.readFile = readFile
   ; return Null("->str unknown type:", inspect(arg))}
 ; exports.toString = toString
 
-; const makeSyncContOnOk
-  = (state, onErr) =>
-      makeCont
-      ( res =>
-          ( state.fn = res
-          , state.queue.length > 0
-            ? [ mCall
-                ( state.fn
-                , applySym
-                , state.queue.shift()
-                , makeSyncContOnOk(state, onErr)
-                , onErr)]
-            : (state.busy = false, [])))
+//; const makeSyncContOnOk
+//  = (state, onErr) =>
+//      makeCont
+//      ( res =>
+//          ( state.fn = res
+//          , state.queue.length > 0
+//            ? [ mCall
+//                ( state.fn
+//                , applySym
+//                , state.queue.shift()
+//                , makeSyncContOnOk(state, onErr)
+//                , onErr)]
+//            : (state.busy = false, [])))
 
 ; const
     [lParen, rParen, lBracket, rBracket, lBrace, rBrace]
@@ -799,11 +784,6 @@ exports.readFile = readFile
         , cleanup() {process.stdin.unpipe(toChars)}}))
     (strStream2chrStream())
 ; exports.stdin = stdin
-
-//; const stdinStream
-//  = ( ({file, cleanup}) =>
-//      makeStream(file.pipe(chrStream2charStream()), cleanup))
-//    (stdin())
 
 ; const stdout
   = ( (toWrite, writable, prmRes, nextPrmRes, prm, nextPrm) =>
@@ -941,31 +921,34 @@ exports.readFile = readFile
                                               , nullCont
                                               , onErr)])}))})))}
 
-          : stringIs(varKey, 'make-sync-cont')
-            ? { val
-                : quote
-                  ( makeFun
-                    ( onErr =>
-                        ( { val
-                            : makeFun
-                              ( fn =>
-                                  ( state =>
-                                      ( { val
-                                          : makeCont
-                                            ( arg =>
-                                                state.busy
-                                                ? ( state.queue
-                                                    .push(arg)
-                                                  , [])
-                                                : ( state.busy = true
-                                                  , [ mCall
-                                                      ( state.fn
-                                                      , applySym
-                                                      , arg
-                                                      , makeSyncContOnOk
-                                                        (state, onErr)
-                                                      , onErr)]))}))
-                                  ({fn, busy: false, queue: []}))})))}
+          : stringIs(varKey, 'make-channel')
+            ? {val: makeFun(() => ({val: makePair(...makeChannel())}))}
+
+          //: stringIs(varKey, 'make-sync-cont')
+          //  ? { val
+          //      : quote
+          //        ( makeFun
+          //          ( onErr =>
+          //              ( { val
+          //                  : makeFun
+          //                    ( fn =>
+          //                        ( state =>
+          //                            ( { val
+          //                                : makeCont
+          //                                  ( arg =>
+          //                                      state.busy
+          //                                      ? ( state.queue
+          //                                          .push(arg)
+          //                                        , [])
+          //                                      : ( state.busy = true
+          //                                        , [ mCall
+          //                                            ( state.fn
+          //                                            , applySym
+          //                                            , arg
+          //                                            , makeSyncContOnOk
+          //                                              (state, onErr)
+          //                                            , onErr)]))}))
+          //                        ({fn, busy: false, queue: []}))})))}
 
           : stringIs(varKey, "async")
             ? { val
@@ -1351,9 +1334,6 @@ exports.readFile = readFile
                                             , msg.data.first
                                             , msg.data.last)]
                                         : [])]])})))}
-
-          //: stringIs(varKey, "stdin")
-          //  ? {val: quote(stdinStream)}
 
           : varKey.data.first.data === "'".codePointAt(0)
             ? {val: quote(varKey.data.last)}

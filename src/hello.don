@@ -1,14 +1,44 @@
 #!/usr/bin/env don
 
-;[(print 'fjdsk-fds )(say 0 )]
-
-;(say (unok ("parse-prog-expr (eval-file 'std-env.don env )(fn ' "(just (cons `0(fn ' "(just (cons ` (fn ' "nothing ))))))))env ))
-
 ;(say (car (unjust (stdin true ))))
 
 ("(unok (parse-prog-expr source-data )env )(eval-file |'std-env.don|env ))
 
-(say
+(fn 'channel
+  " [ (async
+        " (continue (cdr channel )(call/onerr make-cont say )))
+      (async
+        " (continue
+            (cdr channel )
+            (call/onerr make-cont (fn 'msg "(say (+ 1 msg ))))))
+      (async
+        " (continue
+            (cdr channel )
+            (call/onerr make-cont (fn 'msg "(say (+ 2 msg ))))))
+      (async "(continue (car channel )0 ))
+      (async
+        " (continue
+            (cdr channel )
+            (call/onerr make-cont (fn 'msg "(say (+ 3 msg ))))))
+      (async "(continue (car channel )4 ))
+      (async "(continue (car channel )8 ))]
+  make-channel )
+
+(fn 'counter
+  " [ (async "(continue counter 1 ))
+      (async "(continue counter 2 ))
+      (async "(continue counter 3 ))
+      (continue counter 4 )]
+  (call/onerr
+    make-sync-cont
+    (Z
+      (fn 'state-fn
+        " (fn 'state
+            " (fn 'msg
+                "(false (async "(say state )) (state-fn (+ state msg ))))))
+      0 )))
+
+;(say
   (char->unicode
     (car (unjust (cdr (unjust (read-file '/dev/zero true ))true )))))
 
