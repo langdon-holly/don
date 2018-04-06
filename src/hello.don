@@ -1,18 +1,15 @@
 #!/usr/bin/env don
 
-#("(unok (parse-prog-expr source-data )env )(eval-file |'std-env.don|env ))
+#("(unok (parse-prog-expr source-data )env )(eval-file \'std-env.don|env ))
 
-[ (say (eval-file 'eval-file-testee.don ))
-  (say null )]
-
-\
+[ (say \'fds|)
+  (say \'a\b\c|`|d\e|f|g``|)
+  (say (eval-file 'eval-file-testee.don ))]
 
 ;(say (car (unjust (stdin true ))))
 
 ;(say
   (char->unicode
     (car (unjust (cdr (unjust (read-file '/dev/zero true ))true )))))
-
-\
 
 HELO

@@ -1,7 +1,7 @@
 Allowed special characters:
 
 whitespace    used : ends name, ignored elsewhere
-`             used : character literal
+`             used : character escape
 ~           unused
 @           unused
 #             used : end-of-line comment
@@ -12,8 +12,8 @@ $           unused
 ]             used : end delimiter (list)
 {             used : start delimiter (map)
 }             used : end delimiter (map)
-\             used : escapes in identifier
-|             used : delimits identifier
+\             used : start identifier
+|             used : end identifier
 ;             used : expression comment
 "             used : quote
 ,           unused

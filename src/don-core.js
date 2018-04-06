@@ -658,13 +658,20 @@ exports.readFile = readFile
 ; exports.bindRest = bindRest
 
 ; function escInIdent(charArr)
-  { return (
-      _.flatMap
-      ( charArr
-      , chr =>
-          chr.data == 92 || chr.data == 124
-          ? [makeChar(92), chr]
-          : [chr]))}
+  { let identStack = [[]]
+  ; for (let chr of charArr)
+    chr.data === 96 ? _.last(identStack).push(makeChar(96), chr)
+    : chr.data === 92 ? identStack.push([])
+    : chr.data === 124
+      ? identStack.length > 1
+        ? identStack[identStack.length - 2].push
+          (makeChar(92), ...identStack.pop(), chr)
+        : _.last(identStack).push(makeChar(96), chr)
+    : _.last(identStack).push(chr)
+  ; return (
+      _.reduce
+      ( identStack
+      , (first, next) => [...first, makeChar(96), makeChar(92), ...next]))}
 
 ; function toString(arg)
   { const {type: argLabel, data: argData} = arg
@@ -675,9 +682,16 @@ exports.readFile = readFile
   ; if (isString(arg) && arg !== unit)
       return (
         listsConcat
-        ( [ strToChars("|'")
-          , makeList(escInIdent([...listIter(arg)]))
-          , strToChars('|')]))
+        ( _.findIndex
+          ( [...listIter(arg)]
+          , chr =>
+            [32, 10, 9, 13, 40, 41, 91, 93, 123, 125, 96, 92, 124, 59, 35, 34]
+            .includes(chr.data))
+          >= 0
+          ? [ strToChars("\\'")
+            , makeList(escInIdent([...listIter(arg)]))
+            , strToChars('|')]
+          : [ strToChars("'"), arg, strToChars(' ')]))
 
   ; if (isList(arg))
       return (

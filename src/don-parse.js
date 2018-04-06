@@ -79,17 +79,49 @@
       (ps.before(backtick, ps.oneElem), pt => ['char', pt.codePointAt(0)])
     , "character-literal")
 
+//; const ident
+//  = ps.name
+//    ( ps.map
+//      ( ps.around
+//        ( pipe
+//        , ps.many
+//          ( ps.or
+//            ( [ ps.elemNot([backslash, pipe])
+//              , ps.before(backslash, ps.or([pipe, backslash]))]))
+//        , pipe)
+//      , pt => ['ident', pt.map(chr => chr.codePointAt(0))])
+//    , "long-identifier")
+
+; const identContents
+  = () =>
+      ps.nilStacked
+      ( { parseElem
+          : elem =>
+              ps.parseElem
+              ( ps.map
+                ( ps.around
+                  ( ps.seq([backslash, ps.many(comment())])
+                  , ps.sepBy
+                    ( ps.or
+                      ( [ ps.map
+                          ( ps.elemNot
+                            ([backslash, pipe, backtick, semicolon, hash])
+                          , Array.of)
+                        , ps.map(ps.before(backtick, ps.oneElem), Array.of)
+                        , ps.map(identContents(), pt => ['\\', ...pt, '|'])])
+                    , ps.many(comment()))
+                  , ps.seq([ps.many(comment()), pipe]))
+                , _.flatten)
+              , elem)
+        , match: false
+        , result: undefined
+        , noMore: false
+        , futureSuccess: false})
+
 ; const ident
   = ps.name
     ( ps.map
-      ( ps.around
-        ( pipe
-        , ps.many
-          ( ps.or
-            ( [ ps.elemNot([backslash, pipe])
-              , ps.before(backslash, ps.or([pipe, backslash]))]))
-        , pipe)
-      , pt => ['ident', pt.map(chr => chr.codePointAt(0))])
+      (identContents(), pt => ['ident', pt.map(chr => chr.codePointAt(0))])
     , "long-identifier")
 
 ; function listContents()

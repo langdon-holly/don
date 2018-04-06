@@ -94,17 +94,3 @@
             "(err (unerr parsed 'file ))
             env )
         (parse-prog str ))))
-
-\)
-
-(fn "x
-  " \ Z
-      (fn "*x
-        "(fn "y
-           "(eval
-              (= y 0
-                "0
-                "\ +
-                   [ x
-                     \*x\-[y 1 ]])
-              env ))))
