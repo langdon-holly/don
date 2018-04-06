@@ -1,18 +1,9 @@
 #!/usr/bin/env don
 
-("(unok (parse-prog-expr source-data )env )(eval-file |'std-env.don|env ))
+#("(unok (parse-prog-expr source-data )env )(eval-file |'std-env.don|env ))
 
-(fn 'cell
-  " (say
-      [ cell
-        (cell-val cell )
-        (set cell 2 )
-        (cell-val cell )
-        (cas cell 3 4 )
-        (cell-val cell )
-        (cas cell 2 1 )
-        (cell-val cell )])
-  (make-cell 3 ))
+[ (say (eval-file 'eval-file-testee.don ))
+  (say null )]
 
 \
 

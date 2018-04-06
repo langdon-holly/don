@@ -3,7 +3,7 @@
 ; const
     fs = require('fs')
   , util = require('util')
-  , {/*Duplex, */Writable, Readable, Transform} = require('stream')
+  , {Writable, Readable, Transform} = require('stream')
 
   , _ = require('lodash')
   //, bigInt = require('big-integer')
@@ -197,24 +197,22 @@
 
 ; function errResult(val) {return mk(resultLabel, {ok: false, val})}
 
-//; function makeCell(val) {return mk(cellLabel, {val})}
-
 ; function makeCont(fn) {return mk(contLabel, fn)}
 ; exports.makeCont = makeCont
 
 ; function makePair(first, last) {return mk(pairLabel, {first, last})}
 
-; function makeStrable(fn)
-  { return (
-      makeCont
-      ( msg =>
-          msg.type === pairLabel
-          && msg.data.first === toStrSym
-          && msg.data.last.type === pairLabel
-          && msg.data.last.data.first.type === contLabel
-          && msg.data.last.data.last.type === contLabel
-          ? fn(msg.data.last.data.first, msg.data.last.data.last)
-          : []))}
+//; function makeStrable(fn)
+//  { return (
+//      makeCont
+//      ( msg =>
+//          msg.type === pairLabel
+//          && msg.data.first === toStrSym
+//          && msg.data.last.type === pairLabel
+//          && msg.data.last.data.first.type === contLabel
+//          && msg.data.last.data.last.type === contLabel
+//          ? fn(msg.data.last.data.first, msg.data.last.data.last)
+//          : []))}
 
 ; function makeDeferred()
   { let res
@@ -354,6 +352,11 @@ const
       isList(val)
       && _.every([...listIter(val)], elem => elem.type === charLabel))}
 
+; function charToStr(Char)
+  { if (Char.type !== charLabel)
+      return Null("charToStr nonchar: " + strVal(toString(Char)))
+  ; return String.fromCodePoint(Char.data)}
+
 ; function strVal(list)
   { if (!isString(list)) return Null("Tried to strVal nonlist")
   ; let str = ""
@@ -364,11 +367,6 @@ exports.strVal = strVal
 
 ; function stringIs(list, str)
   {return strVal(list) === str}
-
-; function charToStr(Char)
-  { if (Char.type !== charLabel)
-      return Null("charToStr nonchar: " + strVal(toString(Char)))
-  ; return String.fromCodePoint(Char.data)}
 
 ; function strToChar(chr) {return makeChar(chr.codePointAt(0))}
 
@@ -462,9 +460,6 @@ exports.strVal = strVal
 
 ; const resultLabel = {label: 'result'}
 ; exports.resultLabel = resultLabel
-
-//; const cellLabel = {label: 'cell'}
-//; exports.cellLabel = cellLabel
 
 ; const contLabel = {label: 'cont'}
 ; exports.contLabel = contLabel
@@ -623,8 +618,6 @@ exports.readFile = readFile
   = (fn, ...stuf) => topContinue([mCall(fn, applySym, ...stuf)])
 ; exports.topApply = topApply
 
-; const threadToList = t => [t.cont, t.arg]
-
 ; const topContinue
   = threads =>
       Promise.all
@@ -634,12 +627,12 @@ exports.readFile = readFile
           ( res =>
             setImmediate
             ( () =>
-              Promise.resolve(Continue(...threadToList(t))).then(topContinue)
+              Promise.resolve(Continue(t.cont, t.arg)).then(topContinue)
               .then(res)))))
       .then(_.noop)
 ; exports.topContinue = topContinue
 
-; const evalProgram = (...args) => ({fn: bindRest(...args), arg: initEnv})
+//; const evalProgram = (...args) => ({fn: bindRest(...args), arg: initEnv})
 
 ; const bindRest
   = (expr, {rest, input}) =>
@@ -727,11 +720,6 @@ exports.readFile = readFile
           , toString(argData.val)
           , strToChars(")")]))
 
-  //; if (argLabel === cellLabel)
-  //    return (
-  //      listsConcat
-  //      ([strToChars("(make-cell "), toString(argData.val), strToChars(")")]))
-
   ; if (argLabel === contLabel) return strToChars("(cont ... )")
 
   ; if (argLabel === pairLabel)
@@ -744,20 +732,6 @@ exports.readFile = readFile
 
   ; return Null("->str unknown type:", inspect(arg))}
 ; exports.toString = toString
-
-//; const makeSyncContOnOk
-//  = (state, onErr) =>
-//      makeCont
-//      ( res =>
-//          ( state.fn = res
-//          , state.queue.length > 0
-//            ? [ mCall
-//                ( state.fn
-//                , applySym
-//                , state.queue.shift()
-//                , makeSyncContOnOk(state, onErr)
-//                , onErr)]
-//            : (state.busy = false, [])))
 
 ; const
     [lParen, rParen, lBracket, rBracket, lBrace, rBrace]
@@ -804,10 +778,8 @@ exports.readFile = readFile
           : Promise.resolve())})
     ('', true)
 
-; const
-    retEmptyArr = _.constant([])
-  , promiseWaitThread
-    = prm => ({cont: makeCont(() => prm.then(retEmptyArr)), arg: unit})
+; const promiseWaitThread
+  = prm => ({cont: makeCont(() => prm.then(_.constant([]))), arg: unit})
 
 ; const initEnv
   = makeFun
@@ -1103,14 +1075,17 @@ exports.readFile = readFile
                               parseFile(file).then
                               ( parsed =>
                                   parsed.success
-                                  ? evalProgram
-                                    ( parsed.ast
-                                    , { rest: {file: parsed.rest, cleanup}
-                                      , input
-                                        : { file
-                                            : Readable
-                                              ({read() {this.push(null)}})
-                                          , cleanup: ()=>0}})
+                                  ? { fn
+                                      : bindRest
+                                        ( parsed.ast
+                                        , { rest: {file: parsed.rest, cleanup}
+                                          , input
+                                            : { file
+                                                : Readable
+                                                  ({read() {this.push(null)}})
+                                              , cleanup: ()=>0}})
+                                    , arg: initEnv}
+                                    
                                   : { ok: false
                                     , val
                                       : strToChars
@@ -1230,41 +1205,6 @@ exports.readFile = readFile
                             : listConcat(strToChars("Ok: "), toString(arg.val))}
                         : {val: arg.val}))}
 
-          //: stringIs(varKey, "make-cell")
-          //  ? {val: quote(makeFun(_.flow(makeCell, val => ({val}))))}
-
-          //: stringIs(varKey, "cell-val")
-          //  ? {val: quote(fnOfType(cellLabel, ({val}) => ({val})))}
-
-          //: stringIs(varKey, "set")
-          //  ? { val
-          //      : quote
-          //        ( fnOfType
-          //          ( cellLabel
-          //          , cell =>
-          //              ( { val
-          //                  : makeFun
-          //                    ( val =>
-          //                      (cell.val = val, {val: unit}))})))}
-
-          //: stringIs(varKey, "cas")
-          //  ? { val
-          //      : quote
-          //        ( fnOfType
-          //          ( cellLabel
-          //          , cell =>
-          //              ( { val
-          //                  : makeFun
-          //                    ( oldVal =>
-          //                        ( { val
-          //                            : makeFun
-          //                              ( newVal =>
-          //                                  ( { val
-          //                                      : eq(cell.val, oldVal)
-          //                                        ? ( cell.val = newVal
-          //                                          , oldVal)
-          //                                        : newVal}))}))})))}
-
           : stringIs(varKey, "cons")
             ? { val
               : quote
@@ -1304,6 +1244,8 @@ exports.readFile = readFile
                                             , msg.data.first
                                             , msg.data.last)]
                                         : [])]])})))}
+
+          : stringIs(varKey, "null") ? {val: makeFun(() => [])}
 
           : varKey.data.first.data === "'".codePointAt(0)
             ? {val: quote(varKey.data.last)}

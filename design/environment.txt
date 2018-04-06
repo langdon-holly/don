@@ -50,5 +50,6 @@ nothing
 (cdr pair )
 to-str-m
 (strable fn )
+null 
 /^'/
 /^(\-|\+)?[0-9]+$/
