@@ -3,22 +3,21 @@
 ; const
     fs = require('fs')
   , util = require('util')
-  , {Duplex, Writable, Readable, Transform} = require('stream')
+  , {/*Duplex, */Writable, Readable, Transform} = require('stream')
 
   , _ = require('lodash')
   //, bigInt = require('big-integer')
   , weak = require('weak')
 
-  , ps = require('list-parsing')
   , parser = require('./don-parse.js')
 
 // Utility
 ; const
     debug = true
+  , inspect = o => util.inspect(o, {depth: null, colors: true})
   , log
     = (...args) =>
       (debug && console.log(args.map(inspect).join("\n")), _.last(args))
-  , inspect = o => util.inspect(o, {depth: null, colors: true})
   , strStream2chrStream
     = () =>
       Transform
@@ -43,8 +42,6 @@
   //              promiseFn(nextIn).then
   //              (newVal => (arrOut[idx] = newVal, Promise.resolve(arrOut))))
   //      , Promise.resolve(Array(arrIn.length)))
-
-exports.strStream2chrStream = strStream2chrStream
 
 // Stuff
 
@@ -151,11 +148,6 @@ exports.strStream2chrStream = strStream2chrStream
 
 ; function makeFun(fn)
   { return (
-      makeFn
-      (async (arg, ...ons) => funResToThreads(await fn(arg, ...ons), ...ons)))}
-
-; function makeFn(fn)
-  { return (
       arrToObj
       ( [ [ applySym
           , makeCont
@@ -166,7 +158,11 @@ exports.strStream2chrStream = strStream2chrStream
                   && (cc = arg.data.first).type === contLabel
                   && arg.data.last.type === pairLabel
                   && (onerr = arg.data.last.data.last).type === contLabel
-                  ? fn(arg.data.last.data.first, cc, onerr)
+                  ? ( async () =>
+                      funResToThreads
+                      ( await
+                          fn(arg.data.last.data.first, cc, onerr), cc, onerr))
+                    ()
                   : Null("Function requires enpaired continuations"))})]]))}
 
 ; function quote(val) {return mk(quoteLabel, val)}
@@ -201,7 +197,7 @@ exports.strStream2chrStream = strStream2chrStream
 
 ; function errResult(val) {return mk(resultLabel, {ok: false, val})}
 
-; function makeCell(val) {return mk(cellLabel, {val})}
+//; function makeCell(val) {return mk(cellLabel, {val})}
 
 ; function makeCont(fn) {return mk(contLabel, fn)}
 ; exports.makeCont = makeCont
@@ -467,8 +463,8 @@ exports.strVal = strVal
 ; const resultLabel = {label: 'result'}
 ; exports.resultLabel = resultLabel
 
-; const cellLabel = {label: 'cell'}
-; exports.cellLabel = cellLabel
+//; const cellLabel = {label: 'cell'}
+//; exports.cellLabel = cellLabel
 
 ; const contLabel = {label: 'cont'}
 ; exports.contLabel = contLabel
@@ -731,10 +727,10 @@ exports.readFile = readFile
           , toString(argData.val)
           , strToChars(")")]))
 
-  ; if (argLabel === cellLabel)
-      return (
-        listsConcat
-        ([strToChars("(make-cell "), toString(argData.val), strToChars(")")]))
+  //; if (argLabel === cellLabel)
+  //    return (
+  //      listsConcat
+  //      ([strToChars("(make-cell "), toString(argData.val), strToChars(")")]))
 
   ; if (argLabel === contLabel) return strToChars("(cont ... )")
 
@@ -923,32 +919,6 @@ exports.readFile = readFile
 
           : stringIs(varKey, 'make-channel')
             ? {val: makeFun(() => ({val: makePair(...makeChannel())}))}
-
-          //: stringIs(varKey, 'make-sync-cont')
-          //  ? { val
-          //      : quote
-          //        ( makeFun
-          //          ( onErr =>
-          //              ( { val
-          //                  : makeFun
-          //                    ( fn =>
-          //                        ( state =>
-          //                            ( { val
-          //                                : makeCont
-          //                                  ( arg =>
-          //                                      state.busy
-          //                                      ? ( state.queue
-          //                                          .push(arg)
-          //                                        , [])
-          //                                      : ( state.busy = true
-          //                                        , [ mCall
-          //                                            ( state.fn
-          //                                            , applySym
-          //                                            , arg
-          //                                            , makeSyncContOnOk
-          //                                              (state, onErr)
-          //                                            , onErr)]))}))
-          //                        ({fn, busy: false, queue: []}))})))}
 
           : stringIs(varKey, "async")
             ? { val
@@ -1260,40 +1230,40 @@ exports.readFile = readFile
                             : listConcat(strToChars("Ok: "), toString(arg.val))}
                         : {val: arg.val}))}
 
-          : stringIs(varKey, "make-cell")
-            ? {val: quote(makeFun(_.flow(makeCell, val => ({val}))))}
+          //: stringIs(varKey, "make-cell")
+          //  ? {val: quote(makeFun(_.flow(makeCell, val => ({val}))))}
 
-          : stringIs(varKey, "cell-val")
-            ? {val: quote(fnOfType(cellLabel, ({val}) => ({val})))}
+          //: stringIs(varKey, "cell-val")
+          //  ? {val: quote(fnOfType(cellLabel, ({val}) => ({val})))}
 
-          : stringIs(varKey, "set")
-            ? { val
-                : quote
-                  ( fnOfType
-                    ( cellLabel
-                    , cell =>
-                        ( { val
-                            : makeFun
-                              ( val =>
-                                (cell.val = val, {val: unit}))})))}
+          //: stringIs(varKey, "set")
+          //  ? { val
+          //      : quote
+          //        ( fnOfType
+          //          ( cellLabel
+          //          , cell =>
+          //              ( { val
+          //                  : makeFun
+          //                    ( val =>
+          //                      (cell.val = val, {val: unit}))})))}
 
-          : stringIs(varKey, "cas")
-            ? { val
-                : quote
-                  ( fnOfType
-                    ( cellLabel
-                    , cell =>
-                        ( { val
-                            : makeFun
-                              ( oldVal =>
-                                  ( { val
-                                      : makeFun
-                                        ( newVal =>
-                                            ( { val
-                                                : eq(cell.val, oldVal)
-                                                  ? ( cell.val = newVal
-                                                    , oldVal)
-                                                  : newVal}))}))})))}
+          //: stringIs(varKey, "cas")
+          //  ? { val
+          //      : quote
+          //        ( fnOfType
+          //          ( cellLabel
+          //          , cell =>
+          //              ( { val
+          //                  : makeFun
+          //                    ( oldVal =>
+          //                        ( { val
+          //                            : makeFun
+          //                              ( newVal =>
+          //                                  ( { val
+          //                                      : eq(cell.val, oldVal)
+          //                                        ? ( cell.val = newVal
+          //                                          , oldVal)
+          //                                        : newVal}))}))})))}
 
           : stringIs(varKey, "cons")
             ? { val

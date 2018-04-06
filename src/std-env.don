@@ -2,17 +2,61 @@
   " (fn 'Z
       " (fn 'error
           " (fn 'make-sync-cont
-              " (fn 'this-env
-                  " (fn 'new-env
-                      " (fn 'var-key
-                          " ( (= var-key 'parse-prog-expr true
-                                (= var-key 'Z true
-                                  (= var-key 'error true
-                                    (= var-key 'make-sync-cont ))))
-                              this-env
-                              new-env
-                              var-key )))
-                  env )
+              " (fn 'make-cell
+                  " (fn 'cell-val
+                      " (fn 'set
+                          " (fn 'cas
+                              " (fn 'this-env
+                                  " (fn 'new-env
+                                      " (fn 'var-key
+                                          " ( (= var-key 'parse-prog-expr true
+                                                (= var-key 'Z true
+                                                  (= var-key 'error true
+                                                    (= var-key 'make-sync-cont
+                                                      true
+                                                      (= var-key 'make-cell true
+                                                        (= var-key 'cell-val
+                                                          true
+                                                          (= var-key 'set true
+                                                            (=
+                                                              var-key
+                                                              'cas ))))))))
+                                              this-env
+                                              new-env
+                                              var-key )))
+                                  env )
+                              (fn 'cell
+                                " (fn 'old-val
+                                    " (fn 'new-val
+                                        " (fn 'val
+                                            " (= val old-val
+                                                " (false
+                                                    (async
+                                                      " (continue
+                                                          (car cell )
+                                                          new-val ))
+                                                    old-val )
+                                                " (false
+                                                    (async
+                                                      " (continue
+                                                          (car cell )
+                                                          val ))
+                                                    new-val )
+                                                env )
+                                            (call/cc (continue (cdr cell ))))))))
+                          (fn 'cell
+                            " (fn 'val
+                                " (false
+                                    (call/cc (continue (cdr cell )))
+                                    (async "(continue (car cell )val ))))))
+                      (fn 'cell
+                        " (fn 'val
+                            "(false (async "(continue (car cell )val ))val )
+                            (call/cc (continue (cdr cell ))))))
+                  (fn 'val
+                    " (fn 'cell
+                        "(false (async "(continue (car cell )val ))cell )
+                        make-channel )))
               (fn 'on-err-cont
                 " (fn 'fun
                     " (fn 'channel

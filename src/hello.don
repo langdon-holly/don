@@ -1,42 +1,22 @@
 #!/usr/bin/env don
 
-;(say (car (unjust (stdin true ))))
-
 ("(unok (parse-prog-expr source-data )env )(eval-file |'std-env.don|env ))
 
-(fn 'channel
-  " [ (async
-        " (continue (cdr channel )(call/onerr make-cont say )))
-      (async
-        " (continue
-            (cdr channel )
-            (call/onerr make-cont (fn 'msg "(say (+ 1 msg ))))))
-      (async
-        " (continue
-            (cdr channel )
-            (call/onerr make-cont (fn 'msg "(say (+ 2 msg ))))))
-      (async "(continue (car channel )0 ))
-      (async
-        " (continue
-            (cdr channel )
-            (call/onerr make-cont (fn 'msg "(say (+ 3 msg ))))))
-      (async "(continue (car channel )4 ))
-      (async "(continue (car channel )8 ))]
-  make-channel )
+(fn 'cell
+  " (say
+      [ cell
+        (cell-val cell )
+        (set cell 2 )
+        (cell-val cell )
+        (cas cell 3 4 )
+        (cell-val cell )
+        (cas cell 2 1 )
+        (cell-val cell )])
+  (make-cell 3 ))
 
-(fn 'counter
-  " [ (async "(continue counter 1 ))
-      (async "(continue counter 2 ))
-      (async "(continue counter 3 ))
-      (continue counter 4 )]
-  (call/onerr
-    make-sync-cont
-    (Z
-      (fn 'state-fn
-        " (fn 'state
-            " (fn 'msg
-                "(false (async "(say state )) (state-fn (+ state msg ))))))
-      0 )))
+\
+
+;(say (car (unjust (stdin true ))))
 
 ;(say
   (char->unicode
