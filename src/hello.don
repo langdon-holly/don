@@ -2,9 +2,7 @@
 
 #("(unok (parse-prog-expr source-data )env )(eval-file \'std-env.don|env ))
 
-[ (say \'fds|)
-  (say \'a\b\c|`|d\e|f|g``|)
-  (say (eval-file 'eval-file-testee.don ))]
+(say \|)
 
 ;(say (car (unjust (stdin true ))))
 

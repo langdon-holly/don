@@ -1261,7 +1261,7 @@ exports.readFile = readFile
 
           : stringIs(varKey, "null") ? {val: makeFun(() => [])}
 
-          : varKey.data.first.data === "'".codePointAt(0)
+          : varKey !== unit && varKey.data.first.data === "'".codePointAt(0)
             ? {val: quote(varKey.data.last)}
 
 //          var varParts = maybeStr[1].split(':');
