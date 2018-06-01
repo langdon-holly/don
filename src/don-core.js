@@ -657,21 +657,42 @@ exports.readFile = readFile
               (input.file.pipe(chrStream2charStream()), input.cleanup))})
 ; exports.bindRest = bindRest
 
+; const
+    cp
+    = { 35: "hash"
+      , 59: "semicolon"
+      , 92: "backslash"
+      , 96: "backtick"
+      , 124: "pipe"}
+  , charName = chr => cp[chr.data] || "other"
+  , makeBacktick = () => makeChar(96)
 ; function escInIdent(charArr)
-  { let identStack = [[]]
+  { let ticked = false, identStack = [[[]]]
+  ; const
+      stackLog = () => log(identStack.map(o => o.map(o => o.map(charToStr))))
   ; for (let chr of charArr)
-    chr.data === 96 ? _.last(identStack).push(makeChar(96), chr)
-    : chr.data === 92 ? identStack.push([])
-    : chr.data === 124
-      ? identStack.length > 1
-        ? identStack[identStack.length - 2].push
-          (makeChar(92), ...identStack.pop(), chr)
-        : _.last(identStack).push(makeChar(96), chr)
-    : _.last(identStack).push(chr)
+      ( name = charName(chr)
+      , ticked
+        ? ( name === "other"
+            ? _.last(_.last(identStack)).push(chr)
+            : _.last(identStack).push([chr])
+          , ticked = false)
+        : name === "other"
+          ? _.last(_.last(identStack)).push(chr)
+          : name === "backslash"
+            ? identStack.push([[chr]])
+            : identStack.length === 1
+              ? identStack[0].push([chr])
+              : name === "pipe"
+                ? _.last(identStack[identStack.length - 2]).push
+                  (..._.flatten(identStack.pop()), chr)
+                : name === "hash" || name === "semicolon"
+                  ? identStack = [[..._.flatten(identStack), [chr]]]
+                  : /* name === "backtick" */
+                    (_.last(identStack).push([chr]), ticked = true)
+      /*, stackLog()*/)
   ; return (
-      _.reduce
-      ( identStack
-      , (first, next) => [...first, makeChar(96), makeChar(92), ...next]))}
+      _.reduce(_.flatten(identStack), (a, b) => [...a, makeBacktick(), ...b]))}
 
 ; function toString(arg)
   { const {type: argLabel, data: argData} = arg

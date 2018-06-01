@@ -93,7 +93,7 @@
 //    , "long-identifier")
 
 ; const identContents
-  = () =>
+  = nested =>
       ps.nilStacked
       ( { parseElem
           : elem =>
@@ -107,11 +107,13 @@
                           ( ps.elemNot
                             ([backslash, pipe, backtick, semicolon, hash])
                           , Array.of)
-                        , ps.map(ps.before(backtick, ps.oneElem), Array.of)
-                        , ps.map(identContents(), pt => ['\\', ...pt, '|'])])
+                        , nested
+                          ? ps.seq([backtick, ps.oneElem])
+                          : ps.map(ps.before(backtick, ps.oneElem), Array.of)
+                        , identContents(true)])
                     , ps.many(comment()))
                   , ps.seq([ps.many(comment()), pipe]))
-                , _.flatten)
+                , _.flow(nested ? a => [['\\'], ...a, ['|']] : o=>o, _.flatten))
               , elem)
         , match: false
         , result: undefined
