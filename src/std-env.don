@@ -85,10 +85,10 @@
         " (okp parsed
             " (ok
                 (fn 'new-env
-                  " ("expr (unok parsed )
+                  " (unok parsed
                       (fn 'var-key
                         " (= var-key 'source-data
-                            "(q ("rest (unok parsed )))
+                            "(q str )
                             "(new-env var-key )
                             env )))))
             "(err (unerr parsed 'file ))
