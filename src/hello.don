@@ -2,14 +2,31 @@
 
 #("(unok (parse-prog-expr source-data )env )(eval-file \'std-env.don|env ))
 
-#\```|`\ `#`;\` `\|`\`#`|`\`\`;`|`||
+(say (unok (parse-prog source-data )env ))
+(say (unok (parse-prog source-data )env ))
 
-(say (eval-file 'eval-file-testee.don ))
+;(call/cc (continue (read-file 'hello.don )))
 
-;(say (car (unjust (stdin true ))))
+;( say
+  [ (call/cc (continue stdin ))
+    (call/cc (continue stdin ))
+    (call/cc (continue stdin ))
+    (call/cc (continue stdin ))
+    (call/cc (continue stdin ))
+  ]
+)
 
-;(say
-  (char->unicode
-    (car (unjust (cdr (unjust (read-file '/dev/zero true ))true )))))
+( say
+  ( char->unicode
+    ( fn
+      'zeros
+      " (false
+          (call/cc (continue zeros ))
+          (unjust (call/cc (continue zeros )))
+        )
+      (read-file '/dev/zero )
+    )
+  )
+)
 
 HELO

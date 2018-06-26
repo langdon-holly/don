@@ -8,7 +8,7 @@
 
 // Export
 
-; module.exports = parseStream
+module.exports = {parseStream, parseIter};
 
 // Stuff
 
@@ -173,6 +173,11 @@
 //      ? _.assign({rest: arr.slice(parsed.index)}, parsed)
 //      : parsed)}
 
+const fileParser = ps.before(ows(), expr());
+
 ; function parseStream(str)
-  {return ps.streamShortestMatch(ps.before(ows(), expr()), str)}
+  {return ps.streamShortestMatch(fileParser, str)}
+
+; function parseIter(asyncIterable)
+  {return ps.asyncIterableShortestMatch(fileParser, asyncIterable)}
 

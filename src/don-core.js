@@ -9,7 +9,7 @@
   //, bigInt = require('big-integer')
   , weak = require('weak')
 
-  , parser = require('./don-parse.js')
+  , {parseStream: parser, parseIter} = require('./don-parse.js')
 
 // Utility
 ; const
@@ -45,7 +45,7 @@
 
 // Stuff
 
-; exports = module.exports
+exports = module.exports = {parseStream: parser, parseAsyncIterable: parseIter};
 
 ; function Continue(cont, arg)
   { const
@@ -164,8 +164,9 @@
                           fn(arg.data.last.data.first, cc, onerr), cc, onerr))
                     ()
                   : Null("Function requires enpaired continuations"))})]]))}
+exports.makeFun = makeFun;
 
-; function quote(val) {return mk(quoteLabel, val)}
+function quote(val) {return mk(quoteLabel, val)}
 
 ; function makeList(vals)
   {return _.reduceRight(vals, _.ary(_.flip(makePair), 2), unit)}
@@ -214,23 +215,23 @@
 //          ? fn(msg.data.last.data.first, msg.data.last.data.last)
 //          : []))}
 
-; function makeDeferred()
-  { let res
-  ; const
-      data
-      = { val: new Promise(reso => res = reso).then(o => (data.is = true, o))
-        , is: false}
-  ; return (
-      { o
-        : fnOfType
-          ( boolLabel
-          , (block, onOk) =>
-            block
-            ? data.val.then(val => ({val}))
-            : data.is
-              ? data.val.then(val => ({val: just(val)}))
-              : {val: nothing})
-      , res})}
+//; function makeDeferred()
+//  { let res
+//  ; const
+//      data
+//      = { val: new Promise(reso => res = reso).then(o => (data.is = true, o))
+//        , is: false}
+//  ; return (
+//      { o
+//        : fnOfType
+//          ( boolLabel
+//          , (block, onOk) =>
+//            block
+//            ? data.val.then(val => ({val}))
+//            : data.is
+//              ? data.val.then(val => ({val: just(val)}))
+//              : {val: nothing})
+//      , res})}
 
 ; function makeChannel()
   { let mode, queue = []
@@ -251,50 +252,160 @@ const
   = () =>
     Transform
     ( { transform(chr, enc, cb)
-        { this.push(makeChar(chr.codePointAt(0)))
-        ; cb(null)}
+        {this.push(makeChar(chr.codePointAt(0))); cb(null)}
       , decodeStrings: false
       , readableObjectMode: true})
 
 const
-  unmakeCharStream
-  = (cs, onErr) =>
-    { let execDone = Promise.resolve()
-    ; const
-        rs
-        = Readable
-          ( { encoding: 'utf8'
-            , read()
-              { execDone
-                = Promise.all([execDone, topContinue(getNext())]).then(_.noop)}})
-      , nextCont
-        = makeCont
-          ( next =>
-            next.type === maybeLabel
-            ? next.data.is
-              ? next.data.val.type === pairLabel
-                ? next.data.val.data.first.type === charLabel
-                  ? ( cs = next.data.val.data.last
-                    , rs.push(charToStr(next.data.val.data.first))
-                    , [])
-                  : Null("Non-character stream element")
-                : Null("Stream returned just a non-pair")
-              : (rs.push(null), [])
-            : Null("Stream returned non-maybe"))
-      , getNext
-        = () => [mCall(cs, applySym, makeBool(true), nextCont, onErr)]
-    ; return {rStream: rs, execWait: () => execDone}}
+  charStream2asyncIter
+  = cont =>
+    { let execDone = Promise.resolve();
+      const
+        getNext
+        = (res, rej) =>
+          [ { cont
+            , arg
+              : makeCont
+                ( next =>
+                  next.type === maybeLabel
+                  ? next.data.is
+                    ? next.data.val.type === charLabel
+                      ? (res(charToStr(next.data.val)), [])
+                      : Null("Streamt without character")
+                    : (rej(), [])
+                  : Null("Stream argued with definition"))}];
+      return (
+        { rIter
+          : ( async function*()
+              { while (true)
+                  yield await new Promise
+                  ( (...a) =>
+                    execDone
+                    = Promise.all([execDone, topContinue(getNext(...a))])
+                      .then(_.noop))})
+            ()
+        , execWait: () => execDone})}
 
-; function makeStream(rStream, cleanup)
-  { let {o, res} = makeDeferred()
-  ; rStream.pipe
-    ( Writable
-      ( { write(chunk, enc, cb)
-          { res(just(makePair(chunk, ({res} = makeDeferred()).o)))
-          ; cb(null)}
-        , final(cb) {res(nothing); cb(null)}
-        , objectMode: true}))
-  ; return weak(o, cleanup), o}
+//const
+//  unmakeCharStream
+//  = cont =>
+//    { let execDone = Promise.resolve()
+//    ; const
+//        arg
+//        = makeCont
+//          ( next =>
+//            next.type === maybeLabel
+//            ? next.data.is
+//              ? next.data.val.type === charLabel
+//                ? (rs.push(charToStr(next.data.val)), [])
+//                : Null("Streamt without character")
+//              : (rs.push(null), [])
+//            : Null("Stream argued with definition"))
+//      , getNext = [{cont, arg}]
+//      , rs
+//        = Readable
+//          ( { encoding: 'utf8'
+//            , read()
+//              { execDone
+//                = Promise.all([execDone, topContinue(getNext)])
+//                  .then(_.noop)}})
+//    ; return {rStream: rs, execWait: () => execDone}}
+
+//const
+//  unmakeCharStream
+//  = (cs, onErr) =>
+//    { let execDone = Promise.resolve()
+//    ; const
+//        rs
+//        = Readable
+//          ( { encoding: 'utf8'
+//            , read()
+//              { execDone
+//                = Promise.all([execDone, topContinue(getNext())])
+//                  .then(_.noop)}})
+//      , nextCont
+//        = makeCont
+//          ( next =>
+//            next.type === maybeLabel
+//            ? next.data.is
+//              ? next.data.val.type === pairLabel
+//                ? next.data.val.data.first.type === charLabel
+//                  ? ( cs = next.data.val.data.last
+//                    , rs.push(charToStr(next.data.val.data.first))
+//                    , [])
+//                  : Null("Non-character stream element")
+//                : Null("Stream returned just a non-pair")
+//              : (rs.push(null), [])
+//            : Null("Stream returned non-maybe"))
+//      , getNext = () => [mCall(cs, applySym, makeBool(true), nextCont, onErr)]
+//    ; return {rStream: rs, execWait: () => execDone}}
+
+function makeStream(rStream, cleanup)
+{ return (
+    makeFun
+    ( () =>
+      { let prmRes, prm, reader;
+        const [write, read] = makeChannel()
+        , handleThread
+          = inner =>
+            ( { cont: read
+              , arg
+                : makeCont
+                  ( arg =>
+                    ( reader = arg
+                    , prm
+                      = [promiseWaitThread(new Promise(res => prmRes = res))]
+                    , inner(null)
+                    , prm
+                    )
+                  )
+              }
+            )
+        , eosThreads
+          = cont =>
+            [{cont: read, arg: makeCont(eosThreads)}, {cont, arg: nothing}]
+        , writable
+          = Writable
+            ( { write(...[chr,, cb])
+                { const res = prmRes;
+                  topContinue
+                  ([{cont: reader, arg: just(chr)}, handleThread(cb)])
+                  .then(res)
+                }
+              , final(cb)
+                { const res = prmRes;
+                  cb(null);
+                  topContinue(eosThreads(reader)).then(res)
+                }
+              , objectMode: true
+              }
+            );
+        weak(write, cleanup);
+        return (
+          [ handleThread
+            ( () =>
+              ( rStream.pipe(writable)
+              , weak(write, () => rStream.unpipe(writable))
+              )
+            )
+          , {val: write}
+          ]
+        )
+      }
+    )
+  )
+}
+
+//; function makeStream(rStream, cleanup)
+//  { let {o, res} = makeDeferred()
+//  ; rStream.pipe
+//    ( Writable
+//      ( { write(chunk, enc, cb)
+//          { res(just(makePair(chunk, ({res} = makeDeferred()).o)))
+//          ; cb(null)}
+//        , final(cb) {res(nothing); cb(null)}
+//        , objectMode: true}))
+//  ; return weak(o, cleanup), o}
 
 ; function objToNs(o)
   { return (
@@ -426,14 +537,6 @@ exports.strVal = strVal
 
       ; default: return Null("unknown parse-tree type '" + label)}}
 
-; function parseStr(str)
-  { return (
-      parser(str).then
-      ( parsed =>
-          parsed.status === 'match'
-          ? _.assign({ast: parseTreeToAST(parsed.result)}, parsed)
-          : parsed))}
-
 ; const intLabel = {label: 'int'}
 ; exports.intLabel = intLabel
 
@@ -524,7 +627,8 @@ exports.strVal = strVal
                 { if (!isList(list))
                     return (
                       { ok: false
-                      , val: strToChars("Insequential synchronous cartography")})
+                      , val
+                        : strToChars("Insequential synchronous cartography")})
                 ; return (
                     list === unit
                     ? {val: unit}
@@ -569,11 +673,11 @@ exports.readFile = readFile
                   ("indexToLineColumn: index=" + index + " is out of bounds")}
 
 ; const parseFile
-  = async stream =>
-      { const parsed = await parseStr(stream)
+  = async (stream, parseFn) =>
+      { const parsed = await parseFn(stream)
 
       ; if (parsed.status === 'match')
-          return {success: true, ast: parsed.ast, rest: stream}
+          return {success: true, ast: parseTreeToAST(parsed.result)}
       ; else if (parsed.status === 'eof')
           return (
             { success: false
@@ -634,28 +738,46 @@ exports.readFile = readFile
 
 //; const evalProgram = (...args) => ({fn: bindRest(...args), arg: initEnv})
 
-; const bindRest
-  = (expr, {rest, input}) =>
-      ( (quotedSourceDataVal, quotedStdinVal) =>
-          makeFun
-          ( env =>
-              ( { fn: expr
-                , arg
-                  : makeFun
-                    ( varKey =>
-                        eq(varKey, strToChars('source-data'))
-                        ? quotedSourceDataVal
-                        : eq(varKey, strToChars('stdin'))
-                          ? quotedStdinVal
-                          : {fn: env, arg: varKey})})))
-      ( { val
-          : quote
-            (makeStream(rest.file.pipe(chrStream2charStream()), rest.cleanup))}
-      , { val
-          : quote
-            ( makeStream
-              (input.file.pipe(chrStream2charStream()), input.cleanup))})
-; exports.bindRest = bindRest
+;
+const bindRest
+= (expr, {rest, input}) =>
+  makeFun
+  ( () =>
+    ( { fn: makeStream(input.file.pipe(chrStream2charStream()), input.cleanup)
+      , okThen
+        : { fn: quoteFn
+          , okThen
+            : { fn
+                : makeFun
+                  ( quotedStdin =>
+                    ( { fn
+                        : makeStream
+                          (rest.file.pipe(chrStream2charStream()), rest.cleanup)
+                      , okThen
+                        : { fn: quoteFn
+                          , okThen
+                            : { fn
+                                : makeFun
+                                  ( quotedSourceData =>
+                                    ( { val
+                                        : makeFun
+                                          ( env =>
+                                            ( { fn: expr
+                                              , arg
+                                                : makeFun
+                                                  ( varKey =>
+                                                    eq
+                                                    ( varKey
+                                                    , strToChars('source-data'))
+                                                    ? {val: quotedSourceData}
+                                                    : eq
+                                                      ( varKey
+                                                      , strToChars('stdin'))
+                                                      ? {val: quotedStdin}
+                                                      : { fn: env
+                                                        , arg
+                                                          : varKey})}))}))}}}))}}}));
+exports.bindRest = bindRest
 
 ; const
     cp
@@ -814,9 +936,11 @@ exports.readFile = readFile
     ('', true)
 
 ; const promiseWaitThread
-  = prm => ({cont: makeCont(() => prm.then(_.constant([]))), arg: unit})
+  = prm => ({cont: makeCont(() => prm.then(_.constant([]))), arg: unit});
 
-; const initEnv
+const quoteFn = makeFun(_.flow(quote, val => ({val})));
+
+  const initEnv
   = makeFun
     ( varKey =>
       varKey.type === symLabel
@@ -1063,7 +1187,7 @@ exports.readFile = readFile
                   ( makeFun
                     ( arg =>
                         isString(arg)
-                        ? { val
+                        ? { fn
                             : ( ({file, cleanup}) =>
                                 makeStream
                                 (file.pipe(chrStream2charStream()), cleanup))
@@ -1077,28 +1201,22 @@ exports.readFile = readFile
             ? { val
                 : quote
                   ( makeFun
-                    ( (arg, onOk, onErr) =>
-                        { const {rStream, execWait} = unmakeCharStream(arg, onErr)
-                        ; return (
-                            parseFile(rStream).then
-                            ( parsed =>
-                              [ promiseWaitThread(execWait())
-                              , { cont: onOk
-                                , arg
-                                  : parsed.success
-                                    ? okResult
-                                      ( objToNs
-                                        ( { expr: quote(parsed.ast)
-                                          , rest
-                                            : quote
-                                              (strToChars(parsed.rest))}))
-                                    : errResult
-                                      ( makeFun
-                                        ( _.flow
-                                          ( strVal
-                                          , parsed.error
-                                          , strToChars
-                                          , val => ({val}))))}]))}))}
+                    ( (...[arg,, onErr]) =>
+                      { const {rIter, execWait} = charStream2asyncIter(arg)
+                      ; return (
+                          parseFile(rIter, parseIter).then
+                          ( parsed =>
+                            [ promiseWaitThread(execWait())
+                            , { val
+                                : parsed.success
+                                  ? okResult(parsed.ast)
+                                  : errResult
+                                    ( makeFun
+                                      ( _.flow
+                                        ( strVal
+                                        , parsed.error
+                                        , strToChars
+                                        , val => ({val}))))}]))}))}
 
           : stringIs(varKey, "eval-file")
             ? { val
@@ -1107,19 +1225,22 @@ exports.readFile = readFile
                     ( (arg, ...ons) =>
                         isString(arg)
                         ? ( ({file, cleanup}) =>
-                              parseFile(file).then
+                              parseFile(file, parser).then
                               ( parsed =>
                                   parsed.success
                                   ? { fn
                                       : bindRest
                                         ( parsed.ast
-                                        , { rest: {file: parsed.rest, cleanup}
+                                        , { rest: {file, cleanup}
                                           , input
                                             : { file
                                                 : Readable
                                                   ({read() {this.push(null)}})
                                               , cleanup: ()=>0}})
-                                    , arg: initEnv}
+                                    , okThen
+                                      : { fn
+                                          : makeFun
+                                            (fn => ({fn, arg: initEnv}))}}
                                     
                                   : { ok: false
                                     , val

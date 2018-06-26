@@ -27,34 +27,28 @@
 
 ; const
     hasFileArg = program.args.length > 0
-  , [{file: source, cleanup: sourceCleanup}, input]
+  , [{file, cleanup: sourceCleanup}, input]
     = hasFileArg
       ? [don.readFile(program.args[0]), don.stdin()]
       : [ don.stdin()
         , {file: Readable({read() {this.push(null)}}), cleanup: ()=>0}]
 
-; don.parse(source).then
+; don.parse(file, don.parseStream).then
   ( parsed =>
-    {
-//; fs.readFile
-//  ( hasFileArg ? program.args[0] : 0
-//  , 'utf8'
-//  , (err, data) =>
-//    { if (err) console.log("Couldn't read file"), process.exit(1)
-//
-//    ; const parsed = don.parse(data)
-
-      if (parsed.success)
+    { if (parsed.success)
         don.topApply
-        ( don.bindRest
-          ( parsed.ast
-          , {rest: {file: parsed.rest, cleanup: sourceCleanup}, input})
-        , don.initEnv
+        ( don.makeFun
+          ( () =>
+            ( { fn
+                : don.bindRest
+                  ( parsed.ast
+                  , {rest: {file, cleanup: sourceCleanup}, input})
+              , okThen: {fn: don.makeFun(fn => ({fn, arg: don.initEnv}))}}))
+        , don.unit
         , don.nullCont
         , don.makeCont
           ( e =>
-              ( console.log(red(don.strVal(don.toString(e))))
-              , process.exit(1))))
+            (console.log(red(don.strVal(don.toString(e)))), process.exit(1))))
         .then(() => process.exit())
     ; else
         console.log(red(parsed.error(hasFileArg ? program.args[0] : "STDIN")))
