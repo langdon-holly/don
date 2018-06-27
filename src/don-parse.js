@@ -79,19 +79,6 @@ module.exports = {parseStream, parseIter};
       (ps.before(backtick, ps.oneElem), pt => ['char', pt.codePointAt(0)])
     , "character-literal")
 
-//; const ident
-//  = ps.name
-//    ( ps.map
-//      ( ps.around
-//        ( pipe
-//        , ps.many
-//          ( ps.or
-//            ( [ ps.elemNot([backslash, pipe])
-//              , ps.before(backslash, ps.or([pipe, backslash]))]))
-//        , pipe)
-//      , pt => ['ident', pt.map(chr => chr.codePointAt(0))])
-//    , "long-identifier")
-
 ; const identContents
   = nested =>
       ps.nilStacked
@@ -163,15 +150,6 @@ module.exports = {parseStream, parseIter};
         , result: undefined
         , noMore: false
         , futureSuccess: false}))}
-
-//; function parseFile(str)
-//  { const
-//      arr = _.toArray(str)
-//    , parsed = ps.shortestMatch(ps.before(ows(), expr()), arr)
-//  ; return (
-//      parsed.status === 'match'
-//      ? _.assign({rest: arr.slice(parsed.index)}, parsed)
-//      : parsed)}
 
 const fileParser = ps.before(ows(), expr());
 

@@ -1,3 +1,5 @@
+'use strict'
+
 // Dependencies
 
 ; const
@@ -215,24 +217,6 @@ function quote(val) {return mk(quoteLabel, val)}
 //          ? fn(msg.data.last.data.first, msg.data.last.data.last)
 //          : []))}
 
-//; function makeDeferred()
-//  { let res
-//  ; const
-//      data
-//      = { val: new Promise(reso => res = reso).then(o => (data.is = true, o))
-//        , is: false}
-//  ; return (
-//      { o
-//        : fnOfType
-//          ( boolLabel
-//          , (block, onOk) =>
-//            block
-//            ? data.val.then(val => ({val}))
-//            : data.is
-//              ? data.val.then(val => ({val: just(val)}))
-//              : {val: nothing})
-//      , res})}
-
 ; function makeChannel()
   { let mode, queue = []
   ; return [
@@ -285,60 +269,6 @@ const
                       .then(_.noop))})
             ()
         , execWait: () => execDone})}
-
-//const
-//  unmakeCharStream
-//  = cont =>
-//    { let execDone = Promise.resolve()
-//    ; const
-//        arg
-//        = makeCont
-//          ( next =>
-//            next.type === maybeLabel
-//            ? next.data.is
-//              ? next.data.val.type === charLabel
-//                ? (rs.push(charToStr(next.data.val)), [])
-//                : Null("Streamt without character")
-//              : (rs.push(null), [])
-//            : Null("Stream argued with definition"))
-//      , getNext = [{cont, arg}]
-//      , rs
-//        = Readable
-//          ( { encoding: 'utf8'
-//            , read()
-//              { execDone
-//                = Promise.all([execDone, topContinue(getNext)])
-//                  .then(_.noop)}})
-//    ; return {rStream: rs, execWait: () => execDone}}
-
-//const
-//  unmakeCharStream
-//  = (cs, onErr) =>
-//    { let execDone = Promise.resolve()
-//    ; const
-//        rs
-//        = Readable
-//          ( { encoding: 'utf8'
-//            , read()
-//              { execDone
-//                = Promise.all([execDone, topContinue(getNext())])
-//                  .then(_.noop)}})
-//      , nextCont
-//        = makeCont
-//          ( next =>
-//            next.type === maybeLabel
-//            ? next.data.is
-//              ? next.data.val.type === pairLabel
-//                ? next.data.val.data.first.type === charLabel
-//                  ? ( cs = next.data.val.data.last
-//                    , rs.push(charToStr(next.data.val.data.first))
-//                    , [])
-//                  : Null("Non-character stream element")
-//                : Null("Stream returned just a non-pair")
-//              : (rs.push(null), [])
-//            : Null("Stream returned non-maybe"))
-//      , getNext = () => [mCall(cs, applySym, makeBool(true), nextCont, onErr)]
-//    ; return {rStream: rs, execWait: () => execDone}}
 
 function makeStream(rStream, cleanup)
 { return (
@@ -395,17 +325,6 @@ function makeStream(rStream, cleanup)
     )
   )
 }
-
-//; function makeStream(rStream, cleanup)
-//  { let {o, res} = makeDeferred()
-//  ; rStream.pipe
-//    ( Writable
-//      ( { write(chunk, enc, cb)
-//          { res(just(makePair(chunk, ({res} = makeDeferred()).o)))
-//          ; cb(null)}
-//        , final(cb) {res(nothing); cb(null)}
-//        , objectMode: true}))
-//  ; return weak(o, cleanup), o}
 
 ; function objToNs(o)
   { return (
@@ -734,11 +653,8 @@ exports.readFile = readFile
               Promise.resolve(Continue(t.cont, t.arg)).then(topContinue)
               .then(res)))))
       .then(_.noop)
-; exports.topContinue = topContinue
+; exports.topContinue = topContinue;
 
-//; const evalProgram = (...args) => ({fn: bindRest(...args), arg: initEnv})
-
-;
 const bindRest
 = (expr, {rest, input}) =>
   makeFun
