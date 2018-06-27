@@ -1,32 +1,7 @@
 #!/usr/bin/env don
 
-("(unok (parse-prog-expr source-data )env )(eval-file \'std-env.don|env ))
+;("(unok (parse-prog-expr source-data )env )(eval-file \'std-env.don|env ))
 
-(say (unok (parse-prog source-data )env ))
-(say (unok (parse-prog source-data )env ))
-
-;(call/cc (continue (read-file 'hello.don )))
-
-;( say
-  [ (call/cc (continue stdin ))
-    (call/cc (continue stdin ))
-    (call/cc (continue stdin ))
-    (call/cc (continue stdin ))
-    (call/cc (continue stdin ))
-  ]
-)
-
-( say
-  ( char->unicode
-    ( fn
-      'zeros
-      " (false
-          (call/cc (continue zeros ))
-          (unjust (call/cc (continue zeros )))
-        )
-      (read-file '/dev/zero )
-    )
-  )
-)
+hi
 
 HELO

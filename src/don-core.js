@@ -286,11 +286,7 @@ function makeStream(rStream, cleanup)
                     , prm
                       = [promiseWaitThread(new Promise(res => prmRes = res))]
                     , inner(null)
-                    , prm
-                    )
-                  )
-              }
-            )
+                    , prm))})
         , eosThreads
           = cont =>
             [{cont: read, arg: makeCont(eosThreads)}, {cont, arg: nothing}]
@@ -300,48 +296,29 @@ function makeStream(rStream, cleanup)
                 { const res = prmRes;
                   topContinue
                   ([{cont: reader, arg: just(chr)}, handleThread(cb)])
-                  .then(res)
-                }
+                  .then(res)}
               , final(cb)
                 { const res = prmRes;
                   cb(null);
-                  topContinue(eosThreads(reader)).then(res)
-                }
-              , objectMode: true
-              }
-            );
+                  topContinue(eosThreads(reader)).then(res)}
+              , objectMode: true});
         weak(write, cleanup);
         return (
           [ handleThread
             ( () =>
               ( rStream.pipe(writable)
-              , weak(write, () => rStream.unpipe(writable))
-              )
-            )
-          , {val: write}
-          ]
-        )
-      }
-    )
-  )
-}
+              , weak(write, () => rStream.unpipe(writable))))
+          , {val: write}])}))}
 
 ; function objToNs(o)
   { return (
       makeFun
       ( identKey =>
-        isString(identKey)
-        ? ( keyStr =>
-            o.hasOwnProperty(keyStr)
-            ? {val: o[keyStr]}
-            : { ok: false
-              , val
-                : listConcat
-                  (objToNsNotFoundStr, toString(makeIdent(identKey)))})
-          (strVal(identKey))
-        : { ok: false
-          , val
-            : listConcat(objToNsNotFoundStr, toString(makeIdent(identKey)))}))}
+        ( { val
+            : isString(identKey)
+              ? (keyStr => o.hasOwnProperty(keyStr) ? just(o[keyStr]) : nothing)
+                (strVal(identKey))
+              : nothing})))}
 
 ; function arrToObj(arr)
   { return (
@@ -706,7 +683,7 @@ exports.bindRest = bindRest
   , charName = chr => cp[chr.data] || "other"
   , makeBacktick = () => makeChar(96)
 ; function escInIdent(charArr)
-  { let ticked = false, identStack = [[[]]]
+  { let ticked = false, identStack = [[[]]], name
   ; const
       stackLog = () => log(identStack.map(o => o.map(o => o.map(charToStr))))
   ; for (let chr of charArr)
