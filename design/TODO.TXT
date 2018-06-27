@@ -1,7 +1,8 @@
 * better syntax-error message
-* streams
+* binary syntax
+* generalized delimited syntax
+* binary I/O
 * objects
-* input
 * thread supervisors
 * better runtime errors
 

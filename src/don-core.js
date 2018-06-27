@@ -692,7 +692,8 @@ const bindRest
                                                       ? {val: quotedStdin}
                                                       : { fn: env
                                                         , arg
-                                                          : varKey})}))}))}}}))}}}));
+                                                          : varKey
+                                                        })}))}))}}}))}}}));
 exports.bindRest = bindRest
 
 ; const

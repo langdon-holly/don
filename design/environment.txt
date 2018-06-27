@@ -23,7 +23,7 @@ make-channel
 (false consequent alternative )
 unit 
 (read-file filename-str )
-(parse-prog str )
+(parse-prog stream )
 (eval-file filename-str )
 (gensym debug-info )
 (symbol-debug-info sym )
