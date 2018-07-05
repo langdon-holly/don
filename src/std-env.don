@@ -88,7 +88,7 @@
                   " (unok parsed
                       (fn 'var-key
                         " (= var-key 'source-data
-                            "(q str )
+                            "(just (q str ))
                             "(new-env var-key )
                             env )))))
             "(err (unerr parsed 'file ))
