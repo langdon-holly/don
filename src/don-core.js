@@ -502,17 +502,18 @@ const I = makeFun(val => ({val}));
 
 const objToNsNotFoundStr = strToChars("Var not found in ns: ");
 
-const makeMap
+const makeMapCall
   = makeFun
     ( arg =>
       { if (!isList(arg))
-          return {ok: false, val: strToChars("Insequential cartography")};
+          return {ok: false, val: strToChars("Insequential cartographic call")};
         const args = [...listIter(arg)];
-        if (args.length % 2 != 0)
-          return {ok: false, val: strToChars("Tried to brace oddity")};
-        const pairs = _.chunk(args, 2);
+        if (args.length % 2 != 1)
+          return {ok: false, val: strToChars("Tried to brace evenness")};
+        const pairs = _.chunk(_.tail(args), 2);
         return (
-          { val
+          { fn: args[0]
+          , arg
             : makeFun
               ( arg =>
                 { let toReturn = nothing;
@@ -882,7 +883,7 @@ const
                             : eq(begin, lBracket) && eq(end, rBracket)
                               ? {val: I}
                             : eq(begin, lBrace) && eq(end, rBrace)
-                              ? {val: makeMap}
+                              ? {val: makeMapCall}
                             : { ok: false
                               , val
                                 : strToChars
