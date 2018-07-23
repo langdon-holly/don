@@ -1,10 +1,10 @@
 Allowed special characters:
 
-whitespace    used : ends name, ignored elsewhere
+whitespace    used : ends name, optional separator
 `             used : character escape
 ~           unused
 @           unused
-#             used : end-of-line comment
+#             used : shebang
 $           unused
 (             used : start delimiter (function call)
 )             used : end delimiter (function call)
@@ -14,7 +14,7 @@ $           unused
 }             used : end delimiter (map)
 \             used : start identifier
 |             used : end identifier
-;             used : expression comment
+;             used : comment
 "             used : quote
 ,           unused
 

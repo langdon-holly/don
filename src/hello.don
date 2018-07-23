@@ -2,6 +2,6 @@
 
 ;("(unok (parse-prog-expr source-data )env )(eval-file \'std-env.don|env ))
 
-(say {(fn ' "(\|'a )) 'a 3 })
+(say \';s #\;he | llo#|)
 
 HELO

@@ -22,24 +22,23 @@ const
   , pipe
   , semicolon
   , hash
+  , bang
   , dQuote
   , space
   , tab
   , cr
   , lf]
-  = Array.from('()[]{}`\\|;#" \t\r\n').map(ps.string)
+  = Array.from('()[]{}`\\|;#!" \t\r\n').map(ps.string)
   , wsChar = ps.name(ps.or([space, lf, tab, cr]), "ws-char");
 
-const hashComment = ps.seq([hash, ps.seq([ps.many(ps.elemNot([lf])), lf])]);
+const shebang = ps.seq([hash, bang, ps.many(ps.elemNot([lf])), lf]);
 
 function comment()
 { return (
     ps.name
     ( ps.nilStacked
       ( { parseElem
-          : elem =>
-            ps.parseElem
-            (ps.or([ps.seq([semicolon, ows(), expr()]), hashComment]), elem)
+          : elem => ps.parseElem(ps.seq([semicolon, ows(), expr()]), elem)
         , match: false
         , result: undefined
         , noMore: false
@@ -92,8 +91,7 @@ const
               , ps.sepBy
                 ( ps.or
                   ( [ ps.map
-                      ( ps.elemNot
-                        ([backslash, pipe, backtick, semicolon, hash])
+                      ( ps.elemNot([backslash, pipe, backtick, semicolon])
                       , Array.of)
                     , nested
                       ? ps.seq([backtick, ps.oneElem])
@@ -147,7 +145,7 @@ function expr()
       , noMore: false
       , futureSuccess: false}))}
 
-const fileParser = ps.before(ows(), expr());
+const fileParser = ps.before(ps.seq([ps.opt(shebang), ows()]), expr());
 
 function parseStream(str) {return ps.streamShortestMatch(fileParser, str)}
 

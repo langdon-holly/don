@@ -690,7 +690,7 @@ exports.bindRest = bindRest;
 
 const
   cp
-  = {35: "hash", 59: "semicolon", 92: "backslash", 96: "backtick", 124: "pipe"}
+  = {59: "semicolon", 92: "backslash", 96: "backtick", 124: "pipe"}
   , charName = chr => cp[chr.data] || "other"
   , makeBacktick = () => makeChar(96);
 function escInIdent(charArr)
@@ -712,7 +712,7 @@ function escInIdent(charArr)
             : name === "pipe"
               ? _.last(identStack[identStack.length - 2]).push
                 (..._.flatten(identStack.pop()), chr)
-              : name === "hash" || name === "semicolon"
+              : name === "semicolon"
                 ? identStack = [[..._.flatten(identStack), [chr]]]
                 : /* name === "backtick" */
                   (_.last(identStack).push([chr]), ticked = true)
