@@ -661,11 +661,11 @@ const
               + lineCol.line1
               + ","
               + lineCol.col1
-              //+ ":\n"
-              //+ data.split('\n')[lineCol.line0]
-              //+ "\n"
-              //+ " ".repeat(lineCol.col0)
-              //+ "^"
+              + ":\n"
+              + lineCol.last
+              + "\n"
+              + " ".repeat(lineCol.col1 - 1)
+              + "^"
               /*+ inspect(parsed.parser.traceStack)*/})}
 
     //const trace = parsed.trace;

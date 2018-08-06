@@ -8,7 +8,7 @@ const
     let res = to.next();
     while (!res.done) res = to.next(from.next());
     return res.value;}
-  asyncIterableIntoIterator
+, asyncIterableIntoIterator
   = async (to, from) =>
     { from = from[Symbol.asyncIterator]();
       let res = to.next();
@@ -32,8 +32,7 @@ const
         from.pipe(wStream);})
 , ws = Array.from(' \t\n\r')
 , delimL = Array.from('([{\\')
-, delimR = Array.from(')]}|')
-, special = Array.from(' \t\n\r()[]{}\\|`#;"');
+, delimR = Array.from(')]}|');
 
 Object.assign
 ( module.exports
@@ -50,16 +49,22 @@ function *it()
   , commentLevel = 0
   , nestLevel = 0
   , line1 = 1
-  , col1 = 1;
+  , col1 = 1
+  , currLine = "";
 
   const
     n/*ext*/
     = yielded =>
-      ( value === '\n' ? (++line1, col1 = 1) : ++col1
+      ( value === '\n'
+        ? (++line1, col1 = 1, currLine = "")
+        : (++col1, currLine += value)
       , ++index
       , ({value} = yielded).done)
-  , doomed = () => ({status: 'doomed', index, result: {line1, col1}})
-  , e/*of*/ = () => ({status: 'eof', index, result: {line1, col1}})
+  , doomed
+    = () =>
+      ({status: 'doomed', index, result: {line1, col1, last: currLine + value}})
+  , e/*of*/
+    = () => ({status: 'eof', index, result: {line1, col1, last: currLine}})
   , delimited = end => (['Delimited', [...stack.pop(), end]]);
 
   if (n(yield)) return e();
