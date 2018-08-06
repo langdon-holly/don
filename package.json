@@ -17,10 +17,8 @@
   },
   "homepage": "https://github.com/langdon-holly/don#readme",
   "dependencies": {
-    "big-integer": "^1.6.30",
     "chalk": "^2.4.1",
-    "commander": "^2.15.1",
-    "list-parsing": "^0.4.2",
+    "commander": "^2.17.0",
     "lodash": "^4.17.10",
     "weak": "^1.0.1"
   }

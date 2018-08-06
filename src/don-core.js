@@ -7,11 +7,12 @@ const
   , util = require('util')
   , {Writable, Readable, Transform} = require('stream')
 
-, _ = require('lodash')
-//, bigInt = require('big-integer')
-, weak = require('weak')
+  , _ = require('lodash')
+  , weak = require('weak')
+  //, {iterableIntoIterator} = require('list-parsing')
 
-, {parseStream: parser, parseIter} = require('./don-parse.js');
+  , {parseStream: parser, parseIter, iterableIntoIterator}
+    = require('./don-parse2.js');
 
 // Utility
 const
@@ -87,7 +88,7 @@ function Continue(cont, arg)
           : Null
             ("Tried to continue a non-continuation:\n" + inspect(cont)))}
 
-function mk(label, data) {return {type: label, data: data}}
+function mk(type, data) {return {type, data}}
 
 function makeCall(fnExpr, argExpr) {return mk(callLabel, {fnExpr, argExpr})}
 
@@ -271,13 +272,13 @@ const
         { rIter
           : ( async function*()
               { while (true)
-                  yield
+                  yield (
                     await
                       new Promise
                       ( (...a) =>
                         execDone
                         = Promise.all([execDone, topContinue(getNext(...a))])
-                          .then(_.noop))})
+                          .then(_.noop)))})
             ()
         , execWait: () => execDone})};
 
@@ -417,6 +418,18 @@ function eq(val0, val1)
          && eq(val0.data.first, val1.data.first)
          && eq(val0.data.last, val1.data.last)))}
 
+function subDelimited([label, data])
+{ return (
+    label === 'Delimited'
+    ? makePair(makeInt(2), delimitedTree(data))
+    : makePair(makeInt(label === 'char' ? 1 : 0), makeChar(data)));}
+
+function delimitedTree(data)
+{ return (
+    makePair
+    ( makePair(strToChar(data[0]), strToChar(data[2]))
+    , makeList(data[1].map(subDelimited))));}
+
 function parseTreeToAST([label, data])
 { switch (label)
   { case 'char': return makeCall(charVar, quote(makeInt(data)));
@@ -434,16 +447,17 @@ function parseTreeToAST([label, data])
               , okThen
                 : { fn
                     : makeFun
-                      ( soFar =>
-                        ( { fn: soFar
-                          , arg
-                            : makeList(data[1].map(parseTreeToAST))}))}}))));
+                      ( fn =>
+                        ({fn, arg: makeList(data[1].map(parseTreeToAST))}))}})))
+      );
 
-      case 'quote': return quote(parseTreeToAST(data));
+    case 'Delimited': return makeCall(DelimitedVar, quote(delimitedTree(data)))
 
-      case 'ident': return makeIdent(makeList(data.map(makeChar)));
+    case 'quote': return quote(parseTreeToAST(data));
 
-      default: return Null("unknown parse-tree type '" + label)}}
+    case 'ident': return makeIdent(makeList(data.map(makeChar)));
+
+    default: return Null("unknown parse-tree type '" + label)}}
 
 const intLabel = {label: 'int'};
 exports.intLabel = intLabel;
@@ -486,6 +500,10 @@ const delimitedVarSym = gensym(strToChars('delimited-var'));
 const delimitedVar = makeIdent(delimitedVarSym);
 exports.delimitedVar = delimitedVar;
 
+const DelimitedVarSym = gensym(strToChars('Delimited-var'));
+const DelimitedVar = makeIdent(DelimitedVarSym);
+exports.DelimitedVar = DelimitedVar;
+
 const charVarSym = gensym(strToChars('char-var'));
 const charVar = makeIdent(charVarSym);
 exports.charVar = charVar;
@@ -524,6 +542,31 @@ const makeMapCall
                     ? (toReturn = just(pair[1]), false)
                     : true);
                   return {val: toReturn}})})});
+
+const
+  makeFunCall
+  = makeFun
+    ( (elems, onOk, onErr) =>
+      !isList(elems)
+      ? { ok: false
+        , value
+          : strToChars("Insequential delimition")}
+      : elems === unit
+        ? {val: I}
+        : { cont
+            : _.reduceRight
+              ( [...listIter(elems.data.last)]
+              , (onOk, arg) =>
+                makeCont
+                ( fn =>
+                  [ mCall
+                    ( fn
+                    , applySym
+                    , arg
+                    , onOk
+                    , onErr)])
+              , onOk)
+          , arg: elems.data.first});
 
 const
   syncMap
@@ -689,33 +732,37 @@ const
 exports.bindRest = bindRest;
 
 const
-  cp
-  = {59: "semicolon", 92: "backslash", 96: "backtick", 124: "pipe"}
-  , charName = chr => cp[chr.data] || "other"
+  delimL = Array.from('([{\\').map(o => o.codePointAt(0))
+  , delimR = Array.from(')]}|').map(o => o.codePointAt(0))
+  , charName
+    = chr =>
+      delimL.includes(chr)
+      ? 'left'
+      : delimR.includes(chr)
+        ? 'right'
+        : chr === 59 ? 'semicolon' : chr === 96 ? 'backtick' : 'other'
   , makeBacktick = () => makeChar(96);
 function escInIdent(charArr)
 { let ticked = false, identStack = [[[]]], name;
   const stackLog = () => log(identStack.map(o => o.map(o => o.map(charToStr))));
   for (let chr of charArr)
-    ( name = charName(chr)
+    ( name = charName(chr.data)
     , ticked
-      ? ( name === "other"
+      ? ( name === 'other'
           ? _.last(_.last(identStack)).push(chr)
           : _.last(identStack).push([chr])
         , ticked = false)
-      : name === "other"
+      : name === 'other'
         ? _.last(_.last(identStack)).push(chr)
-        : name === "backslash"
+        : name === 'left'
           ? identStack.push([[chr]])
           : identStack.length === 1
             ? identStack[0].push([chr])
-            : name === "pipe"
+            : name === 'right'
               ? _.last(identStack[identStack.length - 2]).push
                 (..._.flatten(identStack.pop()), chr)
-              : name === "semicolon"
-                ? identStack = [[..._.flatten(identStack), [chr]]]
-                : /* name === "backtick" */
-                  (_.last(identStack).push([chr]), ticked = true)
+              : /* name === 'backtick' || name === 'semicolon' */
+                (_.last(identStack).push([chr]), ticked = name === 'backtick')
     /*, stackLog()*/);
   return (
     _.reduce(_.flatten(identStack), (a, b) => [...a, makeBacktick(), ...b]))}
@@ -788,8 +835,8 @@ function toString(arg)
 exports.toString = toString;
 
 const
-  [lParen, rParen, lBracket, rBracket, lBrace, rBrace]
-  = Array.from('()[]{}').map(strToChar);
+  [lParen, rParen, lBracket, rBracket, lBrace, rBrace, backslash, pipe]
+  = Array.from('()[]{}\\|').map(strToChar);
 
 const
   unknownKeyThread
@@ -841,6 +888,167 @@ const
 
 //const quoteFn = makeFun(_.flow(quote, val => ({val})));
 
+const carFn = fnOfType(pairLabel, ({first}) => ({val: first}));
+const cdrFn = fnOfType(pairLabel, ({last}) => ({val: last}));
+
+const wsNums = Array.from(' \t\n\r').map(o => o.codePointAt(0))
+, delimitedListGen
+  = function *(env, listFn)
+    { let value, index = 0, exprs = [], commentLevel = 0, name, quoteLevel = 0;
+
+      const
+        next
+        = yielded => (++index, ({value} = yielded).done)
+      , doom
+        = () => value.type !== pairLabel || value.data.first.type !== intLabel
+      , nameDoom
+        = () =>
+          doom()
+          || value.data.first.data !== 0
+          || value.data.last.type !== charLabel
+          || [34, 59].includes(value.data.last.data)
+      , doomed
+        = () =>
+          ( { ok: false
+            , val: strToChars("Delimition enlistment doomed at index " + index)}
+          )
+      , eof
+        = () =>
+          ( { ok: false
+            , val: strToChars("EOF reached while enlisting delimition")})
+      , push
+        = expr =>
+          { if (commentLevel > 0) commentLevel--;
+            else
+            { while (quoteLevel-- > 0) expr = quote(expr);
+              ++quoteLevel, exprs.push(expr);}};
+
+      while (!next(yield))
+      { if (doom()) return doomed();
+
+        switch (value.data.first.data)
+        { case 0 // elem
+          : if (value.data.last.type !== charLabel) return doomed();
+            if (wsNums.includes(value.data.last.data));
+            else if (value.data.last.data == 59) ++commentLevel; // ;
+            else if (value.data.last.data == 34) // "
+            {if (commentLevel == 0) ++quoteLevel;}
+            else
+            { name = [];
+              do
+              { name.push(value.data.last.data);
+                if (next(yield)) return eof();
+                if (nameDoom()) return doomed();}
+              while (!wsNums.includes(value.data.last.data));
+              push(makeIdent(makeList(name.map(makeChar))));}
+            break;
+          case 1 // char
+          : push(makeCall(charVar, quote(value.data.last)));
+            break;
+          case 2 // Delimited
+          : push(makeCall(DelimitedVar, quote(value.data.last)));}}
+      return (
+        commentLevel > 0 || quoteLevel > 0
+        ? eof()
+        : { fn: syncMap
+          , arg: makeFun(fn => ({fn, arg: env}))
+          , okThen
+            : { fn
+                : makeFun
+                  (fn => ({fn, arg: makeList(exprs), okThen: {fn: listFn}}))}});
+    }
+, delimitedList
+  = (list, env, listFn) =>
+    iterableIntoIterator(delimitedListGen(env, listFn), listIter(list));
+
+const
+  parenListFn
+  = makeFun
+    ( (elems, onOk, onErr) =>
+      !isList(elems)
+      ? {ok: false, value: strToChars("Insequential delimition")}
+      : elems === unit
+        ? {val: I}
+        : { cont
+            : _
+              .reduceRight
+              ( [...listIter(elems.data.last)]
+              , (onOk, arg) =>
+                makeCont(fn => [mCall(fn, applySym, arg, onOk, onErr)])
+              , onOk)
+          , arg: elems.data.first})
+
+const
+  flattenDelimited
+  = delimition =>
+    { if
+      ( delimition.type !== pairLabel
+      || delimition.data.first.type !== pairLabel)
+        return {};
+      const chars = [delimition.data.first.data.first];
+      for (const elem of listIter(delimition.data.last))
+      { if (elem.type !== pairLabel || elem.data.first.type !== intLabel)
+          return {};
+        switch (elem.data.first.data)
+        { case 0
+          : chars.push(elem.data.last);
+            break;
+          case 1
+          : chars.push(strToChar('`'), elem.data.last);
+            break;
+          case 2
+          : const sub = flattenDelimited(elem.data.last)
+            if (!sub.is) return {};
+            chars.push(...sub.val);}}
+      return {is: true, val: [...chars, delimition.data.first.data.last]};}
+, delimitedIdentGen
+  = function *(env)
+    { let value, index = 0, commentLevel = 0;
+
+      const chars = []
+      , next
+        = yielded => (++index, ({value} = yielded).done)
+      , doom
+        = () => value.type !== pairLabel || value.data.first.type !== intLabel
+      , doomed
+        = () =>
+          ( { ok: false
+            , val: strToChars("Identical delimition doomed at index " + index)})
+      , eof
+        = () =>
+          ( { ok: false
+            , val: strToChars("EOF reached in identical delimition")});
+
+      while (!next(yield))
+      { if (doom()) return doomed();
+
+        switch (value.data.first.data)
+        { case 0 // elem
+          : if (value.data.last.type !== charLabel) return doomed();
+            else if (value.data.last.data == 59) // ;
+              { ++commentLevel;
+                do
+                { if (next(yield)) return eof();
+                  if (doom() || value.data.first.data == 1) return doomed();
+                  if (value.data.first.data == 2) commentLevel--;
+                  else
+                  { if (value.data.last.type !== charLabel) return doomed();
+                    if (value.data.last.data == 59) ++commentLevel; //;
+                    else if
+                    (!wsNums.includes(value.data.last.data)) return doomed();}}
+                while (commentLevel);
+                continue;}
+          case 1 // char
+          : chars.push(value.data.last);
+            break;
+          case 2 // Delimited
+          : const sub = flattenDelimited(value.data.last);
+            if (!sub.is) return doomed();
+            chars.push(...sub.val)}}
+      return {fn: makeIdent(makeList(chars)), arg: env};}
+, delimitedIdent
+  = (list, env) => iterableIntoIterator(delimitedIdentGen(env), listIter(list));
+
 const
   initEnv
   = makeFun
@@ -890,9 +1098,119 @@ const
                                   ( "Unspecified delimited "
                                     + "action")})}))))}
 
-        : varKey === charVarSym ? {val: just(quote(unicode2Char))}
+        : varKey === DelimitedVarSym
+          ? { val
+              : just
+                ( makeFun
+                  ( env =>
+                    ( { val
+                        : makeFun
+                          ( arg =>
+                            ( { fn: carFn
+                              , arg
+                              , okThen
+                                : { fn
+                                    : makeFun
+                                      ( delims =>
+                                        ( { fn: carFn
+                                          , arg: delims
+                                          , okThen
+                                            : { fn
+                                                : makeFun
+                                                  ( begin =>
+                                                    ( { fn: cdrFn
+                                                      , arg: delims
+                                                      , okThen
+                                                        : { fn
+                                                            : makeFun
+                                                              ( end =>
+                                                                ( { fn: cdrFn
+                                                                  , arg
+                                                                  , okThen
+                                                                    : { fn
+                                                                        : makeFun
+                                                                          ( children =>
+                                                                            eq
+                                                                            ( begin
+                                                                            , lParen)
+                                                                            &&
+                                                                              eq
+                                                                              ( end
+                                                                              , rParen)
+                                                                            ? delimitedList
+                                                                              ( children
+                                                                              , env
+                                                                              , parenListFn
+                                                                              )
+                                                                            : eq
+                                                                              ( begin
+                                                                              , lBracket
+                                                                              )
+                                                                              &&
+                                                                                eq
+                                                                                ( end
+                                                                                , rBracket
+                                                                                )
+                                                                              ? delimitedList
+                                                                                ( children
+                                                                                , env
+                                                                                , I
+                                                                                )
+                                                                            : eq
+                                                                              ( begin
+                                                                              , lBrace
+                                                                              )
+                                                                              &&
+                                                                                eq
+                                                                                ( end
+                                                                                , rBrace
+                                                                                )
+                                                                              ? delimitedList
+                                                                                ( children
+                                                                                , env
+                                                                                , makeMapCall
+                                                                                )
+                                                                            : eq
+                                                                              ( begin
+                                                                              , backslash
+                                                                              )
+                                                                              &&
+                                                                                eq
+                                                                                ( end
+                                                                                , pipe
+                                                                                )
+                                                                              ? delimitedIdent
+                                                                                ( children
+                                                                                , env
+                                                                                )
+                                                                            : { ok
+                                                                                : false
+                                                                              , val
+                                                                                : strToChars
+                                                                                  ( "Unspecified delimited action for "
+                                                                                    + charToStr
+                                                                                      (begin)
+                                                                                    + charToStr
+                                                                                      (end)
+                                                                                  )
+                                                                              })
+                                                                      }}))}}))}}
+                                        ))}})
+                            /*eq(begin, lParen) && eq(end, rParen)
+                            ? {val: makeFunCall}
+                            : eq(begin, lBracket) && eq(end, rBracket)
+                              ? {val: I}
+                            : eq(begin, lBrace) && eq(end, rBrace)
+                              ? {val: makeMapCall}
+                            : eq(begin, backslash) && eq(end, pipe)
+                              ? {val: makeFun(arg => ({val: unit}))}
+                            : { ok: false
+                              , val
+                                : strToChars("Unspecified delimited action")}*/)})))}
 
-          : {val: nothing}
+          : varKey === charVarSym ? {val: just(quote(unicode2Char))}
+
+            : {val: nothing}
 
       : isString(varKey)
 
@@ -1179,9 +1497,9 @@ const
           ( makeFun
             (first => ({val: makeFun(last => ({val: makePair(first, last)}))})))
 
-      , "car": quote(fnOfType(pairLabel, ({first}) => ({val: first})))
+      , "car": quote(carFn)
 
-      , "cdr": quote(fnOfType(pairLabel, ({last}) => ({val: last})))
+      , "cdr": quote(cdrFn)
 
       , "to-str-m": quote(toStrSym)
 

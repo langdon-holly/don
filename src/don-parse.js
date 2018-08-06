@@ -127,6 +127,41 @@ function delimited()
       , pt => ['delimited', pt])
     , "delimited-list"))}
 
+function Delimited()
+{ return (
+    ps.nilStacked
+    ( { parseElem
+        : elem =>
+          ps.parseElem
+          ( ps.name
+            ( ps.map
+              ( ps.seq
+                ( [ ps.or([lParen, lBracket, lBrace, backslash])
+                  , ps.many
+                    ( ps.or
+                      ( [ character
+                        , Delimited()
+                        , ps.map
+                          ( ps.elemNot
+                            ( [ lParen
+                              , lBracket
+                              , lBrace
+                              , backslash
+                              , rParen
+                              , rBracket
+                              , rBrace
+                              , pipe
+                              , backtick])
+                          , pt => ['elem', pt.codePointAt(0)])]))
+                  , ps.or([rParen, rBracket, rBrace, pipe])])
+              , pt => ['Delimited', pt])
+            , "delimited")
+          , elem)
+    , match: false
+    , result: undefined
+    , noMore: false
+    , futureSuccess: false}));}
+
 function quote()
 { return (
     ps.name
@@ -139,7 +174,7 @@ function expr()
     ( { parseElem
         : elem =>
           ps.parseElem
-          (ps.or([delimited(), name, ident, quote(), character]), elem)
+          (ps.or([Delimited(), /*delimited(), */name, /*ident, */quote(), character]), elem)
       , match: false
       , result: undefined
       , noMore: false

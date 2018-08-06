@@ -1,7 +1,12 @@
 #!/usr/bin/env don
 
-;("(unok (parse-prog-expr source-data )env )(eval-file \'std-env.don|env ))
+;(eval-file 'eval-file-testee.don )
 
-(say \';s #\;he | llo#|)
+;;(;`){|```k]
 
-HELO
+("(unok (parse-prog-expr source-data )env )(eval-file \'std-env.don|env ))
+
+(say \'`;s`(`;`) #;[}\;he | llo#``|)
+
+(say 'OK )
+

@@ -1,6 +1,5 @@
 * better syntax-error message
 * binary syntax
-* generalized delimited syntax
 * binary I/O
 * objects
 * thread supervisors
