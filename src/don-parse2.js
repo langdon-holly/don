@@ -4,16 +4,16 @@ const _ = require('lodash')
 const
   iterableIntoIterator
   = (to, from) =>
-  { from = from[Symbol.iterator]()
-  ; let res = to.next()
-  ; while (!res.done) res = to.next(from.next())
-  ; return res.value}
+  { from = from[Symbol.iterator]();
+    let res = to.next();
+    while (!res.done) res = to.next(from.next());
+    return res.value;}
   asyncIterableIntoIterator
   = async (to, from) =>
     { from = from[Symbol.asyncIterator]();
       let res = to.next();
       while (!res.done) res = to.next(await from.next());
-      return res.value}
+      return res.value;}
 , streamIntoIterator
   = (to, from) =>
     new Promise
@@ -24,12 +24,12 @@ const
             ( { write(value, encoding, cb)
                 { if ((res = to.next({value})).done)
                     resolve(res.value), from.unpipe(this);
-                  cb(null)}
+                  cb(null);}
               , final(cb)
                 { resolve(to.next({done: true}).value), from.unpipe(this);
-                  cb(null)}
+                  cb(null);}
               , objectMode: true});
-        from.pipe(wStream)})
+        from.pipe(wStream);})
 , ws = Array.from(' \t\n\r')
 , delimL = Array.from('([{\\')
 , delimR = Array.from(')]}|')
@@ -44,11 +44,22 @@ Object.assign
       asyncIterableIntoIterator(it()[Symbol.iterator](), asyncIterable)});
 
 function *it()
-{ let value, index = 0, stack = [], commentLevel = 0, nestLevel = 0;
+{ let value
+  , index = 0
+  , stack = []
+  , commentLevel = 0
+  , nestLevel = 0
+  , line1 = 1
+  , col1 = 1;
 
-  const n/*ext*/ = yielded => (++index, ({value} = yielded).done)
-  , doomed = () => ({status: 'doomed', index})
-  , e/*of*/ = () => ({status: 'eof', index})
+  const
+    n/*ext*/
+    = yielded =>
+      ( value === '\n' ? (++line1, col1 = 1) : ++col1
+      , ++index
+      , ({value} = yielded).done)
+  , doomed = () => ({status: 'doomed', index, result: {line1, col1}})
+  , e/*of*/ = () => ({status: 'eof', index, result: {line1, col1}})
   , delimited = end => (['Delimited', [...stack.pop(), end]]);
 
   if (n(yield)) return e();

@@ -643,23 +643,24 @@ const
             + " should have at least "
             + parsed.index
             + " codepoints"});
-    else
+    else // parsed.status === 'doomed'
     { const errAt = parsed.index;
       if (errAt == 0)
         return {success: false, error: _.constant("Error in the syntax")};
       else
-      { //const lineCol = indexToLineColumn(errAt - 1, data);
+      { const lineCol = parsed.result/*indexToLineColumn(errAt - 1, data)*/;
         return (
           { success: false
           , error
             : filename =>
               "Syntax error at "
               + filename
-              + " at codepoint #"
-              + errAt
-              //+ lineCol.line1
-              //+ ","
-              //+ lineCol.col1
+              //+ " at codepoint #"
+              //+ errAt
+              + " "
+              + lineCol.line1
+              + ","
+              + lineCol.col1
               //+ ":\n"
               //+ data.split('\n')[lineCol.line0]
               //+ "\n"
