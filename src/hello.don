@@ -1,9 +1,10 @@
 #!/usr/bin/env don
-; ()'
 
 ("(unok (parse-prog-expr source-data )env )(eval-file \'std-env.don|env ))
 
-( say
-  (Z (fn 'len "(fn 'str "((= str [] ) "0 "(+ 1 (len (cdr str ))) env )))
-  \'four score|))
+;(say (label 'a "a ))
+
+(say
+  [ (->list (fn 'i "(+ i i ))5 )
+    (length \'four score|)])
 

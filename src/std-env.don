@@ -1,96 +1,124 @@
-(fn 'parse-prog-expr
-  " (fn 'Z
-      " (fn 'error
-          " (fn 'make-sync-cont
-              " (fn 'make-cell
-                  " (fn 'cell-val
-                      " (fn 'set
-                          " (fn 'cas
-                              " (fn 'this-env
-                                  " (fn 'new-env
-                                      " (fn 'var-key
-                                          " ( (= var-key 'parse-prog-expr true
-                                                (= var-key 'Z true
-                                                  (= var-key 'error true
-                                                    (= var-key 'make-sync-cont
-                                                      true
-                                                      (= var-key 'make-cell true
-                                                        (= var-key 'cell-val
-                                                          true
-                                                          (= var-key 'set true
-                                                            (=
-                                                              var-key
-                                                              'cas ))))))))
-                                              this-env
-                                              new-env
-                                              var-key )))
-                                  env )
-                              (fn 'cell
-                                " (fn 'old-val
-                                    " (fn 'new-val
-                                        " (fn 'val
-                                            " (= val old-val
-                                                " (false
-                                                    (async
-                                                      " (continue
-                                                          (car cell )
-                                                          new-val ))
-                                                    old-val )
-                                                " (false
-                                                    (async
-                                                      " (continue
-                                                          (car cell )
-                                                          val ))
-                                                    new-val )
-                                                env )
-                                            (call/cc (continue (cdr cell ))))))))
-                          (fn 'cell
-                            " (fn 'val
-                                " (false
-                                    (call/cc (continue (cdr cell )))
-                                    (async "(continue (car cell )val ))))))
-                      (fn 'cell
-                        " (fn 'val
-                            "(false (async "(continue (car cell )val ))val )
-                            (call/cc (continue (cdr cell ))))))
-                  (fn 'val
-                    " (fn 'cell
-                        "(false (async "(continue (car cell )val ))cell )
-                        make-channel )))
-              (fn 'on-err-cont
-                " (fn 'fun
-                    " (fn 'channel
-                        " (false
-                            (async
-                              " (Z
-                                  (fn 'next-state
+(fn 'cell-val
+  " (fn 'label-just
+      " ( " { (fn 'this-env
+                " (fn 'new-env
+                    " (fn 'var-key
+                        " (fn 'expr?
+                            " ((justp expr? )
+                                " expr?
+                                " (new-env var-key )
+                                env )
+                            (this-env var-key )))))
+              'parse-prog-expr
+              (q
+                (fn 'str
+                  " (fn 'parsed
+                      " (okp parsed
+                          " (ok
+                              (fn 'new-env
+                                " (unok parsed
+                                    (fn 'var-key
+                                      " (= var-key 'source-data
+                                          "(just (q str ))
+                                          "(new-env var-key )
+                                          env )))))
+                          "(err (unerr parsed 'file ))
+                          env )
+                      (parse-prog str ))))
+              'label (q label )
+              'error
+              (q (fn 'err "(call/onerr continue err )))
+              'make-sync-cont
+              (q
+                (fn 'on-err-cont
+                  " (fn 'fun
+                      " (fn 'channel
+                          " (false
+                              (async
+                                " (label
+                                    'next-state
                                     " (fn 'state
                                         " (continue
                                             (cdr channel )
                                             (make-cont
                                               on-err-cont
                                               (fn 'msg
-                                                "(next-state (state msg )))))))
-                                  fun ))
-                            (car channel ))
-                        make-channel ))))
-          (fn 'err "(call/onerr continue err )))
-      (fn 'f
-        " (fn 'x
-            "(f (fn 'v "(x x v )))
-            (fn 'x
-              "(f (fn 'v "(x x v )))))))
-  (fn 'str
-    " (fn 'parsed
-        " (okp parsed
-            " (ok
-                (fn 'new-env
-                  " (unok parsed
-                      (fn 'var-key
-                        " (= var-key 'source-data
-                            "(just (q str ))
-                            "(new-env var-key )
-                            env )))))
-            "(err (unerr parsed 'file ))
-            env )
-        (parse-prog str ))))
+                                                "(next-state (state msg ))))))
+                                    fun ))
+                              (car channel ))
+                          make-channel ))))
+              'make-cell
+              (q
+                (fn 'val
+                  " (fn 'cell
+                      "(false (async "(continue (car cell )val ))cell )
+                      make-channel )))
+              'cell-val (q cell-val )
+              'set
+              (q
+                (fn 'cell
+                  " (fn 'val
+                      " (false
+                          (call/cc (continue (cdr cell )))
+                          (async "(continue (car cell )val ))))))
+              'cas
+              (q
+                (fn 'cell
+                  " (fn 'old-val
+                      " (fn 'new-val
+                          " (fn 'val
+                              " (= val old-val
+                                  " (false
+                                      (async
+                                        " (continue
+                                            (car cell )
+                                            new-val ))
+                                      val )
+                                  " (false
+                                      (async
+                                        " (continue
+                                            (car cell )
+                                            val ))
+                                      new-val )
+                                  env )
+                              (call/cc (continue (cdr cell ))))))))
+              'length
+              (q
+                (label
+                  'length
+                  " (fn 'list
+                      " ((= list [] )
+                          "0
+                          "(+ 1 (length (cdr list )))
+                          env ))))
+              '->list
+              (q
+                (fn 'fun
+                  " (fn 'len
+                      " (label 'do-them
+                          " (fn 'idx
+                              " (< idx len
+                                  "(cons (fun idx )(do-them (+ idx 1 )))
+                                  "[]
+                                  env ))
+                          0 ))))}
+          (fn 'var-key "(= var-key 'label (q label-just )env var-key )))
+
+      (just
+        (fn 'dyn-env
+          " (fn 'name
+              " (fn 'body
+                  " (fn 'cell
+                      " (fn 'val
+                          "(false (async "(continue (car cell )val ))val )
+                          (body
+                            (fn 'var-key
+                              " (= var-key name
+                                  "(just (q (cell-val cell )))
+                                  "(dyn-env var-key )
+                                  env ))))
+                      make-channel ))))))
+  (fn 'cell
+    " (fn 'val
+        "(false (async "(continue (car cell )val ))val )
+        (call/cc (continue (cdr cell ))))))
