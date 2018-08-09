@@ -65,7 +65,7 @@ function *it()
       ({status: 'doomed', index, result: {line1, col1, last: currLine + value}})
   , e/*of*/
     = () => ({status: 'eof', index, result: {line1, col1, last: currLine}})
-  , delimited = end => (['Delimited', [...stack.pop(), end]]);
+  , delimited = end => (['delimited', [...stack.pop(), end]]);
 
   if (n(yield)) return e();
 

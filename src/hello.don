@@ -1,10 +1,8 @@
 #!/usr/bin/env don
 
+(fn delimited-var-sym "(`hello())say )
+
 ("(unok (parse-prog-expr source-data )env )(eval-file \'std-env.don|env ))
 
-;(say (label 'a "a ))
-
-(say
-  [ (->list (fn 'i "(+ i i ))5 )
-    (length \'four score|)])
+(say (label 'a "a ))
 
