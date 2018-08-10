@@ -1,5 +1,13 @@
-const _ = require('lodash')
+const util = require('util');
+
+const _ = require('lodash');
 //, {asyncIterableIntoIterator, streamIntoIterator} = require('list-parsing');
+
+const
+  inspect = o => util.inspect(o, {depth: null, colors: true})
+  , log
+    = (...args) =>
+      (console.log(args.map(inspect).join("\n")), _.last(args));
 
 const
   iterableIntoIterator

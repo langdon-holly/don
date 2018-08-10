@@ -923,7 +923,8 @@ const wsNums = Array.from(' \t\n\r').map(o => o.codePointAt(0))
               push(makeIdent(makeList(name.map(makeChar))));}
             break;
           case 1 // char
-          : push(makeCall(charVar, quote(value.data.last)));
+          : if (value.data.last.type !== charLabel) return doomed();
+            push(makeCall(charVar, quote(makeInt(value.data.last.data))));
             break;
           case 2 // delimited
           : push(makeCall(delimitedVar, quote(value.data.last)));}}
