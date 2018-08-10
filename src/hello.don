@@ -1,8 +1,6 @@
-#!/usr/bin/env don
-
-(fn delimited-var-sym "(`hello())say )
+)#!/usr/bin/env don
 
 ("(unok (parse-prog-expr source-data )env )(eval-file \'std-env.don|env ))
 
-(say (label 'a "a ))
+(say 'OK )
 

@@ -51,12 +51,12 @@ Object.assign
       asyncIterableIntoIterator(it()[Symbol.iterator](), asyncIterable)});
 
 function *it()
-{ let value
+{ let value = '\n'
   , index = 0
   , stack = []
   , commentLevel = 0
   , nestLevel = 0
-  , line1 = 1
+  , line1 = 0
   , col1 = 1
   , currLine = "";
 
