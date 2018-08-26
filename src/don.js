@@ -51,6 +51,5 @@ don.parse(file, don.parseStream).then
           (console.log(red(don.strVal(don.toString(e)))), process.exit(1))))
       .then(() => process.exit());
     else
-      console.log(red(parsed.error(hasFileArg ? program.args[0] : "STDIN")))
+      console.log(parsed.error(hasFileArg ? program.args[0] : "standard input"))
       , process.exit(2)});
-

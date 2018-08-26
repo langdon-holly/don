@@ -9,6 +9,7 @@ const
 
   , _ = require('lodash')
   , weak = require('weak')
+  , {blue, red, bold} = require('chalk')
   //, {iterableIntoIterator} = require('list-parsing')
 
   , {parseStream: parser, parseIter, iterableIntoIterator}
@@ -418,7 +419,7 @@ function eq(val0, val1)
          && eq(val0.data.first, val1.data.first)
          && eq(val0.data.last, val1.data.last)))}
 
-function subDelimited([label, data])
+function subDelimited({t: label, d: data})
 { return (
     label === 'delimited'
     ? makePair(makeInt(2), delimitedTree(data))
@@ -427,10 +428,10 @@ function subDelimited([label, data])
 function delimitedTree(data)
 { return (
     makePair
-    ( makePair(strToChar(data[0]), strToChar(data[2]))
-    , makeList(data[1].map(subDelimited))));}
+    ( makePair(strToChar(data.start.delim), strToChar(data.end.delim))
+    , makeList(data.inner.map(subDelimited))));}
 
-function parseTreeToAST([label, data])
+function parseTreeToAST({t: label, d: data})
 { switch (label)
   { case 'char': return makeCall(charVar, quote(makeInt(data)));
 
@@ -591,61 +592,87 @@ const
         {file: pipeFrom.pipe(pipeTo), cleanup() {pipeFrom.unpipe(pipeTo)}})};
 exports.readFile = readFile;
 
-const
-  indexToLineColumn
-  = (index, string) =>
-    { const arr = Array.from(string);
-      let line = 0, col = 0, i = 0;
-      while (++i < arr.length)
-      { if (i === index)
-          return {line0: line, col0: col, line1: ++line, col1: ++col};
-        if (arr[i] === '\n') line++, col = 0;
-        else col++}
-      throw (
-        new RangeError
-        ("indexToLineColumn: index=" + index + " is out of bounds"))};
+//const
+//  indexToLineColumn
+//  = (index, string) =>
+//    { const arr = Array.from(string);
+//      let line = 0, col = 0, i = 0;
+//      while (++i < arr.length)
+//      { if (i === index)
+//          return {line0: line, col0: col, line1: ++line, col1: ++col};
+//        if (arr[i] === '\n') line++, col = 0;
+//        else col++}
+//      throw (
+//        new RangeError
+//        ("indexToLineColumn: index=" + index + " is out of bounds"))};
 
 const
   parseFile
   = async (stream, parseFn) =>
     { const parsed = await parseFn(stream);
 
-    if (parsed.status === 'match')
-      return {success: true, ast: parseTreeToAST(parsed.result)};
-    else if (parsed.status === 'eof')
-      return (
-        { success: false
-        , error
-          : filename =>
-            "Syntax error: "
-            + filename
-            + " should have at least "
-            + parsed.index
-            + " codepoints"});
-    else // parsed.status === 'doomed'
-    { const errAt = parsed.index;
-      if (errAt == 0)
-        return {success: false, error: _.constant("Error in the syntax")};
-      else
-      { const lineCol = parsed.result/*indexToLineColumn(errAt - 1, data)*/;
-        return (
-          { success: false
-          , error
-            : filename =>
-              "Syntax error at "
-              + filename
-              //+ " at codepoint #"
-              //+ errAt
-              + " "
-              + lineCol.line1
-              + ","
-              + lineCol.col1
-              + ":\n"
-              + lineCol.last
-              + "\n"
-              + " ".repeat(lineCol.col1 - 1)
-              + "^"
-              /*+ inspect(parsed.parser.traceStack)*/})}
+    switch (parsed.status)
+    { case 'match'
+      : return {success: true, ast: parseTreeToAST(parsed.result.tree)};
+      case 'eof'
+      : case 'doomed'
+      : const errAt = parsed.index;
+        if (errAt == 0)
+          return {success: false, error: _.constant("Error in the syntax")};
+        else
+        { const {nest, lines, line, col, expect} = parsed.result;
+          let onNote = 0, color = blue;
+          return (
+            { success: false
+            , error
+              : filename =>
+                (nest.length ? "Nested (outer first):" : "Not nested:")
+                + "\n"
+                + _.reduce
+                  ( [...nest, {line, col}]
+                  , (out, next) =>
+                    ( out.length && next.line === _.last(out).line
+                      ? _.last(out).cols.push(next.col)
+                      : out.push({line: next.line, cols: [next.col]})
+                    , out)
+                  , [])
+                  .map
+                  ( ({line, cols}) =>
+                    { const theLine = lines[line];
+                      let print = [[], []], idx = 0;
+                      for (let col of cols)
+                        onNote++ === nest.length ? color = red : 0
+                        , print[0].push
+                          ( ...theLine.slice(idx, col)
+                          , ...col < theLine.length
+                            ? [bold(color(theLine[col]))]
+                            : [])
+                        , print[1].push(" ".repeat(col - idx), bold(color("^")))
+                        , idx = col + 1;
+                      print[0].push(...theLine.slice(idx));
+                      return (
+                        " ┌Line "
+                        + (line + 1)
+                        + "; Column"
+                        + (cols.length - 1 ? "s" : "")
+                        + " "
+                        + cols.map(col => col + 1).join()
+                        + "\n │"
+                        + print[0].join("")
+                        + "\n └"
+                        + print[1].join("")
+                        + "\n")})
+                  .join("")
+                + ( parsed.status === 'eof'
+                    ? "Syntax error: unfinished program in " + filename
+                    : "Syntax error at "
+                      + filename
+                      + " "
+                      + (line + 1)
+                      + ","
+                      + (col + 1))
+                + "\n  Expected "
+                + expect})}
 
     //const trace = parsed.trace;
     //_.forEachRight(trace, function(frame) {console.log("in", frame[0])});
@@ -1463,4 +1490,3 @@ const
     , expr => ({val: just(expr)}));
 
 Error.stackTraceLimit = Infinity;
-

@@ -1,7 +1,5 @@
-* better syntax-error message
 * binary syntax
 * binary I/O
 * objects
 * thread supervisors
 * better runtime errors
-

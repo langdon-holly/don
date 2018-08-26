@@ -1,6 +1,5 @@
-)#!/usr/bin/env don
-
+#!/usr/bin/env don
+ ;(+(
 ("(unok (parse-prog-expr source-data )env )(eval-file \'std-env.don|env ))
 
-(say 'OK )
-
+((say 'OK )

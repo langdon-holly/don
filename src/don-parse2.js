@@ -40,7 +40,10 @@ const
         from.pipe(wStream);})
 , ws = Array.from(' \t\n\r')
 , delimL = Array.from('([{\\')
-, delimR = Array.from(')]}|');
+, delimR = Array.from(')]}|')
+, msg
+  = { preExpr: "whitespace, comment, or delimitation"
+    , esc: "target of escape"};
 
 Object.assign
 ( module.exports
@@ -51,67 +54,92 @@ Object.assign
       asyncIterableIntoIterator(it()[Symbol.iterator](), asyncIterable)});
 
 function *it()
-{ let value = '\n'
-  , index = 0
-  , stack = []
-  , commentLevel = 0
-  , nestLevel = 0
-  , line1 = 0
-  , col1 = 1
-  , currLine = "";
-
-  const
+{ const
     n/*ext*/
-    = yielded =>
-      ( value === '\n'
-        ? (++line1, col1 = 1, currLine = "")
-        : (++col1, currLine += value)
+    = (yielded, expected) =>
+      ( expect = expected
+      , value === '\n'
+        ? (++line, col = 0, currLine = [], lines.push(currLine))
+        : (++col, currLine.push(value))
       , ++index
       , ({value} = yielded).done)
   , doomed
     = () =>
-      ({status: 'doomed', index, result: {line1, col1, last: currLine + value}})
+      ( currLine.push(value)
+      , { status: 'doomed'
+        , index
+        , result
+          : { line
+            , col
+            , lines
+            , expect
+            , nest: nest()}})
   , e/*of*/
-    = () => ({status: 'eof', index, result: {line1, col1, last: currLine}})
-  , delimited = end => (['delimited', [...stack.pop(), end]]);
+    = () =>
+      ( { status: 'eof'
+        , index
+        , result: {line, col, lines, expect, nest: nest()}})
+  , delimited
+    = delim => ({t: 'delimited', d: {...stack.pop(), end: {line, col, delim}}})
+  , begin = () => stack.push({start: {line, col, delim: value}, inner: []})
+  , pushPos = () => stack.push({start: {line, col}})
+  , commentBegin = () => (++nestLevel, pushPos())
+  , nest = () => stack.map(({start: {line, col}}) => ({line, col}));
 
-  if (n(yield)) return e();
+  let value = '\n'
+  , index = 0
+  , stack = []
+  , commentLevel = 0
+  , nestLevel = 0
+  , line = -1
+  , col = 0
+  , lines = []
+  , currLine
+  , expect;
+
+  if (n(yield, "shebang, whitespace, comment, or delimitation")) return e();
 
   // shebang
   if (value === '#')
-  { if (n(yield)) return e();
+  { pushPos();
+    if (n(yield, "`!")) return e();
     if (value !== '!') return doomed();
-    do if (n(yield)) return e(); while (value !== '\n');
-    if (n(yield)) return e();}
+    do if (n(yield, "rest of shebang")) return e(); while (value !== '\n');
+    stack.pop();
+    if (n(yield, msg.preExpr)) return e();}
 
   while (true)
   { if (delimL.includes(value))
       if (commentLevel--)
-      { ++nestLevel;
+      { commentBegin();
         do
-        { if (n(yield)) return e();
-          if (delimL.includes(value)) ++nestLevel;
-          else if (delimR.includes(value)) nestLevel--;
-          else if (value === '`' && n(yield)) return e();}
+        { if (n(yield, "rest of comment")) return e();
+          if (delimL.includes(value)) commentBegin();
+          else if (delimR.includes(value)) nestLevel--, stack.pop();
+          else if (value === '`')
+          {pushPos(); if (n(yield, msg.esc)) return e(); stack.pop();}}
         while (nestLevel);}
       else break;
     else if (value === ';') ++commentLevel;
-    else if (!ws.includes(value)) return doomed();
-    if (n(yield)) return e();}
+    else if (!ws.includes(value))
+      return doomed();
+    if (n(yield, msg.preExpr)) return e();}
 
-  stack.push([value, []]);
+  begin();
 
   while (true)
-  { if (n(yield)) return e();
+  { if (n(yield, "rest of delimitation")) return e();
 
-    if (delimL.includes(value)) stack.push([value, []]);
+    if (delimL.includes(value)) begin();
     else if (delimR.includes(value))
     { if (stack.length == 1)
-        return {status: 'match', index, result: delimited(value)};
-      stack[stack.length - 2][1].push(delimited(value))}
+        return (
+          {status: 'match', index, result: {tree: delimited(value), lines}});
+      stack[stack.length - 2].inner.push(delimited(value))}
     else if (value === '`')
-    { if (n(yield)) return e();
-      _.last(stack)[1].push(['char', value.codePointAt(0)]);}
+    { pushPos();
+      if (n(yield, msg.esc)) return e();
+      stack.pop();
+      _.last(stack).inner.push({t: 'char', d: value.codePointAt(0)});}
     else
-      _.last(stack)[1].push(['elem', value.codePointAt(0)])}}
-
+      _.last(stack).inner.push({t: 'elem', d: value.codePointAt(0)})}}
