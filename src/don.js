@@ -46,10 +46,11 @@ don.parse(file, don.parseStream).then
             , okThen: {fn: don.makeFun(fn => ({fn, arg: don.initEnv}))}}))
       , don.unit
       , don.nullCont
-      , don.makeCont
-        ( e =>
-          (console.log(red(don.strVal(don.toString(e)))), process.exit(1))))
+      , don.makeCont(e => (console.error(don.strVal(e)), process.exit(1))))
       .then(() => process.exit());
     else
-      console.log(parsed.error(hasFileArg ? program.args[0] : "standard input"))
+      console.error
+      ( don.strVal
+        ( parsed.error
+          (don.strToInts(hasFileArg ? program.args[0] : "standard input"))))
       , process.exit(2)});

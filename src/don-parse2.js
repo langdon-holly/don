@@ -38,12 +38,16 @@ const
                   cb(null);}
               , objectMode: true});
         from.pipe(wStream);})
-, ws = Array.from(' \t\n\r')
-, delimL = Array.from('([{\\')
-, delimR = Array.from(')]}|')
+, ws = [...Buffer.from(' \t\n\r')]
+, delimL = [...Buffer.from('([{\\')]
+, delimR = [...Buffer.from(')]}|')]
 , msg
   = { preExpr: "whitespace, comment, or delimitation"
-    , esc: "target of escape"};
+    , esc: "target of escape"}
+, ascii
+  = _.mapValues
+    ( {lf: '\n', hash: '#', backtick: '`', semicolon: ';', bang: '!'}
+    , s => s.codePointAt(0));
 
 Object.assign
 ( module.exports
@@ -58,7 +62,7 @@ function *it()
     n/*ext*/
     = (yielded, expected) =>
       ( expect = expected
-      , value === '\n'
+      , value === ascii.lf
         ? (++line, col = 0, currLine = [], lines.push(currLine))
         : (++col, currLine.push(value))
       , ++index
@@ -86,7 +90,7 @@ function *it()
   , commentBegin = () => (++nestLevel, pushPos())
   , nest = () => stack.map(({start: {line, col}}) => ({line, col}));
 
-  let value = '\n'
+  let value = ascii.lf
   , index = 0
   , stack = []
   , commentLevel = 0
@@ -100,11 +104,11 @@ function *it()
   if (n(yield, "shebang, whitespace, comment, or delimitation")) return e();
 
   // shebang
-  if (value === '#')
+  if (value === ascii.hash)
   { pushPos();
     if (n(yield, "`!")) return e();
-    if (value !== '!') return doomed();
-    do if (n(yield, "rest of shebang")) return e(); while (value !== '\n');
+    if (value !== ascii.bang) return doomed();
+    do if (n(yield, "rest of shebang")) return e(); while (value !== ascii.lf);
     stack.pop();
     if (n(yield, msg.preExpr)) return e();}
 
@@ -116,11 +120,11 @@ function *it()
         { if (n(yield, "rest of comment")) return e();
           if (delimL.includes(value)) commentBegin();
           else if (delimR.includes(value)) nestLevel--, stack.pop();
-          else if (value === '`')
+          else if (value === ascii.backtick)
           {pushPos(); if (n(yield, msg.esc)) return e(); stack.pop();}}
         while (nestLevel);}
       else break;
-    else if (value === ';') ++commentLevel;
+    else if (value === ascii.semicolon) ++commentLevel;
     else if (!ws.includes(value))
       return doomed();
     if (n(yield, msg.preExpr)) return e();}
@@ -136,10 +140,10 @@ function *it()
         return (
           {status: 'match', index, result: {tree: delimited(value), lines}});
       stack[stack.length - 2].inner.push(delimited(value))}
-    else if (value === '`')
+    else if (value === ascii.backtick)
     { pushPos();
       if (n(yield, msg.esc)) return e();
       stack.pop();
-      _.last(stack).inner.push({t: 'char', d: value.codePointAt(0)});}
+      _.last(stack).inner.push({t: 'esc', d: value});}
     else
-      _.last(stack).inner.push({t: 'elem', d: value.codePointAt(0)})}}
+      _.last(stack).inner.push({t: 'elem', d: value})}}

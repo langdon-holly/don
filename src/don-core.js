@@ -22,13 +22,12 @@ const
   , log
     = (...args) =>
       (debug && console.log(args.map(inspect).join("\n")), _.last(args))
-  , strStream2chrStream
+  , bufStream2byteStream
     = () =>
       Transform
-      ( { transform(str, enc, cb)
-          {Array.from(str).forEach(chr => this.push(chr, enc)); cb(null)}
-        , decodeStrings: false})
-      .setEncoding("utf8")
+      ( { transform(...[buf,, cb])
+          {for (const byte of buf) this.push(byte); cb(null);}
+        , readableObjectMode: true});
 //  , onDemandStream
 //    = stream =>
 //      Duplex
@@ -46,7 +45,6 @@ const
 //          promiseFn(nextIn).then
 //          (newVal => (arrOut[idx] = newVal, Promise.resolve(arrOut))))
 //      , Promise.resolve(Array(arrIn.length)))
-;
 
 // Stuff
 
@@ -100,7 +98,7 @@ function fnOfType(type, fn)
       arg.type !== type
       ? { ok: false
         , val
-          : strToChars
+          : strToInts
             ( "Typed function received garbage:\n"
               + inspect(type)
               + "\n"
@@ -181,8 +179,6 @@ function just(val) {return mk(maybeLabel, {is: true, val})}
 
 function makeInt(Int) {return mk(intLabel, Int)}
 
-function makeChar(codepoint) {return mk(charLabel, codepoint)}
-
 function gensym(debugId) {return mk(symLabel, {sym: debugId})}
 
 function makeIdent(key)
@@ -243,43 +239,44 @@ function makeChannel()
       : [{cont, arg: queue.pop()}])]}
 
 const
-  chrStream2charStream
+  byteStream2intStream
   = () =>
     Transform
-    ( { transform(chr, enc, cb)
-        {this.push(makeChar(chr.codePointAt(0))); cb(null)}
-      , decodeStrings: false
-      , readableObjectMode: true});
+    ( { transform(...[byte,, cb]) {this.push(makeInt(byte)); cb(null)}
+      , objectMode: true});
 
 const
-  charStream2asyncIter
+  intStream2asyncIter
   = cont =>
     { let execDone = Promise.resolve();
       const
         getNext
-        = (res, rej) =>
+        = res =>
           [ { cont
             , arg
               : makeCont
                 ( next =>
                   next.type === maybeLabel
                   ? next.data.is
-                    ? next.data.val.type === charLabel
-                      ? (res(charToStr(next.data.val)), [])
-                      : Null("Streamt without character")
-                    : (rej(), [])
+                    ? next.data.val.type === intLabel
+                      ? (res({value: next.data.val.data}), [])
+                      : Null("Streamt without integrity")
+                    : (res({done: true}), [])
                   : Null("Stream argued with definition"))}];
       return (
         { rIter
           : ( async function*()
               { while (true)
-                  yield (
-                    await
-                      new Promise
-                      ( (...a) =>
-                        execDone
-                        = Promise.all([execDone, topContinue(getNext(...a))])
-                          .then(_.noop)))})
+                { const
+                    next
+                    = await
+                        new Promise
+                        ( (...a) =>
+                          execDone
+                          = Promise.all([execDone, topContinue(getNext(...a))])
+                            .then(_.noop));
+                  if (next.done) return;
+                  yield next.value;}})
             ()
         , execWait: () => execDone})};
 
@@ -306,10 +303,10 @@ function makeStream(rStream, cleanup)
               [{cont: read, arg: makeCont(eosThreads)}, {cont, arg: nothing}]
           , writable
             = Writable
-              ( { write(...[chr,, cb])
+              ( { write(...[elem,, cb])
                   { const res = prmRes;
                     topContinue
-                    ([{cont: reader, arg: just(chr)}, handleThread(cb)])
+                    ([{cont: reader, arg: just(elem)}, handleThread(cb)])
                     .then(res)}
                 , final(cb)
                   { const res = prmRes;
@@ -329,7 +326,7 @@ function objToNs(o)
     makeFun
     ( identKey =>
       ( { val
-          : isString(identKey)
+          : isBytes(identKey)
             ? (keyStr => o.hasOwnProperty(keyStr) ? just(o[keyStr]) : nothing)
               (strVal(identKey))
             : nothing})))}
@@ -368,30 +365,32 @@ function listConcat(list0, list1)
 function listsConcat(lists)
 {return lists.reduceRight((list1, list0) => listConcat(list0, list1), unit)}
 
-function isString(val)
+function isBytes(val)
 { return (
     isList(val)
-    && _.every([...listIter(val)], elem => elem.type === charLabel))}
+    &&
+      _.every
+      ( [...listIter(val)]
+      , elem => elem.type === intLabel && elem.data >= 0 && elem.data < 256))}
+exports.isBytes = isBytes;
 
-function charToStr(Char)
-{ if (Char.type !== charLabel)
-    return Null("charToStr nonchar: " + strVal(toString(Char)));
-  return String.fromCodePoint(Char.data)}
+function intToStr(int)
+{ if (int.type !== intLabel || int.data < 0 || int.data >= 256)
+    return Null("intToStr nonbyte: " + strVal(toString(int)));
+  return String.fromCodePoint(int.data)}
 
-function strVal(list)
-{ if (!isString(list)) return Null("Tried to strVal nonlist");
-  let str = "";
-  while (list.type === pairLabel)
-    str += charToStr(list.data.first), list = list.data.last;
-  return str}
+function intsToArr(list)
+{ if (!isBytes(list)) return Null("Tried to intsToArr nonbytes");
+  return [...listIter(list)].map(int => int.data);}
+
+function strVal(list) {return Buffer.from(intsToArr(list)).toString();}
 exports.strVal = strVal
 
 function stringIs(list, str)
 {return strVal(list) === str}
 
-function strToChar(chr) {return makeChar(chr.codePointAt(0))}
-
-function strToChars(str) {return makeList(Array.from(str).map(strToChar))}
+function strToInts(str) {return makeList([...Buffer.from(str)].map(makeInt))}
+exports.strToInts = strToInts;
 
 function mCast(cont, mSym, arg) {return {cont, arg: makePair(mSym, arg)}}
 
@@ -419,35 +418,24 @@ function eq(val0, val1)
          && eq(val0.data.first, val1.data.first)
          && eq(val0.data.last, val1.data.last)))}
 
-function subDelimited({t: label, d: data})
+function subDelimited({t, d})
 { return (
-    label === 'delimited'
-    ? makePair(makeInt(2), delimitedTree(data))
-    : makePair(makeInt(label === 'char' ? 1 : 0), makeChar(data)));}
+    t === 'delimited'
+    ? makePair(makeInt(2), delimitedTree(d))
+    : makePair(makeInt(t === 'esc' ? 1 : 0), makeInt(d)));}
 
 function delimitedTree(data)
 { return (
     makePair
-    ( makePair(strToChar(data.start.delim), strToChar(data.end.delim))
+    ( makePair(makeInt(data.start.delim), makeInt(data.end.delim))
     , makeList(data.inner.map(subDelimited))));}
 
-function parseTreeToAST({t: label, d: data})
-{ switch (label)
-  { case 'char': return makeCall(charVar, quote(makeInt(data)));
-
-    case 'delimited': return makeCall(delimitedVar, quote(delimitedTree(data)))
-
-    case 'quote': return quote(parseTreeToAST(data));
-
-    case 'ident': return makeIdent(makeList(data.map(makeChar)));
-
-    default: return Null("unknown parse-tree type '" + label)}}
+function parseTreeToAST({t, d})
+{ if (t !== 'delimited') return Null("unknown parse-tree type '" + label);
+  return makeCall(delimitedVar, quote(delimitedTree(d)));}
 
 const intLabel = {label: 'int'};
 exports.intLabel = intLabel;
-
-const charLabel = {label: 'char'};
-exports.charLabel = charLabel;
 
 const symLabel = {label: 'sym'};
 exports.symLabel = symLabel;
@@ -476,17 +464,17 @@ exports.contLabel = contLabel;
 const pairLabel = {label: 'pair'};
 exports.pairLabel = pairLabel;
 
-const toStrSym = gensym(strToChars('to-str-sym'));
-const applySym = gensym(strToChars('apply-sym'));
-const identKeySym = gensym(strToChars('ident-key-sym'));
+const toStrSym = gensym(strToInts('to-str-sym'));
+const applySym = gensym(strToInts('apply-sym'));
+const identKeySym = gensym(strToInts('ident-key-sym'));
 
-const delimitedVarSym = gensym(strToChars('delimited-var'));
+const delimitedVarSym = gensym(strToInts('delimited-var'));
 const delimitedVar = makeIdent(delimitedVarSym);
 exports.delimitedVar = delimitedVar;
 
-const charVarSym = gensym(strToChars('char-var'));
-const charVar = makeIdent(charVarSym);
-exports.charVar = charVar;
+const escVarSym = gensym(strToInts('esc-var'));
+const escVar = makeIdent(escVarSym);
+exports.escVar = escVar;
 
 const Null = (...args) => {throw new Error("Null: " + util.format(...args))};
 exports.Null = Null;
@@ -498,16 +486,14 @@ const nothing = mk(maybeLabel, {is: false});
 
 const I = makeFun(val => ({val}));
 
-const objToNsNotFoundStr = strToChars("Var not found in ns: ");
-
 const makeMapCall
   = makeFun
     ( arg =>
       { if (!isList(arg))
-          return {ok: false, val: strToChars("Insequential cartographic call")};
+          return {ok: false, val: strToInts("Insequential cartographic call")};
         const args = [...listIter(arg)];
         if (args.length % 2 != 1)
-          return {ok: false, val: strToChars("Tried to brace evenness")};
+          return {ok: false, val: strToInts("Tried to brace evenness")};
         const pairs = _.chunk(_.tail(args), 2);
         return (
           { fn: args[0]
@@ -530,7 +516,7 @@ const
       !isList(elems)
       ? { ok: false
         , value
-          : strToChars("Insequential delimition")}
+          : strToInts("Insequential delimitation")}
       : elems === unit
         ? {val: I}
         : { cont
@@ -560,7 +546,7 @@ const
                   return (
                     { ok: false
                     , val
-                      : strToChars("Insequential synchronous cartography")});
+                      : strToInts("Insequential synchronous cartography")});
                 return (
                   list === unit
                   ? {val: unit}
@@ -586,8 +572,8 @@ const
   readFile
   = filename =>
     { const
-        pipeFrom = fs.createReadStream(filename, {encoding: 'utf8'})
-        , pipeTo = strStream2chrStream();
+        pipeFrom = fs.createReadStream(filename)
+        , pipeTo = bufStream2byteStream();
       return (
         {file: pipeFrom.pipe(pipeTo), cleanup() {pipeFrom.unpipe(pipeTo)}})};
 exports.readFile = readFile;
@@ -607,6 +593,48 @@ exports.readFile = readFile;
 //        ("indexToLineColumn: index=" + index + " is out of bounds"))};
 
 const
+  replacement = 65533 // Replacement character
+  , decodeUtf8Indices
+    = (arr, idxs) =>
+      { let
+          codepoints = []
+          , map = []
+          , idx = -1
+          , cont = 0
+          , val
+          , byte
+          , mapIdx = 0;
+        const
+          push
+          = (cp, idx) =>
+            { while (mapIdx < idxs.length && idx > idxs[mapIdx])
+                map.push(codepoints.length), ++mapIdx;
+              codepoints.push(cp);}
+
+        while (++idx < arr.length)
+        { byte = arr[idx];
+          if (byte < 0b10000000)
+          { if (cont) push(replacement, idx), cont = 0; push(byte, idx + 1);}
+          else if (byte < 0b11000000)
+          { if (cont)
+            {val += byte - 0b10000000 << --cont * 6; if (!cont) push(val, idx + 1);}
+            else push(replacement, idx);}
+          else if (byte < 0b11100000)
+          { if (cont) push(replacement, idx), cont = 0;
+            cont = 1, val = byte - 0b11000000 << 6;}
+          else if (byte < 0b11110000)
+          { if (cont) push(replacement, idx), cont = 0;
+            cont = 2, val = byte - 0b11100000 << 12;}
+          else if (byte < 0b11111000)
+          { if (cont) push(replacement, idx), cont = 0;
+            cont = 3, val = byte - 0b11110000 << 18;}
+          else push(replacement, idx), cont = 0, val = 0;}
+
+        if (cont) push(replacement, idx);
+        while (mapIdx++ < idxs.length) map.push(codepoints.length);
+        return {codepoints, map};}
+
+const
   parseFile
   = async (stream, parseFn) =>
     { const parsed = await parseFn(stream);
@@ -618,7 +646,9 @@ const
       : case 'doomed'
       : const errAt = parsed.index;
         if (errAt == 0)
-          return {success: false, error: _.constant("Error in the syntax")};
+          return (
+            { success: false
+            , error: _.constant(strToInts("Error in the syntax"))});
         else
         { const {nest, lines, line, col, expect} = parsed.result;
           let onNote = 0, color = blue;
@@ -626,58 +656,61 @@ const
             { success: false
             , error
               : filename =>
-                (nest.length ? "Nested (outer first):" : "Not nested:")
-                + "\n"
-                + _.reduce
-                  ( [...nest, {line, col}]
-                  , (out, next) =>
-                    ( out.length && next.line === _.last(out).line
-                      ? _.last(out).cols.push(next.col)
-                      : out.push({line: next.line, cols: [next.col]})
-                    , out)
-                  , [])
-                  .map
-                  ( ({line, cols}) =>
-                    { const theLine = lines[line];
-                      let print = [[], []], idx = 0;
-                      for (let col of cols)
-                        onNote++ === nest.length ? color = red : 0
-                        , print[0].push
-                          ( ...theLine.slice(idx, col)
-                          , ...col < theLine.length
-                            ? [bold(color(theLine[col]))]
-                            : [])
-                        , print[1].push(" ".repeat(col - idx), bold(color("^")))
-                        , idx = col + 1;
-                      print[0].push(...theLine.slice(idx));
-                      return (
-                        " ┌Line "
-                        + (line + 1)
-                        + "; Column"
-                        + (cols.length - 1 ? "s" : "")
-                        + " "
-                        + cols.map(col => col + 1).join()
-                        + "\n │"
-                        + print[0].join("")
-                        + "\n └"
-                        + print[1].join("")
-                        + "\n")})
-                  .join("")
-                + ( parsed.status === 'eof'
-                    ? "Syntax error: unfinished program in " + filename
-                    : "Syntax error at "
-                      + filename
-                      + " "
-                      + (line + 1)
-                      + ","
-                      + (col + 1))
-                + "\n  Expected "
-                + expect})}
-
-    //const trace = parsed.trace;
-    //_.forEachRight(trace, function(frame) {console.log("in", frame[0])});
-    //console.log(parsed.parser);
-    }};
+                listsConcat
+                ( [ strToInts
+                    ( (nest.length ? "Nested (outer first):" : "Not nested:")
+                      + "\n"
+                      + _.reduce
+                        ( [...nest, {line, col}]
+                        , (out, next) =>
+                          ( out.length && next.line === _.last(out).line
+                            ? _.last(out).cols.push(next.col)
+                            : out.push({line: next.line, cols: [next.col]})
+                          , out)
+                        , [])
+                        .map
+                        ( ({line, cols}) =>
+                          { const
+                              {codepoints: theLine, map: colCps}
+                              = decodeUtf8Indices(lines[line], cols);
+                            let print = ["", ""], idx = 0, str;
+                            for (let col of colCps)
+                              onNote++ === nest.length ? color = red : 0
+                              , print[0]
+                                +=
+                                  String.fromCodePoint
+                                  (...theLine.slice(idx, col))
+                                  + ( col < theLine.length
+                                    ? bold
+                                      ( color
+                                        (String.fromCodePoint(theLine[col])))
+                                    : "")
+                              , print[1]
+                                += " ".repeat(col - idx) + bold(color("^"))
+                              , idx = col + 1;
+                            print[0]
+                            += String.fromCodePoint(...theLine.slice(idx));
+                            return (
+                              " ┌Line "
+                              + (line + 1)
+                              + "; Column"
+                              + (colCps.length - 1 ? "s" : "")
+                              + " "
+                              + colCps.map(col => col + 1).join()
+                              + "\n │"
+                              + print[0]
+                              + "\n └"
+                              + print[1]
+                              + "\n")})
+                        .join(""))
+                  , ...
+                      parsed.status === 'eof'
+                      ? [ strToInts("Syntax error: unfinished program in ")
+                        , filename]
+                      : [ strToInts("Syntax error at ")
+                        , filename
+                        , strToInts(" " + (line + 1) + "," + (col + 1))]
+                  , strToInts("\n  Expected " + expect)])})}}};
 exports.parse = parseFile;
 
 const topApply = (fn, ...stuf) => topContinue([mCall(fn, applySym, ...stuf)]);
@@ -703,7 +736,7 @@ const
   = (expr, {rest, input}) =>
     makeFun
     ( () =>
-      ( { fn: makeStream(input.file.pipe(chrStream2charStream()), input.cleanup)
+      ( { fn: makeStream(input.file.pipe(byteStream2intStream()), input.cleanup)
         , okThen
           : { fn
               : makeFun
@@ -711,7 +744,7 @@ const
                   ( justQuoteStdin =>
                     ( { fn
                         : makeStream
-                          (rest.file.pipe(chrStream2charStream()), rest.cleanup)
+                          (rest.file.pipe(byteStream2intStream()), rest.cleanup)
                       , okThen
                         : { fn
                             : makeFun
@@ -726,11 +759,11 @@ const
                                                 ( arg =>
                                                   eq
                                                   ( arg
-                                                  , strToChars('source-data'))
+                                                  , strToInts('source-data'))
                                                   ? {val: justQuoteSourceData}
                                                   : eq
                                                     ( arg
-                                                    , strToChars('stdin'))
+                                                    , strToInts('stdin'))
                                                     ? {val: justQuoteStdin}
                                                     : {fn, arg}
                                                 )}))}))
@@ -739,37 +772,37 @@ const
 exports.bindRest = bindRest;
 
 const
-  delimL = Array.from('([{\\').map(o => o.codePointAt(0))
-  , delimR = Array.from(')]}|').map(o => o.codePointAt(0))
-  , charName
-    = chr =>
-      delimL.includes(chr)
+  delimL = [...Buffer.from('([{\\')]
+  , delimR = [...Buffer.from(')]}|')]
+  , byteName
+    = byte =>
+      delimL.includes(byte)
       ? 'left'
-      : delimR.includes(chr)
+      : delimR.includes(byte)
         ? 'right'
-        : chr === 59 ? 'semicolon' : chr === 96 ? 'backtick' : 'other'
-  , makeBacktick = () => makeChar(96);
-function escInIdent(charArr)
+        : byte === 59 ? 'semicolon' : byte === 96 ? 'backtick' : 'other'
+  , makeBacktick = () => makeInt(96);
+function escInIdent(intArr)
 { let ticked = false, identStack = [[[]]], name;
-  const stackLog = () => log(identStack.map(o => o.map(o => o.map(charToStr))));
-  for (let chr of charArr)
-    ( name = charName(chr.data)
+  const stackLog = () => log(identStack.map(o => o.map(o => o.map(intToStr))));
+  for (let int of intArr)
+    ( name = byteName(int.data)
     , ticked
       ? ( name === 'other'
-          ? _.last(_.last(identStack)).push(chr)
-          : _.last(identStack).push([chr])
+          ? _.last(_.last(identStack)).push(int)
+          : _.last(identStack).push([int])
         , ticked = false)
       : name === 'other'
-        ? _.last(_.last(identStack)).push(chr)
+        ? _.last(_.last(identStack)).push(int)
         : name === 'left'
-          ? identStack.push([[chr]])
+          ? identStack.push([[int]])
           : identStack.length === 1
-            ? identStack[0].push([chr])
+            ? identStack[0].push([int])
             : name === 'right'
               ? _.last(identStack[identStack.length - 2]).push
-                (..._.flatten(identStack.pop()), chr)
+                (..._.flatten(identStack.pop()), int)
               : /* name === 'backtick' || name === 'semicolon' */
-                (_.last(identStack).push([chr]), ticked = name === 'backtick')
+                (_.last(identStack).push([int]), ticked = name === 'backtick')
     /*, stackLog()*/);
   return (
     _.reduce(_.flatten(identStack), (a, b) => [...a, makeBacktick(), ...b]))}
@@ -777,73 +810,73 @@ function escInIdent(charArr)
 function toString(arg)
 { const {type: argLabel, data: argData} = arg;
   return (
-    argLabel === charLabel ? makeList([strToChar("`"), arg])
+    /*argLabel === charLabel ? makeList([...strToInts("`"), arg])
 
-    : argLabel === intLabel ? strToChars(argData.toString() + ' ')
+    : */argLabel === intLabel ? strToInts(argData.toString() + ' ')
 
-    : isString(arg) && arg !== unit
-      ? listsConcat
-        ( _.findIndex
-          ( [...listIter(arg)]
-          , chr =>
-            [32, 10, 9, 13, 40, 41, 91, 93, 123, 125, 96, 92, 124, 59, 35, 34]
-            .includes(chr.data))
-          >= 0
-          ? [ strToChars("\\'")
-            , makeList(escInIdent([...listIter(arg)]))
-            , strToChars('|')]
-          : [ strToChars("'"), arg, strToChars(' ')])
+    //: isBytes(arg) && arg !== unit
+    //  ? listsConcat
+    //    ( _.findIndex
+    //      ( [...listIter(arg)]
+    //      , int =>
+    //        [32, 10, 9, 13, 40, 41, 91, 93, 123, 125, 96, 92, 124, 59, 35, 34]
+    //        .includes(int.data))
+    //      >= 0
+    //      ? [ strToInts("\\'")
+    //        , makeList(escInIdent([...listIter(arg)]))
+    //        , strToInts('|')]
+    //      : [ strToInts("'"), arg, strToInts(' ')])
 
     : isList(arg)
       ? listsConcat
-        ( [ strToChars('[')
+        ( [ strToInts('[')
           , ...[...listIter(arg)].map(o => toString(o))
-          , strToChars(']')])
+          , strToInts(']')])
 
     : argLabel === quoteLabel
-      ? listsConcat([strToChars("(q "), toString(argData), strToChars(")")])
+      ? listsConcat([strToInts("(q "), toString(argData), strToInts(")")])
 
     : argLabel === callLabel
       ? listsConcat
-        ( [ strToChars("(make-call ")
+        ( [ strToInts("(make-call ")
           , toString(argData.fnExpr)
           , toString(argData.argExpr)
-          , strToChars(")")])
+          , strToInts(")")])
 
     : argLabel === symLabel
       ? listsConcat
-        ([strToChars("(gensym "), toString(argData.sym), strToChars(")")])
+        ([strToInts("(gensym "), toString(argData.sym), strToInts(")")])
 
     : argLabel === maybeLabel
       ? argData.is
         ? listsConcat
-          ([strToChars("(just "), toString(argData.val), strToChars(")")])
-        : strToChars("nothing ")
+          ([strToInts("(just "), toString(argData.val), strToInts(")")])
+        : strToInts("nothing ")
 
     : argLabel === boolLabel
-      ? argData ? strToChars("true ") : strToChars("false ")
+      ? argData ? strToInts("true ") : strToInts("false ")
 
     : argLabel === resultLabel
       ? listsConcat
-        ( [ strToChars(argData.ok ? "(ok " : "(err ")
+        ( [ strToInts(argData.ok ? "(ok " : "(err ")
           , toString(argData.val)
-          , strToChars(")")])
+          , strToInts(")")])
 
-    : argLabel === contLabel ? strToChars("(cont ... )")
+    : argLabel === contLabel ? strToInts("(cont ... )")
 
     : argLabel === pairLabel
       ? listsConcat
-        ( [ strToChars("(cons ")
+        ( [ strToInts("(cons ")
           , toString(argData.first)
           , toString(argData.last)
-          , strToChars(')')])
+          , strToInts(')')])
 
     : Null("->str unknown type:", inspect(arg)))}
 exports.toString = toString;
 
 const
   [lParen, rParen, lBracket, rBracket, lBrace, rBrace, backslash, pipe]
-  = Array.from('()[]{}\\|').map(strToChar);
+  = [...Buffer.from('()[]{}\\|')].map(makeInt);
 
 const
   unknownKeyThread
@@ -851,43 +884,44 @@ const
     ( { ok: false
       , val
         : listConcat
-          ( strToChars("Unknown variable key: ")
+          ( strToInts("Unknown variable key: ")
           , toString(key))});
-
-const unicode2Char = fnOfType(intLabel, _.flow(makeChar, val => ({val})));
 
 const
   stdin
   = () =>
-    ( toChars =>
-      ( { file: process.stdin.setEncoding('utf8').pipe(toChars)
-        , cleanup() {process.stdin.unpipe(toChars)}}))
-    (strStream2chrStream());
+    ( toBytes =>
+      ( { file: process.stdin.pipe(toBytes)
+        , cleanup() {process.stdin.unpipe(toBytes)}}))
+    (bufStream2byteStream());
 exports.stdin = stdin;
 
 const
   stdout
-  = ( (toWrite, writable, prmRes, nextPrmRes, prm, nextPrm) =>
+  = ( (toWrite, writable, prmRes, nextPrmRes, prm, nextPrm, bytes) =>
       { const
           getNextPrm = () => nextPrm = new Promise(res => nextPrmRes = res)
           , writeIt
-            = str =>
+            = bytes =>
               { writable = false;
                 prmRes = nextPrmRes, getNextPrm();
                 process.stdout.write
-                ( str
-                , 'utf8'
+                ( Buffer.from(bytes)
                 , () =>
                   { writable = true;
                     prmRes([]);
-                    toWrite && writeIt((o => o)(toWrite, toWrite = ''))})};
+                    toWrite.length && writeIt((o => o)(toWrite, toWrite = []))})
+              };
         getNextPrm();
         return (
-          str =>
-          str
-          ? (prm = nextPrm, writable ? writeIt(str) : toWrite += str, prm)
-          : Promise.resolve())})
-    ('', true);
+          ints =>
+          ( bytes = intsToArr(ints)
+          , bytes.length
+            ? ( prm = nextPrm
+              , writable ? writeIt(bytes) : toWrite.push(...bytes)
+              , prm)
+            : Promise.resolve()));})
+    ([], true);
 
 const
   promiseWaitThread
@@ -912,17 +946,17 @@ const wsNums = Array.from(' \t\n\r').map(o => o.codePointAt(0))
         = () =>
           doom()
           || value.data.first.data !== 0
-          || value.data.last.type !== charLabel
+          || value.data.last.type !== intLabel
           || [34, 59].includes(value.data.last.data)
       , doomed
         = () =>
           ( { ok: false
-            , val: strToChars("Delimition enlistment doomed at index " + index)}
+            , val: strToInts("Delimitation enlistment doomed at index " + index)}
           )
       , eof
         = () =>
           ( { ok: false
-            , val: strToChars("EOF reached while enlisting delimition")})
+            , val: strToInts("EOF reached while enlisting delimitation")})
       , push
         = expr =>
           { if (commentLevel > 0) commentLevel--;
@@ -935,7 +969,7 @@ const wsNums = Array.from(' \t\n\r').map(o => o.codePointAt(0))
 
         switch (value.data.first.data)
         { case 0 // elem
-          : if (value.data.last.type !== charLabel) return doomed();
+          : if (value.data.last.type !== intLabel) return doomed();
             if (wsNums.includes(value.data.last.data));
             else if (value.data.last.data == 59) ++commentLevel; // ;
             else if (value.data.last.data == 34) // "
@@ -947,11 +981,11 @@ const wsNums = Array.from(' \t\n\r').map(o => o.codePointAt(0))
                 if (next(yield)) return eof();
                 if (nameDoom()) return doomed();}
               while (!wsNums.includes(value.data.last.data));
-              push(makeIdent(makeList(name.map(makeChar))));}
+              push(makeIdent(makeList(name.map(makeInt))));}
             break;
-          case 1 // char
-          : if (value.data.last.type !== charLabel) return doomed();
-            push(makeCall(charVar, quote(makeInt(value.data.last.data))));
+          case 1 // esc
+          : if (value.data.last.type !== intLabel) return doomed();
+            push(makeCall(escVar, quote(makeInt(value.data.last.data))));
             break;
           case 2 // delimited
           : push(makeCall(delimitedVar, quote(value.data.last)));}}
@@ -974,7 +1008,7 @@ const
   = makeFun
     ( (elems, onOk, onErr) =>
       !isList(elems)
-      ? {ok: false, value: strToChars("Insequential delimition")}
+      ? {ok: false, value: strToInts("Insequential delimitation")}
       : elems === unit
         ? {val: I}
         : { cont
@@ -988,32 +1022,32 @@ const
 
 const
   flattenDelimited
-  = delimition =>
+  = delimitation =>
     { if
-      ( delimition.type !== pairLabel
-      || delimition.data.first.type !== pairLabel)
+      ( delimitation.type !== pairLabel
+      || delimitation.data.first.type !== pairLabel)
         return {};
-      const chars = [delimition.data.first.data.first];
-      for (const elem of listIter(delimition.data.last))
+      const ints = [delimitation.data.first.data.first];
+      for (const elem of listIter(delimitation.data.last))
       { if (elem.type !== pairLabel || elem.data.first.type !== intLabel)
           return {};
         switch (elem.data.first.data)
         { case 0
-          : chars.push(elem.data.last);
+          : ints.push(elem.data.last);
             break;
           case 1
-          : chars.push(strToChar('`'), elem.data.last);
+          : ints.push(...listIter(strToInts('`')), elem.data.last);
             break;
           case 2
           : const sub = flattenDelimited(elem.data.last)
             if (!sub.is) return {};
-            chars.push(...sub.val);}}
-      return {is: true, val: [...chars, delimition.data.first.data.last]};}
+            ints.push(...sub.val);}}
+      return {is: true, val: [...ints, delimitation.data.first.data.last]};}
 , delimitedIdentGen
   = function *(env)
     { let value, index = 0, commentLevel = 0;
 
-      const chars = []
+      const ints = []
       , next
         = yielded => (++index, ({value} = yielded).done)
       , doom
@@ -1021,18 +1055,18 @@ const
       , doomed
         = () =>
           ( { ok: false
-            , val: strToChars("Identical delimition doomed at index " + index)})
+            , val: strToInts("Identical delimitation doomed at index " + index)})
       , eof
         = () =>
           ( { ok: false
-            , val: strToChars("EOF reached in identical delimition")});
+            , val: strToInts("EOF reached in identical delimitation")});
 
       while (!next(yield))
       { if (doom()) return doomed();
 
         switch (value.data.first.data)
         { case 0 // elem
-          : if (value.data.last.type !== charLabel) return doomed();
+          : if (value.data.last.type !== intLabel) return doomed();
             else if (value.data.last.data == 59) // ;
               { ++commentLevel;
                 do
@@ -1040,20 +1074,20 @@ const
                   if (doom() || value.data.first.data == 1) return doomed();
                   if (value.data.first.data == 2) commentLevel--;
                   else
-                  { if (value.data.last.type !== charLabel) return doomed();
+                  { if (value.data.last.type !== intLabel) return doomed();
                     if (value.data.last.data == 59) ++commentLevel; //;
                     else if
                     (!wsNums.includes(value.data.last.data)) return doomed();}}
                 while (commentLevel);
                 continue;}
-          case 1 // char
-          : chars.push(value.data.last);
+          case 1 // esc
+          : ints.push(value.data.last);
             break;
           case 2 // delimited
           : const sub = flattenDelimited(value.data.last);
             if (!sub.is) return doomed();
-            chars.push(...sub.val)}}
-      return {fn: makeIdent(makeList(chars)), arg: env};}
+            ints.push(...sub.val)}}
+      return {fn: makeIdent(makeList(ints)), arg: env};}
 , delimitedIdent
   = (list, env) => iterableIntoIterator(delimitedIdentGen(env), listIter(list));
 
@@ -1151,33 +1185,26 @@ const
                                                                           : { ok
                                                                               : false
                                                                             , val
-                                                                              : strToChars
-                                                                                ( "Unspecified delimited action for "
-                                                                                  + charToStr
-                                                                                    (begin)
-                                                                                  + charToStr
-                                                                                    (end)
+                                                                              : listsConcat
+                                                                                ( [ strToInts
+                                                                                    ( "Unspecified delimited action for "
+                                                                                    )
+                                                                                  , makeList
+                                                                                    ( [ begin
+                                                                                      , end
+                                                                                      ]
+                                                                                    )
+                                                                                  ]
                                                                                 )
                                                                             })
                                                                     }}))}}))}}
-                                      ))}})
-                          /*eq(begin, lParen) && eq(end, rParen)
-                          ? {val: makeFunCall}
-                          : eq(begin, lBracket) && eq(end, rBracket)
-                            ? {val: I}
-                          : eq(begin, lBrace) && eq(end, rBrace)
-                            ? {val: makeMapCall}
-                          : eq(begin, backslash) && eq(end, pipe)
-                            ? {val: makeFun(arg => ({val: unit}))}
-                          : { ok: false
-                            , val
-                              : strToChars("Unspecified delimited action")}*/)})))}
+                                      ))}}))})))}
 
-        : varKey === charVarSym
-          ? {val: just(quote(unicode2Char))}
+        : varKey === escVarSym
+          ? {val: just(quote(I))}
           : {val: nothing}
 
-      : isString(varKey)
+      : isBytes(varKey)
 
         ? ( keyStr =>
             initEnvObj.hasOwnProperty(keyStr)
@@ -1291,25 +1318,24 @@ const
         : quote
           ( makeFun
             ( arg =>
-              isString(arg)
-              ? [promiseWaitThread(stdout(strVal(arg))), {val: unit}]
-              : {ok: false, val: strToChars('Tried to print nonstring')}))
+              isBytes(arg)
+              ? [promiseWaitThread(stdout(arg)), {val: unit}]
+              : {ok: false, val: strToInts('Tried to print nonbytes')}))
 
       , "say"
         : quote
           ( makeFun
             ( _.flow
               ( toString
-              , strVal
               , stdout
               , prm => [promiseWaitThread(prm), {val: unit}])))
 
       , "->str": quote(makeFun(_.flow(toString, val => ({val}))))
 
-      , "char->unicode"
-        : quote(fnOfType(charLabel, _.flow(makeInt, val => ({val}))))
+      //, "char->unicode"
+      //  : quote(fnOfType(charLabel, _.flow(makeInt, val => ({val}))))
 
-      , "unicode->char": quote(unicode2Char)
+      //, "unicode->char": quote(unicode2Char)
 
       //, "length"
       //  : quote(fnOfType(listLabel, arg => ({val: makeInt(arg.length)})))
@@ -1324,7 +1350,7 @@ const
       //              , length =>
       //                length < 0
       //                ? { ok: false
-      //                  , val: strToChars("Lists must be nonnegative in length")
+      //                  , val: strToInts("Lists must be nonnegative in length")
       //                  }
       //                : { fn: syncMap
       //                  , arg: makeList(_.range(length).map(makeInt))
@@ -1340,18 +1366,18 @@ const
         : quote
           ( makeFun
             ( arg =>
-              isString(arg)
+              isBytes(arg)
               ? { fn
                   : ( ({file, cleanup}) =>
-                      makeStream(file.pipe(chrStream2charStream()), cleanup))
+                      makeStream(file.pipe(byteStream2intStream()), cleanup))
                     (readFile(strVal(arg)))}
-              : {ok: false, val: strToChars('Tried to read-file of nonstring')}))
+              : {ok: false, val: strToInts('Tried to read-file of nonbytes')}))
 
       , "parse-prog"
         : quote
           ( makeFun
             ( (...[arg,, onErr]) =>
-              { const {rIter, execWait} = charStream2asyncIter(arg);
+              { const {rIter, execWait} = intStream2asyncIter(arg);
                 return (
                   parseFile(rIter, parseIter).then
                   ( parsed =>
@@ -1360,18 +1386,14 @@ const
                         : parsed.success
                           ? okResult(parsed.ast)
                           : errResult
-                            ( makeFun
-                              ( _.flow
-                                ( strVal
-                                , parsed.error
-                                , strToChars
-                                , val => ({val}))))}]))}))
+                            (makeFun(name => ({val: parsed.error(name)})))}]))})
+          )
 
       , "eval-file"
         : quote
           ( makeFun
             ( (arg, ...ons) =>
-              isString(arg)
+              isBytes(arg)
               ? ( ({file, cleanup}) =>
                   parseFile(file, parser).then
                   ( parsed =>
@@ -1384,9 +1406,9 @@ const
                               : { file: Readable({read() {this.push(null)}})
                                 , cleanup: () => 0}})
                       , okThen: {fn: makeFun(fn => ({fn, arg: initEnv}))}}
-                    : {ok: false, val: strToChars(parsed.error(strVal(arg)))}))
+                    : {ok: false, val: parsed.error(arg)}))
                 (readFile(strVal(arg)))
-              : {ok: false, val: strToChars('Tried to eval-file of nonstring')}))
+              : {ok: false, val: strToInts('Tried to eval-file of nonbytes')}))
 
       , "gensym": quote(makeFun(_.flow(gensym, val => ({val}))))
 
@@ -1414,7 +1436,7 @@ const
 
       , "delimited-var-sym": quote(delimitedVarSym)
 
-      , "char-var-sym": quote(charVarSym)
+      , "esc-var-sym": quote(escVarSym)
 
       , "just": quote(makeFun(_.flow(just, val => ({val}))))
 
@@ -1429,7 +1451,7 @@ const
             , arg =>
               arg.is
               ? {val: arg.val}
-              : {ok: false, val: strToChars("Nothing was unjustified")}))
+              : {ok: false, val: strToInts("Nothing was unjustified")}))
 
       , "ok": quote(makeFun(_.flow(okResult, val => ({val}))))
 
@@ -1445,7 +1467,7 @@ const
               arg.ok
               ? {val: arg.val}
               : { ok: false
-                , val: listConcat(strToChars("Err: "), toString(arg.val))}))
+                , val: listConcat(strToInts("Err: "), toString(arg.val))}))
 
       , "unerr"
         : quote
@@ -1454,7 +1476,7 @@ const
             , arg =>
               arg.ok
               ? { ok: false
-                , val: listConcat(strToChars("Ok: "), toString(arg.val))}
+                , val: listConcat(strToInts("Ok: "), toString(arg.val))}
               : {val: arg.val}))
 
       , "cons"

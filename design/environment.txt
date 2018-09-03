@@ -17,8 +17,6 @@ make-channel
 (print str )
 (say o )
 (->str o )
-(char->unicode char )
-(unicode->char int )
 (true consequent alternative )
 (false consequent alternative )
 unit 
@@ -35,7 +33,7 @@ unit
 (ident-key ident )
 ident-key-m 
 delimited-var-sym 
-char-var-sym 
+esc-var-sym 
 (just o )
 nothing 
 (justp maybe )

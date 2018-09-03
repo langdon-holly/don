@@ -1,5 +1,8 @@
 #!/usr/bin/env don
- ;(+(
+;(say (+ `A`A))
+;(print [65 10 ])
+(eval-file 'eval-file-testee.don )
+;(ć) (say 'ć ))))(
 ("(unok (parse-prog-expr source-data )env )(eval-file \'std-env.don|env ))
 
 ((say 'OK )
