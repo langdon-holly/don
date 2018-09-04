@@ -1,7 +1,7 @@
 #!/usr/bin/env don
 
-(print '# )
+(say (call/cc (continue (read-file '/dev/zero ))))
 
 ("(unok (parse-prog-expr source-data )env )(eval-file \'std-env.don|env ))
 
-((say 'OK )
+(print 'OK )

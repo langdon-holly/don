@@ -379,15 +379,12 @@ function intToStr(int)
     return Null("intToStr nonbyte: " + strVal(toString(int)));
   return String.fromCodePoint(int.data)}
 
-function intsToArr(list)
-{ if (!isBytes(list)) return Null("Tried to intsToArr nonbytes");
-  return [...listIter(list)].map(int => int.data);}
+function bufVal(list)
+{ if (!isBytes(list)) return Null("Tried to bufVal nonbytes");
+  return Buffer.from([...listIter(list)].map(int => int.data));}
 
-function strVal(list) {return Buffer.from(intsToArr(list)).toString();}
+function strVal(list) {return bufVal(list).toString();}
 exports.strVal = strVal
-
-function stringIs(list, str)
-{return strVal(list) === str}
 
 function strToInts(str) {return makeList([...Buffer.from(str)].map(makeInt))}
 exports.strToInts = strToInts;
@@ -570,9 +567,9 @@ const
 
 const
   readFile
-  = filename =>
+  = filepath =>
     { const
-        pipeFrom = fs.createReadStream(filename)
+        pipeFrom = fs.createReadStream(filepath)
         , pipeTo = bufStream2byteStream();
       return (
         {file: pipeFrom.pipe(pipeTo), cleanup() {pipeFrom.unpipe(pipeTo)}})};
@@ -655,7 +652,7 @@ const
           return (
             { success: false
             , error
-              : filename =>
+              : filepath =>
                 listsConcat
                 ( [ strToInts
                     ( (nest.length ? "Nested (outer first):" : "Not nested:")
@@ -706,9 +703,9 @@ const
                   , ...
                       parsed.status === 'eof'
                       ? [ strToInts("Syntax error: unfinished program in ")
-                        , filename]
+                        , filepath]
                       : [ strToInts("Syntax error at ")
-                        , filename
+                        , filepath
                         , strToInts(" " + (line + 1) + "," + (col + 1))]
                   , strToInts("\n  Expected " + expect)])})}}};
 exports.parse = parseFile;
@@ -898,27 +895,28 @@ exports.stdin = stdin;
 
 const
   stdout
-  = ( (toWrite, writable, prmRes, nextPrmRes, prm, nextPrm, bytes) =>
+  = ( (toWrite, writable, prmRes, nextPrmRes, prm, nextPrm, buf) =>
       { const
           getNextPrm = () => nextPrm = new Promise(res => nextPrmRes = res)
           , writeIt
-            = bytes =>
+            = buf =>
               { writable = false;
                 prmRes = nextPrmRes, getNextPrm();
                 process.stdout.write
-                ( Buffer.from(bytes)
+                ( buf
                 , () =>
                   { writable = true;
                     prmRes([]);
-                    toWrite.length && writeIt((o => o)(toWrite, toWrite = []))})
+                    toWrite.length
+                    && writeIt((o => o)(Buffer.from(toWrite), toWrite = []));})
               };
         getNextPrm();
         return (
           ints =>
-          ( bytes = intsToArr(ints)
-          , bytes.length
+          ( buf = bufVal(ints)
+          , buf.length
             ? ( prm = nextPrm
-              , writable ? writeIt(bytes) : toWrite.push(...bytes)
+              , writable ? writeIt(buf) : toWrite.push(...buf)
               , prm)
             : Promise.resolve()));})
     ([], true);
@@ -1408,7 +1406,7 @@ const
               ? { fn
                   : ( ({file, cleanup}) =>
                       makeStream(file.pipe(byteStream2intStream()), cleanup))
-                    (readFile(strVal(arg)))}
+                    (readFile(bufVal(arg)))}
               : {ok: false, val: strToInts('Tried to read-file of nonbytes')}))
 
       , "parse-prog"
@@ -1445,7 +1443,7 @@ const
                                 , cleanup: () => 0}})
                       , okThen: {fn: makeFun(fn => ({fn, arg: initEnv}))}}
                     : {ok: false, val: parsed.error(arg)}))
-                (readFile(strVal(arg)))
+                (readFile(bufVal(arg)))
               : {ok: false, val: strToInts('Tried to eval-file of nonbytes')}))
 
       , "gensym": quote(makeFun(_.flow(gensym, val => ({val}))))

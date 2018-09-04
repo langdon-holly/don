@@ -10,7 +10,6 @@ const
   , {Readable} = require('stream')
 
   , program = require('commander')
-  , {red} = require('chalk')
 
   , don = require('./don-core.js');
 
@@ -30,9 +29,10 @@ const
   hasFileArg = program.args.length > 0
   , [{file, cleanup: sourceCleanup}, input]
     = hasFileArg
-      ? [don.readFile(program.args[0]), don.stdin()]
+      ? [don.readFile(Buffer.from(program.args[0])), don.stdin()]
       : [ don.stdin()
-        , {file: Readable({read() {this.push(null)}}), cleanup: () => 0}];
+        , {file: Readable({read() {this.push(null)}}), cleanup: () => 0}]
+  , error = e => console.error(don.strVal(e));
 
 don.parse(file, don.parseStream).then
 ( parsed =>
@@ -46,11 +46,10 @@ don.parse(file, don.parseStream).then
             , okThen: {fn: don.makeFun(fn => ({fn, arg: don.initEnv}))}}))
       , don.unit
       , don.nullCont
-      , don.makeCont(e => (console.error(don.strVal(e)), process.exit(1))))
+      , don.makeCont(e => (error(e), process.exit(1))))
       .then(() => process.exit());
     else
-      console.error
-      ( don.strVal
-        ( parsed.error
-          (don.strToInts(hasFileArg ? program.args[0] : "standard input"))))
+      error
+      ( parsed.error
+        (don.strToInts(hasFileArg ? program.args[0] : "standard input")))
       , process.exit(2)});
