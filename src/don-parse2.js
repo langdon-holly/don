@@ -38,9 +38,9 @@ const
                   cb(null);}
               , objectMode: true});
         from.pipe(wStream);})
-, ws = [...Buffer.from(' \t\n\r')]
-, delimL = [...Buffer.from('([{\\')]
-, delimR = [...Buffer.from(')]}|')]
+, ws = Buffer.from(' \t\n\r')
+, delimL = Buffer.from('([{\\')
+, delimR = Buffer.from(')]}|')
 , msg
   = { preExpr: "whitespace, comment, or delimitation"
     , esc: "target of escape"}

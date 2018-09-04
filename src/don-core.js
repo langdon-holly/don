@@ -1332,10 +1332,48 @@ const
 
       , "->str": quote(makeFun(_.flow(toString, val => ({val}))))
 
-      //, "char->unicode"
-      //  : quote(fnOfType(charLabel, _.flow(makeInt, val => ({val}))))
+      , "utf8-decode"
+        : quote
+          ( makeFun
+            ( bytes =>
+              { if (!isBytes(bytes))
+                  return (
+                    {ok: false, val: strToInts("Tried to utf8-decode nonbytes")}
+                  );
+                let idx = 0, cont, val;
+                for (const Byte of listIter(bytes))
+                { const byte = Byte.data;
+                  if (cont)
+                  { if (byte < 0b10000000 || byte >= 0b11000000)
+                      return {val: makePair(nothing, makeInt(idx))};
+                    val += byte - 0b10000000 << --cont * 6;
+                    if (!cont)
+                      return (
+                        {val: makePair(just(makeInt(val)), makeInt(idx + 1))});}
+                  else
+                  { if (byte < 0b10000000)
+                      return {val: makePair(just(makeInt(byte)), makeInt(1))};
+                    else if (byte < 0b11000000)
+                      return {val: makePair(nothing, makeInt(1))};
+                    else if (byte < 0b11100000)
+                      cont = 1, val = byte - 0b11000000 << 6;
+                    else if (byte < 0b11110000)
+                      cont = 2, val = byte - 0b11100000 << 12;
+                    else if (byte < 0b11111000)
+                      cont = 3, val = byte - 0b11110000 << 18;
+                    else return {val: makePair(nothing, makeInt(1))};}
+                  ++idx;}
+                return {val: makePair(nothing, makeInt(0))};}))
 
-      //, "unicode->char": quote(unicode2Char)
+      , "utf8-encode"
+        : quote
+          ( fnOfType
+            ( intLabel
+            , cp =>
+              cp < 0 || cp >= 0x110000
+              ? { ok: false
+                , val: strToInts("Codepoint out of bounds: " + cp + " ")}
+              : {val: strToInts(String.fromCodePoint(cp))}))
 
       //, "length"
       //  : quote(fnOfType(listLabel, arg => ({val: makeInt(arg.length)})))
