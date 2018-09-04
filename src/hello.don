@@ -1,53 +1,6 @@
 #!/usr/bin/env don
 
-(say
-
-; (Decode)
-
-  ; (Failure)
-
-    ;(utf8-decode [138 255 ]) ;(continuation octet)
-    ;(utf8-decode [255 255 ]) ;(invalid octet)
-
-    ; (Non-continuation octet)
-    ;(utf8-decode [192 10 255 ])
-    ;(utf8-decode [224 10 255 ])
-    ;(utf8-decode [224 128 10 255 ])
-    ;(utf8-decode [240 10 255 ])
-    ;(utf8-decode [240 128 10 255 ])
-    ;(utf8-decode [240 128 128 10 255 ])
-
-    ; (EOF)
-    ;(utf8-decode [])
-    ;(utf8-decode [192 ])
-    ;(utf8-decode [224 ])
-    ;(utf8-decode [224 128 ])
-    ;(utf8-decode [240 ])
-    ;(utf8-decode [240 128 ])
-    ;(utf8-decode [240 128 128 ])
-
-  ; (Success)
-
-    ;(utf8-decode [10 255 ]) ;(ASCII)
-
-    ; (Multibyte)
-    ;(utf8-decode [192 138 255 ])
-    ;(utf8-decode [224 128 138 255 ])
-    ;(utf8-decode [240 128 128 138 255 ])
-
-; (Encode)
-;(utf8-encode -1 ) ;(out-of-bounds)
-;(utf8-encode 0 ) ;(min. 1-byte)
-;(utf8-encode 127 ) ;(max. 1-byte)
-;(utf8-encode 128 ) ;(min. 2-byte)
-;(utf8-encode 2047 ) ;(max. 2-byte)
-;(utf8-encode 2048 ) ;(min. 3-byte)
-;(utf8-encode 65535 ) ;(max. 3-byte)
-;(utf8-encode 65536 ) ;(min. 4-byte)
-;(utf8-encode 1114111 ) ;(max. 4-byte)
-;(utf8-encode 1114112 ) ;(out-of-bounds)
-
-)
+(print '# )
 
 ("(unok (parse-prog-expr source-data )env )(eval-file \'std-env.don|env ))
 

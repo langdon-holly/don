@@ -1,10 +1,13 @@
-Allowed special characters:
+Allowed special bytes:
 
-whitespace    used : ends name, optional separator
-`             used : character escape
+Byte        Status : Purpose
+----        ----------------
+space, tab,
+  LF, CR      used : end name, optional separator
+`             used : byte escape
 ~           unused
 @           unused
-#             used : shebang
+#           unused : shebang
 $           unused
 (             used : start delimiter (function call)
 )             used : end delimiter (function call)
