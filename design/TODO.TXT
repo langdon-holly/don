@@ -1,3 +1,6 @@
+* write to file
+* variable descriptions
+* interactive runtime interface
 * objects
 * thread supervisors
 * better runtime errors
