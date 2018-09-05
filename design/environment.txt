@@ -24,6 +24,7 @@ make-channel
 (true consequent alternative )
 (false consequent alternative )
 unit 
+(write-file filepath-bytes )
 (read-file filepath-bytes )
 (parse-prog stream )
 (eval-file filepath-bytes )

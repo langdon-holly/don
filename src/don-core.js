@@ -575,6 +575,19 @@ const
         {file: pipeFrom.pipe(pipeTo), cleanup() {pipeFrom.unpipe(pipeTo)}})};
 exports.readFile = readFile;
 
+const
+  writeFile
+  = filepath =>
+{ const file = fs.createWriteStream(filepath), write = writeToStream(file);
+  return (
+    weak
+    ( makeFun
+      ( arg =>
+        isBytes(arg)
+        ? [promiseWaitThread(write(arg)), {val: unit}]
+        : {ok: false, val: strToInts('Tried to write nonbytes')})
+    , () => file.end()));}
+
 //const
 //  indexToLineColumn
 //  = (index, string) =>
@@ -893,33 +906,64 @@ const
     (bufStream2byteStream());
 exports.stdin = stdin;
 
+//const
+//  stdout
+//  = ( (toWrite, writable, prmRes, nextPrmRes, prm, nextPrm, buf) =>
+//      { const
+//          getNextPrm = () => nextPrm = new Promise(res => nextPrmRes = res)
+//          , writeIt
+//            = buf =>
+//              { writable = false;
+//                prmRes = nextPrmRes, getNextPrm();
+//                process.stdout.write
+//                ( buf
+//                , () =>
+//                  { writable = true;
+//                    prmRes([]);
+//                    toWrite.length
+//                    && writeIt((o => o)(Buffer.from(toWrite), toWrite = []));})
+//              };
+//        getNextPrm();
+//        return (
+//          ints =>
+//          ( buf = bufVal(ints)
+//          , buf.length
+//            ? ( prm = nextPrm
+//              , writable ? writeIt(buf) : toWrite.push(...buf)
+//              , prm)
+//            : Promise.resolve()));})
+//    ([], true);
+
 const
-  stdout
-  = ( (toWrite, writable, prmRes, nextPrmRes, prm, nextPrm, buf) =>
-      { const
-          getNextPrm = () => nextPrm = new Promise(res => nextPrmRes = res)
-          , writeIt
-            = buf =>
-              { writable = false;
-                prmRes = nextPrmRes, getNextPrm();
-                process.stdout.write
-                ( buf
-                , () =>
-                  { writable = true;
-                    prmRes([]);
-                    toWrite.length
-                    && writeIt((o => o)(Buffer.from(toWrite), toWrite = []));})
-              };
-        getNextPrm();
-        return (
-          ints =>
-          ( buf = bufVal(ints)
-          , buf.length
-            ? ( prm = nextPrm
-              , writable ? writeIt(buf) : toWrite.push(...buf)
-              , prm)
-            : Promise.resolve()));})
-    ([], true);
+  writeToStream
+  = wStream =>
+    ( (toWrite, writable, prmRes, nextPrmRes, prm, nextPrm, buf) =>
+        { const
+            getNextPrm = () => nextPrm = new Promise(res => nextPrmRes = res)
+            , writeIt
+              = buf =>
+                { writable = false;
+                  prmRes = nextPrmRes, getNextPrm();
+                  wStream.write
+                  ( buf
+                  , () =>
+                    { writable = true;
+                      prmRes([]);
+                      toWrite.length
+                      && writeIt((o => o)(Buffer.from(toWrite), toWrite = []));}
+                  )
+                };
+          getNextPrm();
+          return (
+            ints =>
+            ( buf = bufVal(ints)
+            , buf.length
+              ? ( prm = nextPrm
+                , writable ? writeIt(buf) : toWrite.push(...buf)
+                , prm)
+              : Promise.resolve()));})
+      ([], true)
+  , stdout = writeToStream(process.stdout);
 
 const
   promiseWaitThread
@@ -1423,6 +1467,21 @@ const
       , "false": quote(makeBool(false))
 
       , "unit": quote(unit)
+
+      , "write-file"
+        : quote
+          ( makeFun
+            ( arg =>
+              { if (!isBytes(arg))
+                  return (
+                    { ok: false
+                    , val: strToInts('Tried to write-file of nonbytes')});
+                const buf = bufVal(arg);
+                if (buf.includes(0))
+                  return (
+                    { ok: false
+                    , val: strToInts('Tried to write-file with 0 byte')});
+                return {val: writeFile(buf)};}))
 
       , "read-file"
         : quote
