@@ -1402,12 +1402,19 @@ const
         : quote
           ( makeFun
             ( arg =>
-              isBytes(arg)
-              ? { fn
-                  : ( ({file, cleanup}) =>
-                      makeStream(file.pipe(byteStream2intStream()), cleanup))
-                    (readFile(bufVal(arg)))}
-              : {ok: false, val: strToInts('Tried to read-file of nonbytes')}))
+              { if (!isBytes(arg))
+                  return (
+                    { ok: false
+                    , val: strToInts('Tried to read-file of nonbytes')});
+                const buf = bufVal(arg);
+                if (buf.includes(0))
+                  return (
+                    { ok: false
+                    , val: strToInts('Tried to read-file with 0 byte')});
+                const {file, cleanup} = readFile(buf);
+                return (
+                  {fn: makeStream(file.pipe(byteStream2intStream()), cleanup)});
+              }))
 
       , "parse-prog"
         : quote
@@ -1429,22 +1436,29 @@ const
         : quote
           ( makeFun
             ( (arg, ...ons) =>
-              isBytes(arg)
-              ? ( ({file, cleanup}) =>
-                  parseFile(file, parser).then
-                  ( parsed =>
-                    parsed.success
-                    ? { fn
-                        : bindRest
-                          ( parsed.ast
-                          , { rest: {file, cleanup}
-                            , input
-                              : { file: Readable({read() {this.push(null)}})
-                                , cleanup: () => 0}})
-                      , okThen: {fn: makeFun(fn => ({fn, arg: initEnv}))}}
-                    : {ok: false, val: parsed.error(arg)}))
-                (readFile(bufVal(arg)))
-              : {ok: false, val: strToInts('Tried to eval-file of nonbytes')}))
+              { if (!isBytes(arg))
+                  return (
+                    { ok: false
+                    , val: strToInts('Tried to eval-file of nonbytes')});
+                const buf = bufVal(arg);
+                if (buf.includes(0))
+                  return (
+                    { ok: false
+                    , val: strToInts('Tried to eval-file with 0 byte')});
+                const {file, cleanup} = readFile(buf);
+                return (
+                    parseFile(file, parser).then
+                    ( parsed =>
+                      parsed.success
+                      ? { fn
+                          : bindRest
+                            ( parsed.ast
+                            , { rest: {file, cleanup}
+                              , input
+                                : { file: Readable({read() {this.push(null)}})
+                                  , cleanup: () => 0}})
+                        , okThen: {fn: makeFun(fn => ({fn, arg: initEnv}))}}
+                      : {ok: false, val: parsed.error(arg)}));}))
 
       , "gensym": quote(makeFun(_.flow(gensym, val => ({val}))))
 
