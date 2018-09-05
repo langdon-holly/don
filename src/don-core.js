@@ -1392,6 +1392,32 @@ const
       //                  , arg: makeList(_.range(length).map(makeInt))
       //                  , okThen: {fn: makeFun(fn => ({fn, arg}))}})})))
 
+      , "flatten"
+        : quote
+          ( makeFun
+            ( list =>
+              { if (!isList(list))
+                  return {ok: false, val: strToInts("flatten nonlist")};
+                const lists = [...listIter(list)];
+                if (!_.every(lists, isList))
+                  return {ok: false, val: strToInts("flatten nonlistlist")};
+                return {val: listsConcat(lists)};}))
+
+      , "reverse-concat"
+        : quote
+          ( makeFun
+            ( first =>
+              ( { val
+                  : makeFun
+                    ( last =>
+                      isList(first)
+                      ? isList(last)
+                        ? {val: reverseConcat(first, last)}
+                        : { ok: false
+                          , val: strToInts("nonlist nonreversed")}
+                      : { ok: false
+                        , val: strToInts("nonlist reversed")})})))
+
       , "true": quote(makeBool(true))
 
       , "false": quote(makeBool(false))

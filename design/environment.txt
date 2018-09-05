@@ -19,6 +19,8 @@ make-channel
 (->str o )
 (utf8-decode bytes )
 (utf8-encode codepoint-int )
+(flatten list-of-lists )
+(reverse-concat first-list last-list )
 (true consequent alternative )
 (false consequent alternative )
 unit 
