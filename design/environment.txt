@@ -30,6 +30,7 @@ unit
 (path-from-dir dir-bytes path-bytes )
 (dir-of path-bytes )
 (base-of path-bytes )
+src-path-var-sym 
 src-path 
 (use filepath-bytes )
 (gensym debug-info )
@@ -42,8 +43,9 @@ src-path
 (ident-key ident )
 ident-key-m 
 delimited-var-sym 
+delimited 
 esc-var-sym 
-src-path-var-sym 
+esc 
 (just o )
 nothing 
 (justp maybe )

@@ -1564,6 +1564,8 @@ const
 
       , "base-of": quote(dirBaseOf('base'))
 
+      , "src-path-var-sym": quote(srcPathVarSym)
+
       , "src-path": makeFun(arg => ({fn: srcPathVar, arg}))
 
       , "use"
@@ -1666,9 +1668,11 @@ const
 
       , "delimited-var-sym": quote(delimitedVarSym)
 
+      , "delimited": makeFun(arg => ({fn: delimitedVar, arg}))
+
       , "esc-var-sym": quote(escVarSym)
 
-      , "src-path-var-sym": quote(srcPathVarSym)
+      , "esc": makeFun(arg => ({fn: escVar, arg}))
 
       , "just": quote(makeFun(_.flow(just, val => ({val}))))
 

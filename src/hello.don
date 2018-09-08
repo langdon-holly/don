@@ -1,12 +1,15 @@
 #!/usr/bin/env don
 
-(print (use 'use-testee.don ))
+(print (make-ident delimited-var-sym env (cons (cons `[`])[(cons 1 65 )])))
+;(print (delimited (cons (cons `[`])[(cons 1 65 )])))
+;(print [`A])
 
-;(print (path-from-dir (dir-of src-path )'use-testee.don ))
-
-;(print (flatten [(dir-of 'src/hello.don )[10 ](base-of 'src/hello.don )]))
+;(say (make-ident esc-var-sym env 65 ))
+;(say (esc 65 ))
+;(say `A )
 
 ;(print (make-ident src-path-var-sym env ))
+;(print src-path )
 
 ("(unok (parse-prog-expr source-data )env )(use \'std-env.don|env ))
 
