@@ -6,6 +6,7 @@ const
   fs = require('fs')
   , util = require('util')
   , {Writable, Readable, Transform} = require('stream')
+  , path = require('path')
 
   , _ = require('lodash')
   , weak = require('weak')
@@ -111,9 +112,9 @@ const
     makeCont
     ( arg => 
       [ mCall
-        ( then.fn
+        ( then.hasOwnProperty('fn') ? then.fn : arg
         , applySym
-        , arg
+        , then.hasOwnProperty('arg') ? then.arg : arg
         , then.hasOwnProperty('onOk')
           ? then.onOk
           : then.hasOwnProperty('okThen')
@@ -473,6 +474,10 @@ const escVarSym = gensym(strToInts('esc-var'));
 const escVar = makeIdent(escVarSym);
 exports.escVar = escVar;
 
+const srcPathVarSym = gensym(strToInts('src-path-var'));
+const srcPathVar = makeIdent(srcPathVarSym);
+exports.srcPathVar = srcPathVar;
+
 const Null = (...args) => {throw new Error("Null: " + util.format(...args))};
 exports.Null = Null;
 
@@ -743,42 +748,47 @@ exports.topContinue = topContinue;
 
 const
   bindRest
-  = (expr, {rest, input}) =>
-    makeFun
-    ( () =>
-      ( { fn: makeStream(input.file.pipe(byteStream2intStream()), input.cleanup)
-        , okThen
-          : { fn
-              : makeFun
-                ( theStdin =>
-                  ( justQuoteStdin =>
-                    ( { fn
-                        : makeStream
-                          (rest.file.pipe(byteStream2intStream()), rest.cleanup)
-                      , okThen
-                        : { fn
-                            : makeFun
-                              ( theSourceData =>
-                                ( justQuoteSourceData =>
-                                  ( { val
-                                      : makeFun
-                                        ( fn =>
-                                          ( { fn: expr
-                                            , arg
-                                              : makeFun
-                                                ( arg =>
-                                                  eq
-                                                  ( arg
-                                                  , strToInts('source-data'))
-                                                  ? {val: justQuoteSourceData}
-                                                  : eq
+  = (expr, {rest, input, srcPath}) =>
+    ( sourcePath =>
+      makeFun
+      ( () =>
+        ( { fn
+            : makeStream(input.file.pipe(byteStream2intStream()), input.cleanup)
+          , okThen
+            : { fn
+                : makeFun
+                  ( theStdin =>
+                    ( justQuoteStdin =>
+                      ( { fn
+                          : makeStream
+                            ( rest.file.pipe(byteStream2intStream())
+                            , rest.cleanup)
+                        , okThen
+                          : { fn
+                              : makeFun
+                                ( theSourceData =>
+                                  ( justQuoteSourceData =>
+                                    ( { val
+                                        : makeFun
+                                          ( fn =>
+                                            ( { fn: expr
+                                              , arg
+                                                : makeFun
+                                                  ( arg =>
+                                                    eq
                                                     ( arg
-                                                    , strToInts('stdin'))
-                                                    ? {val: justQuoteStdin}
-                                                    : {fn, arg}
-                                                )}))}))
-                                (just(quote(theSourceData))))}}))
-            (just(quote(theStdin))))}}));
+                                                    , strToInts('source-data'))
+                                                    ? {val: justQuoteSourceData}
+                                                    : eq
+                                                      ( arg
+                                                      , strToInts('stdin'))
+                                                      ? {val: justQuoteStdin}
+                                                      : eq(arg, srcPathVarSym)
+                                                        ? {val: sourcePath}
+                                                        : {fn, arg})}))}))
+                                  (just(quote(theSourceData))))}}))
+              (just(quote(theStdin))))}})))
+    (just(quote(srcPath)));
 exports.bindRest = bindRest;
 
 const
@@ -1132,6 +1142,37 @@ const
       return {fn: makeIdent(makeList(ints)), arg: env};}
 , delimitedIdent
   = (list, env) => iterableIntoIterator(delimitedIdentGen(env), listIter(list));
+
+const
+  dirBaseOf
+  = dirBase =>
+    makeFun
+    ( filepath =>
+      isBytes(filepath)
+      ? {val: strToInts(path[dirBase + "name"](strVal(filepath)))}
+      : {ok: false, val: strToInts(`Tried to ${dirBase}-of nonbytes`)})
+  , pathFromDir
+    = makeFun
+      ( dir =>
+        { if (!isBytes(dir))
+            return (
+              {ok: false, val: strToInts('Tried to path-from-dir nonbytes dir')}
+            );
+          const dirpath = strVal(dir);
+          return (
+            { val
+              : makeFun
+                ( val =>
+                  { if (!isBytes(val))
+                      return (
+                        { ok: false
+                        , val
+                          : strToInts('Tried to path-from-dir of nonbytes path')
+                        });
+                    const filepath = strVal(val);
+                    if (path.isAbsolute(filepath)) return {val};
+                    return {val: strToInts(path.join(dirpath, filepath))};})})}
+      );
 
 const
   initEnv
@@ -1517,33 +1558,87 @@ const
                             (makeFun(name => ({val: parsed.error(name)})))}]))})
           )
 
-      , "eval-file"
-        : quote
-          ( makeFun
-            ( (arg, ...ons) =>
-              { if (!isBytes(arg))
-                  return (
-                    { ok: false
-                    , val: strToInts('Tried to eval-file of nonbytes')});
-                const buf = bufVal(arg);
-                if (buf.includes(0))
-                  return (
-                    { ok: false
-                    , val: strToInts('Tried to eval-file with 0 byte')});
-                const {file, cleanup} = readFile(buf);
-                return (
-                    parseFile(file, parser).then
-                    ( parsed =>
-                      parsed.success
-                      ? { fn
-                          : bindRest
-                            ( parsed.ast
-                            , { rest: {file, cleanup}
-                              , input
-                                : { file: Readable({read() {this.push(null)}})
-                                  , cleanup: () => 0}})
-                        , okThen: {fn: makeFun(fn => ({fn, arg: initEnv}))}}
-                      : {ok: false, val: parsed.error(arg)}));}))
+      , "path-from-dir": quote(pathFromDir)
+
+      , "dir-of": quote(dirBaseOf('dir'))
+
+      , "base-of": quote(dirBaseOf('base'))
+
+      , "src-path": makeFun(arg => ({fn: srcPathVar, arg}))
+
+      , "use"
+        : makeFun
+          ( arg =>
+            ( { fn: srcPathVar
+              , arg
+              , okThen
+                : { fn
+                    : makeFun
+                      ( srcPath =>
+                        { if (!isBytes(srcPath))
+                            return (
+                              {ok: false, val: strToInts('Nonbytes src-path')});
+                          return (
+                            { val
+                              : makeFun
+                                ( arg =>
+                                  ( { fn: pathFromDir
+                                    , arg
+                                      : strToInts(path.dirname(strVal(srcPath)))
+                                    , okThen
+                                      : { arg
+                                        , okThen
+                                          : { fn
+                                              : makeFun
+                                                ( srcPath =>
+                                                  { const buf = bufVal(srcPath);
+                                                    if (buf.includes(0))
+                                                      return (
+                                                        { ok: false
+                                                        , val
+                                                          : strToInts
+                                                            ('Tried to use with 0 byte'
+                                                            )});
+                                                    const
+                                                      {file, cleanup}
+                                                      = readFile(buf);
+                                                    return (
+                                                      parseFile(file, parser)
+                                                      .then
+                                                      ( parsed =>
+                                                        parsed.success
+                                                        ? { fn
+                                                            : bindRest
+                                                              ( parsed.ast
+                                                              , { rest
+                                                                  : { file
+                                                                    , cleanup}
+                                                                , input
+                                                                  : { file
+                                                                      : Readable
+                                                                        ( { read
+                                                                            ()
+                                                                            { this
+                                                                              .push
+                                                                              ( null
+                                                                              );
+                                                                            }})
+                                                                    , cleanup
+                                                                      : () => 0}
+                                                                , srcPath})
+                                                          , okThen
+                                                            : { fn
+                                                                : makeFun
+                                                                  ( fn =>
+                                                                    ( { fn
+                                                                      , arg
+                                                                        : initEnv
+                                                                      }))}}
+                                                        : { ok: false
+                                                          , val
+                                                            : parsed.error
+                                                              (srcPath)}));})}}}
+                                  ))})})}}))
 
       , "gensym": quote(makeFun(_.flow(gensym, val => ({val}))))
 
@@ -1572,6 +1667,8 @@ const
       , "delimited-var-sym": quote(delimitedVarSym)
 
       , "esc-var-sym": quote(escVarSym)
+
+      , "src-path-var-sym": quote(srcPathVarSym)
 
       , "just": quote(makeFun(_.flow(just, val => ({val}))))
 

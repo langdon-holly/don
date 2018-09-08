@@ -27,7 +27,11 @@ unit
 (write-file filepath-bytes )
 (read-file filepath-bytes )
 (parse-prog stream )
-(eval-file filepath-bytes )
+(path-from-dir dir-bytes path-bytes )
+(dir-of path-bytes )
+(base-of path-bytes )
+src-path 
+(use filepath-bytes )
 (gensym debug-info )
 (symbol-debug-info sym )
 (q o _ )
@@ -39,6 +43,7 @@ unit
 ident-key-m 
 delimited-var-sym 
 esc-var-sym 
+src-path-var-sym 
 (just o )
 nothing 
 (justp maybe )
