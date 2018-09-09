@@ -1,19 +1,5 @@
 #!/usr/bin/env don
 
-;(print (flatten (read-dir '. )))
-( fn 'path
-  " ( print
-      ( flatten
-        [ path
-          \' is: |
-          ( unjust
-            ( { ()
-                file-type-reg 'regular
-                file-type-dir 'directory
-                file-type-? 'unknown }
-              (filetype path )))]))
-  '. )
-
 ("(unok (parse-prog-expr source-data )env )(use \'std-env.don|env ))
 
 (print 'OK )

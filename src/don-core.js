@@ -1191,104 +1191,41 @@ const
               ( makeFun
                 ( env =>
                   ( { val
-                      : makeFun
-                        ( arg =>
-                          ( { fn: carFn
-                            , arg
-                            , okThen
-                              : { fn
-                                  : makeFun
-                                    ( delims =>
-                                      ( { fn: carFn
-                                        , arg: delims
-                                        , okThen
-                                          : { fn
-                                              : makeFun
-                                                ( begin =>
-                                                  ( { fn: cdrFn
-                                                    , arg: delims
-                                                    , okThen
-                                                      : { fn
-                                                          : makeFun
-                                                            ( end =>
-                                                              ( { fn: cdrFn
-                                                                , arg
-                                                                , okThen
-                                                                  : { fn
-                                                                      : makeFun
-                                                                        ( children =>
-                                                                          eq
-                                                                          ( begin
-                                                                          , lParen
-                                                                          )
-                                                                          &&
-                                                                            eq
-                                                                            ( end
-                                                                            , rParen
-                                                                            )
-                                                                          ? delimitedList
-                                                                            ( children
-                                                                            , env
-                                                                            , parenListFn
-                                                                            )
-                                                                          : eq
-                                                                            ( begin
-                                                                            , lBracket
-                                                                            )
-                                                                            &&
-                                                                              eq
-                                                                              ( end
-                                                                              , rBracket
-                                                                              )
-                                                                            ? delimitedList
-                                                                              ( children
-                                                                              , env
-                                                                              , I
-                                                                              )
-                                                                          : eq
-                                                                            ( begin
-                                                                            , lBrace
-                                                                            )
-                                                                            &&
-                                                                              eq
-                                                                              ( end
-                                                                              , rBrace
-                                                                              )
-                                                                            ? delimitedList
-                                                                              ( children
-                                                                              , env
-                                                                              , makeMapCall
-                                                                              )
-                                                                          : eq
-                                                                            ( begin
-                                                                            , backslash
-                                                                            )
-                                                                            &&
-                                                                              eq
-                                                                              ( end
-                                                                              , pipe
-                                                                              )
-                                                                            ? delimitedIdent
-                                                                              ( children
-                                                                              , env
-                                                                              )
-                                                                          : { ok
-                                                                              : false
-                                                                            , val
-                                                                              : listsConcat
-                                                                                ( [ strToInts
-                                                                                    ( "Unspecified delimited action for "
-                                                                                    )
-                                                                                  , makeList
-                                                                                    ( [ begin
-                                                                                      , end
-                                                                                      ]
-                                                                                    )
-                                                                                  ]
-                                                                                )
-                                                                            })}}
-                                                              ))}}))}}))}}))})))
-          }
+                      : fnOfType
+                        ( pairLabel
+                        , arg =>
+                          { if (arg.first.type !== pairLabel)
+                              return (
+                                { ok: false
+                                , val: strToInts("delimited with non-pair car")}
+                              );
+                            const
+                              {first, last} = arg.first.data
+                              , children = arg.last;
+
+                            do
+                            { if (eq(first, lParen))
+                              { if (!eq(last, rParen)) break;
+                                return (
+                                  delimitedList(children, env, parenListFn));}
+                              if (eq(first, lBracket))
+                              { if (!eq(last, rBracket)) break;
+                                return delimitedList(children, env, I);}
+                              if (eq(first, lBrace))
+                              { if (!eq(last, rBrace)) break;
+                                return (
+                                  delimitedList(children, env, makeMapCall));}
+                              if (eq(first, backslash))
+                              { if (!eq(last, pipe)) break;
+                                return delimitedIdent(children, env);}}
+                            while (0);
+                            return (
+                              { ok: false
+                              , val
+                                : listsConcat
+                                  ( [ strToInts
+                                      ("Unspecified delimited action for ")
+                                    , makeList([first, last])])});})})))}
 
         : varKey === escVarSym
           ? {val: just(quote(I))}
