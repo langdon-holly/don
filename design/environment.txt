@@ -26,6 +26,11 @@ make-channel
 unit 
 (write-file filepath-bytes )
 (read-file filepath-bytes )
+(read-dir dirpath-bytes )
+(filetype filepath-bytes )
+file-type-reg 
+file-type-dir 
+file-type-? 
 (parse-prog stream )
 (path-from-dir dir-bytes path-bytes )
 (dir-of path-bytes )

@@ -465,6 +465,11 @@ exports.pairLabel = pairLabel;
 const toStrSym = gensym(strToInts('to-str-sym'));
 const applySym = gensym(strToInts('apply-sym'));
 const identKeySym = gensym(strToInts('ident-key-sym'));
+const
+  filetype
+  = { reg: gensym(strToInts('file-type-reg'))
+    , dir: gensym(strToInts('file-type-dir'))
+    , other: gensym(strToInts('file-type-?'))};
 
 const delimitedVarSym = gensym(strToInts('delimited-var'));
 const delimitedVar = makeIdent(delimitedVarSym);
@@ -1214,11 +1219,13 @@ const
                                                                         ( children =>
                                                                           eq
                                                                           ( begin
-                                                                          , lParen)
+                                                                          , lParen
+                                                                          )
                                                                           &&
                                                                             eq
                                                                             ( end
-                                                                            , rParen)
+                                                                            , rParen
+                                                                            )
                                                                           ? delimitedList
                                                                             ( children
                                                                             , env
@@ -1279,9 +1286,9 @@ const
                                                                                     )
                                                                                   ]
                                                                                 )
-                                                                            })
-                                                                    }}))}}))}}
-                                      ))}}))})))}
+                                                                            })}}
+                                                              ))}}))}}))}}))})))
+          }
 
         : varKey === escVarSym
           ? {val: just(quote(I))}
@@ -1541,6 +1548,53 @@ const
                 return (
                   {fn: makeStream(file.pipe(byteStream2intStream()), cleanup)});
               }))
+
+      , "read-dir"
+        : quote
+          ( makeFun
+            ( arg =>
+              { if (!isBytes(arg))
+                  return (
+                    { ok: false
+                    , val: strToInts('Tried to read-dir of nonbytes')});
+                const buf = bufVal(arg);
+                if (buf.includes(0))
+                  return (
+                    { ok: false
+                    , val: strToInts('Tried to read-dir with 0 byte')});
+                return (
+                  util.promisify(fs.readdir)(buf, 'buffer').then
+                  ( names =>
+                    ( { val
+                        : makeList
+                          (names.map(name => makeList([...name].map(makeInt))))}
+                    )));}))
+
+      , "filetype"
+        : quote
+          ( makeFun
+            ( arg =>
+              { if (!isBytes(arg))
+                  return (
+                    { ok: false
+                    , val: strToInts('Tried to filetype of nonbytes')});
+                const buf = bufVal(arg);
+                if (buf.includes(0))
+                  return (
+                    { ok: false
+                    , val: strToInts('Tried to filetype with 0 byte')});
+                return (
+                  util.promisify(fs.stat)(buf).then
+                  ( stats =>
+                    ( { val
+                        : stats.isFile()
+                          ? filetype.reg
+                          : stats.isDirectory() ? filetype.dir : filetype.other}
+                    )));}))
+
+      , "file-type-reg": quote(filetype.reg)
+      , "file-type-dir": quote(filetype.dir)
+      , "file-type-?": quote(filetype.other)
 
       , "parse-prog"
         : quote

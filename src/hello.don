@@ -1,15 +1,18 @@
 #!/usr/bin/env don
 
-(print (make-ident delimited-var-sym env (cons (cons `[`])[(cons 1 65 )])))
-;(print (delimited (cons (cons `[`])[(cons 1 65 )])))
-;(print [`A])
-
-;(say (make-ident esc-var-sym env 65 ))
-;(say (esc 65 ))
-;(say `A )
-
-;(print (make-ident src-path-var-sym env ))
-;(print src-path )
+;(print (flatten (read-dir '. )))
+( fn 'path
+  " ( print
+      ( flatten
+        [ path
+          \' is: |
+          ( unjust
+            ( { ()
+                file-type-reg 'regular
+                file-type-dir 'directory
+                file-type-? 'unknown }
+              (filetype path )))]))
+  '. )
 
 ("(unok (parse-prog-expr source-data )env )(use \'std-env.don|env ))
 
