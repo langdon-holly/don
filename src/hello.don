@@ -1,10 +1,10 @@
 #!/usr/bin/env don
 
-[(mkdir 'tmp.d )(write-file 'tmp.d/tmp 'hi )]
+;[(mkdir 'tmp.d )(write-file 'tmp.d/tmp 'hi )]
 
-[(rm-file 'tmp.d/tmp )(rmdir 'tmp.d )]
+;[(rm-file 'tmp.d/tmp )(rmdir 'tmp.d )]
 
-(append-file 'tmp.out \'la|)
+;(append-file 'tmp.out \'la|)
 
 ;(rm-file 'tmp.out )
 

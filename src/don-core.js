@@ -1517,7 +1517,7 @@ const
                     , val: strToInts('Tried to rm-file with 0 byte')});
                 return (
                   util.promisify(fs.unlink)(buf).then
-                  (names => ({val: unit})));}))
+                  (() => ({val: unit})));}))
 
       , "mkdir"
         : quote
@@ -1532,7 +1532,7 @@ const
                     {ok: false, val: strToInts('Tried to mkdir with 0 byte')});
                 return (
                   util.promisify(fs.mkdir)(buf).then
-                  (names => ({val: unit})));}))
+                  (() => ({val: unit})));}))
 
       , "read-dir"
         : quote
@@ -1568,7 +1568,7 @@ const
                     {ok: false, val: strToInts('Tried to rmdir with 0 byte')});
                 return (
                   util.promisify(fs.rmdir)(buf).then
-                  (names => ({val: unit})));}))
+                  (() => ({val: unit})));}))
 
       , "filetype"
         : quote
