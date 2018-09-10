@@ -587,8 +587,9 @@ exports.readFile = readFile;
 
 const
   writeFile
-  = filepath =>
-{ const file = fs.createWriteStream(filepath), write = writeToStream(file);
+  = (filepath, flags) =>
+{ const
+    file = fs.createWriteStream(filepath, {flags}), write = writeToStream(file);
   return (
     weak
     ( makeFun
@@ -1466,7 +1467,22 @@ const
                   return (
                     { ok: false
                     , val: strToInts('Tried to write-file with 0 byte')});
-                return {val: writeFile(buf)};}))
+                return {val: writeFile(buf, 'w')};}))
+
+      , "append-file"
+        : quote
+          ( makeFun
+            ( arg =>
+              { if (!isBytes(arg))
+                  return (
+                    { ok: false
+                    , val: strToInts('Tried to append-file of nonbytes')});
+                const buf = bufVal(arg);
+                if (buf.includes(0))
+                  return (
+                    { ok: false
+                    , val: strToInts('Tried to append-file with 0 byte')});
+                return {val: writeFile(buf, 'a')};}))
 
       , "read-file"
         : quote
@@ -1485,6 +1501,38 @@ const
                 return (
                   {fn: makeStream(file.pipe(byteStream2intStream()), cleanup)});
               }))
+
+      , "rm-file"
+        : quote
+          ( makeFun
+            ( arg =>
+              { if (!isBytes(arg))
+                  return (
+                    { ok: false
+                    , val: strToInts('Tried to rm-file of nonbytes')});
+                const buf = bufVal(arg);
+                if (buf.includes(0))
+                  return (
+                    { ok: false
+                    , val: strToInts('Tried to rm-file with 0 byte')});
+                return (
+                  util.promisify(fs.unlink)(buf).then
+                  (names => ({val: unit})));}))
+
+      , "mkdir"
+        : quote
+          ( makeFun
+            ( arg =>
+              { if (!isBytes(arg))
+                  return (
+                    {ok: false, val: strToInts('Tried to mkdir of nonbytes')});
+                const buf = bufVal(arg);
+                if (buf.includes(0))
+                  return (
+                    {ok: false, val: strToInts('Tried to mkdir with 0 byte')});
+                return (
+                  util.promisify(fs.mkdir)(buf).then
+                  (names => ({val: unit})));}))
 
       , "read-dir"
         : quote
@@ -1506,6 +1554,21 @@ const
                         : makeList
                           (names.map(name => makeList([...name].map(makeInt))))}
                     )));}))
+
+      , "rmdir"
+        : quote
+          ( makeFun
+            ( arg =>
+              { if (!isBytes(arg))
+                  return (
+                    {ok: false, val: strToInts('Tried to rmdir of nonbytes')});
+                const buf = bufVal(arg);
+                if (buf.includes(0))
+                  return (
+                    {ok: false, val: strToInts('Tried to rmdir with 0 byte')});
+                return (
+                  util.promisify(fs.rmdir)(buf).then
+                  (names => ({val: unit})));}))
 
       , "filetype"
         : quote

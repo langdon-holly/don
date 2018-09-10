@@ -25,8 +25,12 @@ make-channel
 (false consequent alternative )
 unit 
 (write-file filepath-bytes )
+(append-file filepath-bytes )
 (read-file filepath-bytes )
+(rm-file filepath-bytes )
+(mkdir dirpath-bytes )
 (read-dir dirpath-bytes )
+(rmdir dirpath-bytes )
 (filetype filepath-bytes )
 file-type-reg 
 file-type-dir 

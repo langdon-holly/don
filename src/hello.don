@@ -1,5 +1,13 @@
 #!/usr/bin/env don
 
+[(mkdir 'tmp.d )(write-file 'tmp.d/tmp 'hi )]
+
+[(rm-file 'tmp.d/tmp )(rmdir 'tmp.d )]
+
+(append-file 'tmp.out \'la|)
+
+;(rm-file 'tmp.out )
+
 ("(unok (parse-prog-expr source-data )env )(use \'std-env.don|env ))
 
 (print 'OK )
