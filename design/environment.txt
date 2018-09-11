@@ -53,8 +53,6 @@ src-path
 ident-key-m 
 delimited-var-sym 
 delimited 
-esc-var-sym 
-esc 
 (just o )
 nothing 
 (justp maybe )

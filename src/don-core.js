@@ -475,10 +475,6 @@ const delimitedVarSym = gensym(strToInts('delimited-var'));
 const delimitedVar = makeIdent(delimitedVarSym);
 exports.delimitedVar = delimitedVar;
 
-const escVarSym = gensym(strToInts('esc-var'));
-const escVar = makeIdent(escVarSym);
-exports.escVar = escVar;
-
 const srcPathVarSym = gensym(strToInts('src-path-var'));
 const srcPathVar = makeIdent(srcPathVarSym);
 exports.srcPathVar = srcPathVar;
@@ -985,11 +981,6 @@ const
   promiseWaitThread
   = prm => ({cont: makeCont(() => prm.then(_.constant([]))), arg: unit});
 
-//const quoteFn = makeFun(_.flow(quote, val => ({val})));
-
-const carFn = fnOfType(pairLabel, ({first}) => ({val: first}));
-const cdrFn = fnOfType(pairLabel, ({last}) => ({val: last}));
-
 const wsNums = Array.from(' \t\n\r').map(o => o.codePointAt(0))
 , delimitedListGen
   = function *(env, listFn)
@@ -1003,9 +994,11 @@ const wsNums = Array.from(' \t\n\r').map(o => o.codePointAt(0))
       , nameDoom
         = () =>
           doom()
-          || value.data.first.data !== 0
+          || value.data.first.data === 2
           || value.data.last.type !== intLabel
-          || [34, 59].includes(value.data.last.data)
+          ||
+            value.data.first.data === 0
+            && [34, 59].includes(value.data.last.data)
       , doomed
         = () =>
           ( { ok: false
@@ -1024,29 +1017,26 @@ const wsNums = Array.from(' \t\n\r').map(o => o.codePointAt(0))
 
       while (!next(yield))
       { if (doom()) return doomed();
+        const type = value.data.first.data;
 
-        switch (value.data.first.data)
-        { case 0 // elem
-          : if (value.data.last.type !== intLabel) return doomed();
-            if (wsNums.includes(value.data.last.data));
-            else if (value.data.last.data == 59) ++commentLevel; // ;
-            else if (value.data.last.data == 34) // "
-            {if (commentLevel == 0) ++quoteLevel;}
-            else
-            { name = [];
-              do
-              { name.push(value.data.last.data);
-                if (next(yield)) return eof();
-                if (nameDoom()) return doomed();}
-              while (!wsNums.includes(value.data.last.data));
-              push(makeIdent(makeList(name.map(makeInt))));}
-            break;
-          case 1 // esc
-          : if (value.data.last.type !== intLabel) return doomed();
-            push(makeCall(escVar, quote(makeInt(value.data.last.data))));
-            break;
-          case 2 // delimited
-          : push(makeCall(delimitedVar, quote(value.data.last)));}}
+        if (type === 2) push(makeCall(delimitedVar, quote(value.data.last)));
+        else
+        { if (value.data.last.type !== intLabel) return doomed();
+          if (type === 0)
+          { const byte = value.data.last.data;
+            if (wsNums.includes(byte)) continue;
+            if (byte === 59) {++commentLevel; continue;} // ;
+            if (byte === 34) {if (!commentLevel) ++quoteLevel; continue;}} // "
+
+          name = [];
+          do
+          { name.push(value.data.last.data);
+            if (next(yield)) return eof();
+            if (nameDoom()) return doomed();}
+          while
+          ( value.data.first.data === 1
+            || !wsNums.includes(value.data.last.data));
+          push(makeIdent(makeList(name.map(makeInt))));}}
       return (
         commentLevel > 0 || quoteLevel > 0
         ? eof()
@@ -1228,9 +1218,7 @@ const
                                       ("Unspecified delimited action for ")
                                     , makeList([first, last])])});})})))}
 
-        : varKey === escVarSym
-          ? {val: just(quote(I))}
-          : {val: nothing}
+        : {val: nothing}
 
       : isBytes(varKey)
 
@@ -1724,10 +1712,6 @@ const
 
       , "delimited": makeFun(arg => ({fn: delimitedVar, arg}))
 
-      , "esc-var-sym": quote(escVarSym)
-
-      , "esc": makeFun(arg => ({fn: escVar, arg}))
-
       , "just": quote(makeFun(_.flow(just, val => ({val}))))
 
       , "nothing": quote(nothing)
@@ -1774,9 +1758,9 @@ const
           ( makeFun
             (first => ({val: makeFun(last => ({val: makePair(first, last)}))})))
 
-      , "car": quote(carFn)
+      , "car": quote(fnOfType(pairLabel, ({first}) => ({val: first})))
 
-      , "cdr": quote(cdrFn)
+      , "cdr": quote(fnOfType(pairLabel, ({last}) => ({val: last})))
 
       , "to-str-m": quote(toStrSym)
 
