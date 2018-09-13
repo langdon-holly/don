@@ -353,6 +353,8 @@ function* listIter(list)
 { while (list.type === pairLabel) yield list.data.first, list = list.data.last;
   return list === unit}
 
+function listToArr(list) {return [...listIter(list)];}
+
 function reverseConcat(list0, list1)
 { while (list0 !== unit)
     list1 = makePair(list0.data.first, list1), list0 = list0.data.last;
@@ -370,9 +372,8 @@ function isBytes(val)
 { return (
     isList(val)
     &&
-      _.every
-      ( [...listIter(val)]
-      , elem => elem.type === intLabel && elem.data >= 0 && elem.data < 256))}
+      listToArr(val).every
+      (elem => elem.type === intLabel && elem.data >= 0 && elem.data < 256))}
 exports.isBytes = isBytes;
 
 function intToStr(int)
@@ -382,12 +383,15 @@ function intToStr(int)
 
 function bufVal(list)
 { if (!isBytes(list)) return Null("Tried to bufVal nonbytes");
-  return Buffer.from([...listIter(list)].map(int => int.data));}
+  return Buffer.from(listToArr(list).map(int => int.data));}
 
 function strVal(list) {return bufVal(list).toString();}
 exports.strVal = strVal
 
-function strToInts(str) {return makeList([...Buffer.from(str)].map(makeInt))}
+function bufToInts(buf) {return makeList([...buf].map(makeInt));}
+exports.bufToInts = bufToInts;
+
+function strToInts(str) {return bufToInts(Buffer.from(str));}
 exports.strToInts = strToInts;
 
 function mCast(cont, mSym, arg) {return {cont, arg: makePair(mSym, arg)}}
@@ -494,7 +498,7 @@ const makeMapCall
     ( arg =>
       { if (!isList(arg))
           return {ok: false, val: strToInts("Insequential cartographic call")};
-        const args = [...listIter(arg)];
+        const args = listToArr(arg);
         if (args.length % 2 != 1)
           return {ok: false, val: strToInts("Tried to brace evenness")};
         const pairs = _.chunk(_.tail(args), 2);
@@ -511,31 +515,6 @@ const makeMapCall
                     ? (toReturn = just(pair[1]), false)
                     : true);
                   return {val: toReturn}})})});
-
-const
-  makeFunCall
-  = makeFun
-    ( (elems, onOk, onErr) =>
-      !isList(elems)
-      ? { ok: false
-        , value
-          : strToInts("Insequential delimitation")}
-      : elems === unit
-        ? {val: I}
-        : { cont
-            : _.reduceRight
-              ( [...listIter(elems.data.last)]
-              , (onOk, arg) =>
-                makeCont
-                ( fn =>
-                  [ mCall
-                    ( fn
-                    , applySym
-                    , arg
-                    , onOk
-                    , onErr)])
-              , onOk)
-          , arg: elems.data.first});
 
 const
   syncMap
@@ -831,29 +810,25 @@ function escInIdent(intArr)
 
 function toString(arg)
 { const {type: argLabel, data: argData} = arg;
+  let list;
   return (
     /*argLabel === charLabel ? makeList([...strToInts("`"), arg])
 
     : */argLabel === intLabel ? strToInts(argData.toString() + ' ')
 
-    //: isBytes(arg) && arg !== unit
-    //  ? listsConcat
-    //    ( _.findIndex
-    //      ( [...listIter(arg)]
-    //      , int =>
-    //        [32, 10, 9, 13, 40, 41, 91, 93, 123, 125, 96, 92, 124, 59, 35, 34]
-    //        .includes(int.data))
-    //      >= 0
-    //      ? [ strToInts("\\'")
-    //        , makeList(escInIdent([...listIter(arg)]))
-    //        , strToInts('|')]
-    //      : [ strToInts("'"), arg, strToInts(' ')])
-
     : isList(arg)
-      ? listsConcat
-        ( [ strToInts('[')
-          , ...[...listIter(arg)].map(o => toString(o))
-          , strToInts(']')])
+      ? ( list = listToArr(arg)
+        //, arg !== unit && isBytes(arg)
+        //  ? listsConcat
+        //    ( list.some
+        //      ( int =>
+        //        [32, 10, 9, 13, 40, 41, 91, 93, 123, 125, 96, 92, 124, 59, 34]
+        //        .includes(int.data))
+        //      ? [strToInts("\\'"), makeList(escInIdent(list)), strToInts('|')]
+        //      : [strToInts("'"), arg, strToInts(' ')])
+
+        , listsConcat
+          ([strToInts('['), ...list.map(o => toString(o)), strToInts(']')]))
 
     : argLabel === quoteLabel
       ? listsConcat([strToInts("(q "), toString(argData), strToInts(")")])
@@ -1062,7 +1037,7 @@ const
         : { cont
             : _
               .reduceRight
-              ( [...listIter(elems.data.last)]
+              ( listToArr(elems.data.last)
               , (onOk, arg) =>
                 makeCont(fn => [mCall(fn, applySym, arg, onOk, onErr)])
               , onOk)
@@ -1140,21 +1115,21 @@ const
   = (list, env) => iterableIntoIterator(delimitedIdentGen(env), listIter(list));
 
 const
-  dirBaseOf
-  = dirBase =>
-    makeFun
-    ( filepath =>
-      isBytes(filepath)
-      ? {val: strToInts(path[dirBase + "name"](strVal(filepath)))}
-      : {ok: false, val: strToInts(`Tried to ${dirBase}-of nonbytes`)})
+  realpath = path => util.promisify(fs.realpath)(bufVal(path))
+  , dirBaseOf
+    = dirBase =>
+      makeFun
+      ( async filepath =>
+        isBytes(filepath)
+        ? {val: strToInts(path[dirBase + "name"](await realpath(filepath)))}
+        : {ok: false, val: strToInts(`Tried to ${dirBase}-of nonbytes`)})
   , pathFromDir
     = makeFun
       ( dir =>
         { if (!isBytes(dir))
             return (
-              {ok: false, val: strToInts('Tried to path-from-dir nonbytes dir')}
-            );
-          const dirpath = strVal(dir);
+              { ok: false
+              , val: strToInts('Tried to path-from-dir of nonbytes dir')});
           return (
             { val
               : makeFun
@@ -1165,10 +1140,13 @@ const
                         , val
                           : strToInts('Tried to path-from-dir of nonbytes path')
                         });
-                    const filepath = strVal(val);
-                    if (path.isAbsolute(filepath)) return {val};
-                    return {val: strToInts(path.join(dirpath, filepath))};})})}
-      );
+                    if (path.isAbsolute(strVal(val))) return {val};
+                    return (
+                      { val
+                        : makeList
+                          ( [ ...listIter(dir)
+                            , ...listIter(strToInts(path.sep))
+                            , ...listIter(val)])});})})});
 
 const
   initEnv
@@ -1416,8 +1394,8 @@ const
             ( list =>
               { if (!isList(list))
                   return {ok: false, val: strToInts("flatten nonlist")};
-                const lists = [...listIter(list)];
-                if (!_.every(lists, isList))
+                const lists = listToArr(list);
+                if (!lists.every(isList))
                   return {ok: false, val: strToInts("flatten nonlistlist")};
                 return {val: listsConcat(lists)};}))
 
@@ -1537,11 +1515,7 @@ const
                     , val: strToInts('Tried to read-dir with 0 byte')});
                 return (
                   util.promisify(fs.readdir)(buf, 'buffer').then
-                  ( names =>
-                    ( { val
-                        : makeList
-                          (names.map(name => makeList([...name].map(makeInt))))}
-                    )));}))
+                  (names => ({val: makeList(names.map(bufToInts))})));}))
 
       , "rmdir"
         : quote
@@ -1602,6 +1576,20 @@ const
 
       , "path-from-dir": quote(pathFromDir)
 
+      , "real-path"
+        : quote
+          ( makeFun
+            ( async path =>
+              { if (!isBytes(path))
+                  return (
+                    {ok: false, val: strToInts('Tried to real-path nonbytes')});
+                  return (
+                    { val
+                      : bufToInts
+                        ( await
+                            util.promisify(fs.realpath)(bufVal(path), 'buffer'))
+                    });}))
+
       , "dir-of": quote(dirBaseOf('dir'))
 
       , "base-of": quote(dirBaseOf('base'))
@@ -1625,10 +1613,11 @@ const
                           return (
                             { val
                               : makeFun
-                                ( arg =>
+                                ( async arg =>
                                   ( { fn: pathFromDir
                                     , arg
-                                      : strToInts(path.dirname(strVal(srcPath)))
+                                      : strToInts
+                                        (path.dirname(await realpath(srcPath)))
                                     , okThen
                                       : { arg
                                         , okThen
