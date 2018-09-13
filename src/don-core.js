@@ -1532,19 +1532,19 @@ const
                   util.promisify(fs.rmdir)(buf).then
                   (() => ({val: unit})));}))
 
-      , "filetype"
+      , "file-type"
         : quote
           ( makeFun
             ( arg =>
               { if (!isBytes(arg))
                   return (
                     { ok: false
-                    , val: strToInts('Tried to filetype of nonbytes')});
+                    , val: strToInts('Tried to file-type of nonbytes')});
                 const buf = bufVal(arg);
                 if (buf.includes(0))
                   return (
                     { ok: false
-                    , val: strToInts('Tried to filetype with 0 byte')});
+                    , val: strToInts('Tried to file-type with 0 byte')});
                 return (
                   util.promisify(fs.stat)(buf).then
                   ( stats =>

@@ -1,9 +1,6 @@
 #!/usr/bin/env don
 
-;(print (path-from-dir 'src/don '.. ))
-;(print (real-path src-path ))
-;(print (dir-of src-path ))
-;(print (base-of src-path ))
+(say (file-type '. ))
 
 ("(unok (parse-prog-expr source-data )env )(use \'std-env.don|env ))
 

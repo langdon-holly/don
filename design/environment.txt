@@ -31,7 +31,7 @@ unit
 (mkdir dirpath-bytes )
 (read-dir dirpath-bytes )
 (rmdir dirpath-bytes )
-(filetype filepath-bytes )
+(file-type filepath-bytes )
 file-type-reg 
 file-type-dir 
 file-type-? 
