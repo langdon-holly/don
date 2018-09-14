@@ -177,6 +177,7 @@ function makeList(vals)
 {return _.reduceRight(vals, _.ary(_.flip(makePair), 2), unit)}
 
 function just(val) {return mk(maybeLabel, {is: true, val})}
+exports.just = just;
 
 function makeInt(Int) {return mk(intLabel, Int)}
 
@@ -489,7 +490,7 @@ exports.Null = Null;
 const nullCont = makeCont(_.constant([]));
 exports.nullCont = nullCont;
 
-const nothing = mk(maybeLabel, {is: false});
+const nothing = exports.nothing = mk(maybeLabel, {is: false});
 
 const I = makeFun(val => ({val}));
 
@@ -1605,73 +1606,58 @@ const
               , arg
               , okThen
                 : { fn
-                    : makeFun
-                      ( srcPath =>
-                        { if (!isBytes(srcPath))
+                    : fnOfType
+                      ( maybeLabel
+                      , srcPath =>
+                        { if (srcPath.is && !isBytes(srcPath.val))
                             return (
-                              {ok: false, val: strToInts('Nonbytes src-path')});
-                          return (
-                            { val
-                              : makeFun
-                                ( async arg =>
-                                  ( { fn: pathFromDir
-                                    , arg
-                                      : strToInts
-                                        (path.dirname(await realpath(srcPath)))
-                                    , okThen
-                                      : { arg
+                              { ok: false
+                              , val: strToInts('Non-maybe-bytes src-path')});
+                          const
+                            withPath
+                            = makeFun
+                              ( srcPath =>
+                                { const buf = bufVal(srcPath);
+                                  if (buf.includes(0))
+                                    return (
+                                      { ok: false
+                                      , val
+                                        : strToInts('Tried to use with 0 byte')}
+                                    );
+                                  const {file, cleanup} = readFile(buf);
+                                  return (
+                                    parseFile(file, parser).then
+                                    ( parsed =>
+                                      parsed.success
+                                      ? { fn
+                                          : bindRest
+                                            ( parsed.ast
+                                            , { rest: {file, cleanup}
+                                              , input
+                                                : { file
+                                                    : Readable
+                                                      ( { read()
+                                                          {this.push(null);}})
+                                                  , cleanup: () => 0}
+                                              , srcPath: just(srcPath)})
                                         , okThen
                                           : { fn
                                               : makeFun
-                                                ( srcPath =>
-                                                  { const buf = bufVal(srcPath);
-                                                    if (buf.includes(0))
-                                                      return (
-                                                        { ok: false
-                                                        , val
-                                                          : strToInts
-                                                            ('Tried to use with 0 byte'
-                                                            )});
-                                                    const
-                                                      {file, cleanup}
-                                                      = readFile(buf);
-                                                    return (
-                                                      parseFile(file, parser)
-                                                      .then
-                                                      ( parsed =>
-                                                        parsed.success
-                                                        ? { fn
-                                                            : bindRest
-                                                              ( parsed.ast
-                                                              , { rest
-                                                                  : { file
-                                                                    , cleanup}
-                                                                , input
-                                                                  : { file
-                                                                      : Readable
-                                                                        ( { read
-                                                                            ()
-                                                                            { this
-                                                                              .push
-                                                                              ( null
-                                                                              );
-                                                                            }})
-                                                                    , cleanup
-                                                                      : () => 0}
-                                                                , srcPath})
-                                                          , okThen
-                                                            : { fn
-                                                                : makeFun
-                                                                  ( fn =>
-                                                                    ( { fn
-                                                                      , arg
-                                                                        : initEnv
-                                                                      }))}}
-                                                        : { ok: false
-                                                          , val
-                                                            : parsed.error
-                                                              (srcPath)}));})}}}
-                                  ))})})}}))
+                                                (fn => ({fn, arg: initEnv}))}}
+                                      : {ok: false, val: parsed.error(srcPath)})
+                                  );});
+                          return (
+                            { val
+                              : srcPath.is
+                                ? makeFun
+                                  ( async arg =>
+                                    ( { fn: pathFromDir
+                                      , arg
+                                        : strToInts
+                                          ( path.dirname
+                                            (await realpath(srcPath.val)))
+                                      , okThen: {arg, okThen: {fn: withPath}}}))
+                                : withPath})})}}))
 
       , "gensym": quote(makeFun(_.flow(gensym, val => ({val}))))
 

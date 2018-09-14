@@ -31,11 +31,11 @@ const
     = hasFileArg
       ? [ don.readFile(Buffer.from(program.args[0]))
         , don.stdin()
-        , program.args[0]
+        , don.just(don.strToInts(program.args[0]))
         , program.args[0]]
       : [ don.stdin()
         , {file: Readable({read() {this.push(null)}}), cleanup: () => 0}
-        , ''
+        , don.nothing
         , "standard input"]
   , error = e => console.error(don.strVal(e));
 
@@ -47,10 +47,7 @@ don.parse(file, don.parseStream).then
         ( () =>
           ( { fn
               : don.bindRest
-                ( parsed.ast
-                , { rest: {file, cleanup}
-                  , input
-                  , srcPath: don.strToInts(srcPath)})
+                (parsed.ast, {rest: {file, cleanup}, input, srcPath})
             , okThen: {fn: don.makeFun(fn => ({fn, arg: don.initEnv}))}}))
       , don.unit
       , don.nullCont

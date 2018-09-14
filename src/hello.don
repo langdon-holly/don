@@ -1,6 +1,6 @@
 #!/usr/bin/env don
 
-(say (file-type '. ))
+(use 'use-testee.don )
 
 ("(unok (parse-prog-expr source-data )env )(use \'std-env.don|env ))
 
