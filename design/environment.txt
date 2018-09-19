@@ -37,7 +37,7 @@ file-type-dir
 file-type-? 
 (parse-prog stream )
 (path-from-dir dir-bytes path-bytes )
-(real-path path-bytes )
+(deref-symlink path-bytes )
 (dir-of path-bytes )
 (base-of path-bytes )
 src-path-var-sym 

@@ -1116,14 +1116,30 @@ const
   = (list, env) => iterableIntoIterator(delimitedIdentGen(env), listIter(list));
 
 const
-  realpath = path => util.promisify(fs.realpath)(bufVal(path))
+  pathSepBuf = Buffer.from(path.sep)
+  , derefSymlink
+    = async fpath =>
+      { fpath = bufVal(fpath);
+        while ((await util.promisify(fs.lstat)(fpath)).isSymbolicLink())
+        { const lnBuf = await util.promisify(fs.readlink)(fpath, 'buffer');
+          fpath
+          = path.isAbsolute(lnBuf.toString())
+            ? lnBuf
+            : Buffer.concat
+              ( [Buffer.from(path.dirname(fpath.toString())), pathSepBuf, lnBuf]
+              );}
+        return fpath;}
+  , derefSymlinkStr = async fpath => (await derefSymlink(fpath)).toString()
   , dirBaseOf
     = dirBase =>
       makeFun
       ( async filepath =>
         isBytes(filepath)
-        ? {val: strToInts(path[dirBase + "name"](await realpath(filepath)))}
+        ? { val
+            : strToInts(path[dirBase + "name"](await derefSymlinkStr(filepath)))
+          }
         : {ok: false, val: strToInts(`Tried to ${dirBase}-of nonbytes`)})
+  , pathSepIter = listIter(strToInts(path.sep))
   , pathFromDir
     = makeFun
       ( dir =>
@@ -1146,7 +1162,7 @@ const
                       { val
                         : makeList
                           ( [ ...listIter(dir)
-                            , ...listIter(strToInts(path.sep))
+                            , ...pathSepIter
                             , ...listIter(val)])});})})});
 
 const
@@ -1577,19 +1593,15 @@ const
 
       , "path-from-dir": quote(pathFromDir)
 
-      , "real-path"
+      , "deref-symlink"
         : quote
           ( makeFun
-            ( async path =>
-              { if (!isBytes(path))
+            ( async fpath =>
+              { if (!isBytes(fpath))
                   return (
-                    {ok: false, val: strToInts('Tried to real-path nonbytes')});
-                  return (
-                    { val
-                      : bufToInts
-                        ( await
-                            util.promisify(fs.realpath)(bufVal(path), 'buffer'))
-                    });}))
+                    { ok: false
+                    , val: strToInts('Tried to deref-symlink nonbytes')});
+                  return {val: bufToInts(await derefSymlink(fpath))};}))
 
       , "dir-of": quote(dirBaseOf('dir'))
 
@@ -1655,7 +1667,9 @@ const
                                       , arg
                                         : strToInts
                                           ( path.dirname
-                                            (await realpath(srcPath.val)))
+                                            ( ( await
+                                                  derefSymlinkStr(srcPath.val)))
+                                          )
                                       , okThen: {arg, okThen: {fn: withPath}}}))
                                 : withPath})})}}))
 

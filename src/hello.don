@@ -1,6 +1,8 @@
 #!/usr/bin/env don
 
-(use 'use-testee.don )
+(use '../test )
+
+(print (deref-symlink 'src/don ))
 
 ("(unok (parse-prog-expr source-data )env )(use \'std-env.don|env ))
 
