@@ -11,7 +11,6 @@ const
   , _ = require('lodash')
   , weak = require('weak')
   , {blue, red, bold} = require('chalk')
-  //, {iterableIntoIterator} = require('list-parsing')
 
   , {parseStream: parser, parseIter, iterableIntoIterator}
     = require('./don-parse2.js');
@@ -49,7 +48,7 @@ const
 
 // Stuff
 
-exports = module.exports = {parseStream: parser, parseAsyncIterable: parseIter};
+exports.parseStream = parser;
 
 function Continue(cont, arg)
 { const
@@ -212,18 +211,6 @@ exports.makeCont = makeCont
 
 function makePair(first, last) {return mk(pairLabel, {first, last})}
 
-//function makeStrable(fn)
-//{ return (
-//    makeCont
-//    ( msg =>
-//      msg.type === pairLabel
-//      && msg.data.first === toStrSym
-//      && msg.data.last.type === pairLabel
-//      && msg.data.last.data.first.type === contLabel
-//      && msg.data.last.data.last.type === contLabel
-//      ? fn(msg.data.last.data.first, msg.data.last.data.last)
-//      : []))}
-
 function makeChannel()
 { let mode, queue = [];
   return [
@@ -324,16 +311,6 @@ function makeStream(rStream, cleanup)
               , weak(write, () => rStream.unpipe(writable))))
           , {val: write}])}))}
 
-function objToNs(o)
-{ return (
-    makeFun
-    ( identKey =>
-      ( { val
-          : isBytes(identKey)
-            ? (keyStr => o.hasOwnProperty(keyStr) ? ok(o[keyStr]) : nothing)
-              (strVal(identKey))
-            : nothing})))}
-
 function arrToObj(arr)
 { return (
     makeCont
@@ -344,7 +321,7 @@ function arrToObj(arr)
           index >= 0
           ? [{cont: arr[index][1], arg: msg.data.last}]
           : Null("Wrong message type"))
-        (_.findIndex(arr, p => eq(p[0], msg.data.first)))
+        (arr.findIndex(p => eq(p[0], msg.data.first)))
       : Null("Bad message:\n%s\n\n%s", inspect(msg), inspect(arr))))}
 
 function isList(val)
@@ -376,7 +353,6 @@ function isBytes(val)
     &&
       listToArr(val).every
       (elem => elem.type === intLabel && elem.data >= 0 && elem.data < 256))}
-exports.isBytes = isBytes;
 
 function intToStr(int)
 { if (int.type !== intLabel || int.data < 0 || int.data >= 256)
@@ -391,7 +367,6 @@ function strVal(list) {return bufVal(list).toString();}
 exports.strVal = strVal
 
 function bufToInts(buf) {return makeList([...buf].map(makeInt));}
-exports.bufToInts = bufToInts;
 
 function strToInts(str) {return bufToInts(Buffer.from(str));}
 exports.strToInts = strToInts;
@@ -435,31 +410,17 @@ function parseTreeToAST({t, d})
   return makeCall(delimitedVar, quote(delimitedTree(d)));}
 
 const intLabel = {label: 'int'};
-exports.intLabel = intLabel;
-
 const symLabel = {label: 'sym'};
-exports.symLabel = symLabel;
-
 const quoteLabel = {label: 'quote'};
-exports.quoteLabel = quoteLabel;
+const callLabel = {label: 'call'};
+const boolLabel = {label: 'bool'};
+const resultLabel = {label: 'result'};
+const contLabel = {label: 'cont'};
+const pairLabel = {label: 'pair'};
 
 const unit = mk({label: 'unit'});
 exports.unit = unit;
 
-const callLabel = {label: 'call'};
-exports.callLabel = callLabel;
-
-const boolLabel = {label: 'bool'};
-exports.boolLabel = boolLabel;
-
-const resultLabel = {label: 'result'};
-exports.resultLabel = resultLabel;
-
-const contLabel = {label: 'cont'};
-exports.contLabel = contLabel;
-
-const pairLabel = {label: 'pair'};
-exports.pairLabel = pairLabel;
 
 const toStrSym = gensym(strToInts('to-str-sym'));
 const applySym = gensym(strToInts('apply-sym'));
@@ -472,14 +433,11 @@ const
 
 const delimitedVarSym = gensym(strToInts('delimited-var'));
 const delimitedVar = makeIdent(delimitedVarSym);
-exports.delimitedVar = delimitedVar;
 
 const srcPathVarSym = gensym(strToInts('src-path-var'));
 const srcPathVar = makeIdent(srcPathVarSym);
-exports.srcPathVar = srcPathVar;
 
 const Null = (...args) => {throw new Error("Null: " + util.format(...args))};
-exports.Null = Null;
 
 const nullCont = makeCont(_.constant([]));
 exports.nullCont = nullCont;
@@ -503,9 +461,8 @@ const makeMapCall
             : makeFun
               ( arg =>
                 { let toReturn = nothing;
-                  _.forEach
-                  ( pairs
-                  , pair =>
+                  pairs.forEach
+                  ( pair =>
                     eq(arg, pair[0]) ? (toReturn = ok(pair[1]), false) : true);
                   return {val: toReturn}})})});
 
@@ -566,20 +523,6 @@ const
         ? [promiseWaitThread(write(arg)), {val: unit}]
         : {ok: false, val: strToInts('Tried to write nonbytes')})
     , () => file.end()));}
-
-//const
-//  indexToLineColumn
-//  = (index, string) =>
-//    { const arr = Array.from(string);
-//      let line = 0, col = 0, i = 0;
-//      while (++i < arr.length)
-//      { if (i === index)
-//          return {line0: line, col0: col, line1: ++line, col1: ++col};
-//        if (arr[i] === '\n') line++, col = 0;
-//        else col++}
-//      throw (
-//        new RangeError
-//        ("indexToLineColumn: index=" + index + " is out of bounds"))};
 
 const
   replacement = 65533 // Replacement character
@@ -718,7 +661,6 @@ const
             Promise.resolve(Continue(t.cont, t.arg)).then(topContinue)
             .then(res)))))
     .then(_.noop);
-exports.topContinue = topContinue;
 
 const
   bindRest
@@ -765,41 +707,41 @@ const
     (ok(quote(srcPath)));
 exports.bindRest = bindRest;
 
-const
-  delimL = [...Buffer.from('([{\\')]
-  , delimR = [...Buffer.from(')]}|')]
-  , byteName
-    = byte =>
-      delimL.includes(byte)
-      ? 'left'
-      : delimR.includes(byte)
-        ? 'right'
-        : byte === 59 ? 'semicolon' : byte === 96 ? 'backtick' : 'other'
-  , makeBacktick = () => makeInt(96);
-function escInIdent(intArr)
-{ let ticked = false, identStack = [[[]]], name;
-  const stackLog = () => log(identStack.map(o => o.map(o => o.map(intToStr))));
-  for (let int of intArr)
-    ( name = byteName(int.data)
-    , ticked
-      ? ( name === 'other'
-          ? _.last(_.last(identStack)).push(int)
-          : _.last(identStack).push([int])
-        , ticked = false)
-      : name === 'other'
-        ? _.last(_.last(identStack)).push(int)
-        : name === 'left'
-          ? identStack.push([[int]])
-          : identStack.length === 1
-            ? identStack[0].push([int])
-            : name === 'right'
-              ? _.last(identStack[identStack.length - 2]).push
-                (..._.flatten(identStack.pop()), int)
-              : /* name === 'backtick' || name === 'semicolon' */
-                (_.last(identStack).push([int]), ticked = name === 'backtick')
-    /*, stackLog()*/);
-  return (
-    _.reduce(_.flatten(identStack), (a, b) => [...a, makeBacktick(), ...b]))}
+//const
+//  delimL = Buffer.from('([{\\')
+//  , delimR = Buffer.from(')]}|')
+//  , byteName
+//    = byte =>
+//      delimL.includes(byte)
+//      ? 'left'
+//      : delimR.includes(byte)
+//        ? 'right'
+//        : byte === 59 ? 'semicolon' : byte === 96 ? 'backtick' : 'other'
+//  , makeBacktick = () => makeInt(96);
+//function escInIdent(intArr)
+//{ let ticked = false, identStack = [[[]]], name;
+//  const stackLog = () => log(identStack.map(o => o.map(o => o.map(intToStr))));
+//  for (let int of intArr)
+//    ( name = byteName(int.data)
+//    , ticked
+//      ? ( name === 'other'
+//          ? _.last(_.last(identStack)).push(int)
+//          : _.last(identStack).push([int])
+//        , ticked = false)
+//      : name === 'other'
+//        ? _.last(_.last(identStack)).push(int)
+//        : name === 'left'
+//          ? identStack.push([[int]])
+//          : identStack.length === 1
+//            ? identStack[0].push([int])
+//            : name === 'right'
+//              ? _.last(identStack[identStack.length - 2]).push
+//                (..._.flatten(identStack.pop()), int)
+//              : /* name === 'backtick' || name === 'semicolon' */
+//                (_.last(identStack).push([int]), ticked = name === 'backtick')
+//    /*, stackLog()*/);
+//  return (
+//    _.reduce(_.flatten(identStack), (a, b) => [...a, makeBacktick(), ...b]))}
 
 function toString(arg)
 { const {type: argLabel, data: argData} = arg;
@@ -856,7 +798,6 @@ function toString(arg)
           , strToInts(')')])
 
     : Null("->str unknown type:", inspect(arg)))}
-exports.toString = toString;
 
 const
   [lParen, rParen, lBracket, rBracket, lBrace, rBrace, backslash, pipe]
@@ -879,34 +820,6 @@ const
         , cleanup() {process.stdin.unpipe(toBytes)}}))
     (bufStream2byteStream());
 exports.stdin = stdin;
-
-//const
-//  stdout
-//  = ( (toWrite, writable, prmRes, nextPrmRes, prm, nextPrm, buf) =>
-//      { const
-//          getNextPrm = () => nextPrm = new Promise(res => nextPrmRes = res)
-//          , writeIt
-//            = buf =>
-//              { writable = false;
-//                prmRes = nextPrmRes, getNextPrm();
-//                process.stdout.write
-//                ( buf
-//                , () =>
-//                  { writable = true;
-//                    prmRes([]);
-//                    toWrite.length
-//                    && writeIt((o => o)(Buffer.from(toWrite), toWrite = []));})
-//              };
-//        getNextPrm();
-//        return (
-//          ints =>
-//          ( buf = bufVal(ints)
-//          , buf.length
-//            ? ( prm = nextPrm
-//              , writable ? writeIt(buf) : toWrite.push(...buf)
-//              , prm)
-//            : Promise.resolve()));})
-//    ([], true);
 
 const
   writeToStream
@@ -943,7 +856,7 @@ const
   promiseWaitThread
   = prm => ({cont: makeCont(() => prm.then(_.constant([]))), arg: unit});
 
-const wsNums = Array.from(' \t\n\r').map(o => o.codePointAt(0))
+const wsNums = Buffer.from(' \t\n\r')
 , delimitedListGen
   = function *(env, listFn)
     { let value, index = 0, exprs = [], commentLevel = 0, name, quoteLevel = 0;
@@ -1371,25 +1284,6 @@ const
               ? { ok: false
                 , val: strToInts("Codepoint out of bounds: " + cp + " ")}
               : {val: strToInts(String.fromCodePoint(cp))}))
-
-      //, "length"
-      //  : quote(fnOfType(listLabel, arg => ({val: makeInt(arg.length)})))
-        
-      //, "->list"
-      //  : quote
-      //    ( makeFun
-      //      ( arg =>
-      //        ( { val
-      //            : fnOfType
-      //              ( intLabel
-      //              , length =>
-      //                length < 0
-      //                ? { ok: false
-      //                  , val: strToInts("Lists must be nonnegative in length")
-      //                  }
-      //                : { fn: syncMap
-      //                  , arg: makeList(_.range(length).map(makeInt))
-      //                  , okThen: {fn: makeFun(fn => ({fn, arg}))}})})))
 
       , "flatten"
         : quote

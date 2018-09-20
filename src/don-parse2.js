@@ -1,7 +1,8 @@
+'use strict';
+
 const util = require('util');
 
 const _ = require('lodash');
-//, {asyncIterableIntoIterator, streamIntoIterator} = require('list-parsing');
 
 const
   inspect = o => util.inspect(o, {depth: null, colors: true})
@@ -50,7 +51,7 @@ const
     , s => s.codePointAt(0));
 
 Object.assign
-( module.exports
+( exports
 , { iterableIntoIterator
   , parseStream: str => streamIntoIterator(it()[Symbol.iterator](), str)
   , parseIter
@@ -103,7 +104,7 @@ function *it()
 
   if (n(yield, "shebang, whitespace, comment, or delimitation")) return e();
 
-  // shebang
+  // Shebang
   if (value === ascii.hash)
   { pushPos();
     if (n(yield, "`!")) return e();

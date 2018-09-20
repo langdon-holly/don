@@ -5,8 +5,7 @@
 // Dependencies
 
 const
-  fs = require('fs')
-  , util = require('util')
+  util = require('util')
   , {Readable} = require('stream')
 
   , program = require('commander')
