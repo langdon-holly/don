@@ -54,7 +54,7 @@ Object.assign
 ( exports
 , { iterableIntoIterator
   , parseStream: str => streamIntoIterator(it()[Symbol.iterator](), str)
-  , parseIter
+  , parseAsyncIter
     : async asyncIterable =>
       asyncIterableIntoIterator(it()[Symbol.iterator](), asyncIterable)});
 

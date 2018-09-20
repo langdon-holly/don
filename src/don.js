@@ -38,7 +38,7 @@ const
         , "standard input"]
   , error = e => console.error(don.strVal(e));
 
-don.parse(file, don.parseStream).then
+don.parse(file).then
 ( parsed =>
   { if (parsed.success)
       don.topApply

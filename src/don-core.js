@@ -12,7 +12,7 @@ const
   , weak = require('weak')
   , {blue, red, bold} = require('chalk')
 
-  , {parseStream: parser, parseIter, iterableIntoIterator}
+  , {parseStream, parseAsyncIter, iterableIntoIterator}
     = require('./don-parse2.js');
 
 // Utility
@@ -47,8 +47,6 @@ const
 //      , Promise.resolve(Array(arrIn.length)))
 
 // Stuff
-
-exports.parseStream = parser;
 
 function Continue(cont, arg)
 { const
@@ -571,79 +569,91 @@ const
   = async (stream, parseFn) =>
     { const parsed = await parseFn(stream);
 
-    switch (parsed.status)
-    { case 'match'
-      : return {success: true, ast: parseTreeToAST(parsed.result.tree)};
-      case 'eof'
-      : case 'doomed'
-      : const errAt = parsed.index;
-        if (errAt == 0)
+      switch (parsed.status)
+      { case 'match'
+        : if (parsed.result.tree.t !== 'delimited')
+            return (
+              { success: false
+              , error
+                : _.constant
+                  ( strToInts
+                    ("Unknown parse-tree type '" + parsed.result.tree.t))});
           return (
-            { success: false
-            , error: _.constant(strToInts("Error in the syntax"))});
-        else
-        { const {nest, lines, line, col, expect} = parsed.result;
-          let onNote = 0, color = blue;
-          return (
-            { success: false
-            , error
-              : filepath =>
-                listsConcat
-                ( [ strToInts
-                    ( (nest.length ? "Nested (outer first):" : "Not nested:")
-                      + "\n"
-                      + _.reduce
-                        ( [...nest, {line, col}]
-                        , (out, next) =>
-                          ( out.length && next.line === _.last(out).line
-                            ? _.last(out).cols.push(next.col)
-                            : out.push({line: next.line, cols: [next.col]})
-                          , out)
-                        , [])
-                        .map
-                        ( ({line, cols}) =>
-                          { const
-                              {codepoints: theLine, map: colCps}
-                              = decodeUtf8Indices(lines[line], cols);
-                            let print = ["", ""], idx = 0, str;
-                            for (let col of colCps)
-                              onNote++ === nest.length ? color = red : 0
-                              , print[0]
-                                +=
-                                  String.fromCodePoint
-                                  (...theLine.slice(idx, col))
-                                  + ( col < theLine.length
-                                    ? bold
-                                      ( color
-                                        (String.fromCodePoint(theLine[col])))
-                                    : "")
-                              , print[1]
-                                += " ".repeat(col - idx) + bold(color("^"))
-                              , idx = col + 1;
-                            print[0]
-                            += String.fromCodePoint(...theLine.slice(idx));
-                            return (
-                              " ┌Line "
-                              + (line + 1)
-                              + "; Column"
-                              + (colCps.length - 1 ? "s" : "")
-                              + " "
-                              + colCps.map(col => col + 1).join()
-                              + "\n │"
-                              + print[0]
-                              + "\n └"
-                              + print[1]
-                              + "\n")})
-                        .join(""))
-                  , ...
-                      parsed.status === 'eof'
-                      ? [ strToInts("Syntax error: unfinished program in ")
-                        , filepath]
-                      : [ strToInts("Syntax error at ")
-                        , filepath
-                        , strToInts(" " + (line + 1) + "," + (col + 1))]
-                  , strToInts("\n  Expected " + expect)])})}}};
-exports.parse = parseFile;
+            { success: true
+            , ast
+              : makeCall
+                (delimitedVar, quote(delimitedTree(parsed.result.tree.d)))});
+        case 'eof'
+        : case 'doomed'
+        : const errAt = parsed.index;
+          if (errAt == 0)
+            return (
+              { success: false
+              , error: _.constant(strToInts("Error in the syntax"))});
+          else
+          { const {nest, lines, line, col, expect} = parsed.result;
+            let onNote = 0, color = blue;
+            return (
+              { success: false
+              , error
+                : filepath =>
+                  listsConcat
+                  ( [ strToInts
+                      ( (nest.length ? "Nested (outer first):" : "Not nested:")
+                        + "\n"
+                        + _.reduce
+                          ( [...nest, {line, col}]
+                          , (out, next) =>
+                            ( out.length && next.line === _.last(out).line
+                              ? _.last(out).cols.push(next.col)
+                              : out.push({line: next.line, cols: [next.col]})
+                            , out)
+                          , [])
+                          .map
+                          ( ({line, cols}) =>
+                            { const
+                                {codepoints: theLine, map: colCps}
+                                = decodeUtf8Indices(lines[line], cols);
+                              let print = ["", ""], idx = 0, str;
+                              for (let col of colCps)
+                                onNote++ === nest.length ? color = red : 0
+                                , print[0]
+                                  +=
+                                    String.fromCodePoint
+                                    (...theLine.slice(idx, col))
+                                    + ( col < theLine.length
+                                      ? bold
+                                        ( color
+                                          (String.fromCodePoint(theLine[col])))
+                                      : "")
+                                , print[1]
+                                  += " ".repeat(col - idx) + bold(color("^"))
+                                , idx = col + 1;
+                              print[0]
+                              += String.fromCodePoint(...theLine.slice(idx));
+                              return (
+                                " ┌Line "
+                                + (line + 1)
+                                + "; Column"
+                                + (colCps.length - 1 ? "s" : "")
+                                + " "
+                                + colCps.map(col => col + 1).join()
+                                + "\n │"
+                                + print[0]
+                                + "\n └"
+                                + print[1]
+                                + "\n")})
+                          .join(""))
+                    , ...
+                        parsed.status === 'eof'
+                        ? [ strToInts("Syntax error: unfinished program in ")
+                          , filepath]
+                        : [ strToInts("Syntax error at ")
+                          , filepath
+                          , strToInts(" " + (line + 1) + "," + (col + 1))]
+                    , strToInts("\n  Expected " + expect)])})}}};
+
+exports.parse = file => parseFile(file, parseStream);
 
 const topApply = (fn, ...stuf) => topContinue([mCall(fn, applySym, ...stuf)]);
 exports.topApply = topApply;
@@ -1461,7 +1471,7 @@ const
             ( (...[arg,, onErr]) =>
               { const {rIter, execWait} = intStream2asyncIter(arg);
                 return (
-                  parseFile(rIter, parseIter).then
+                  parseFile(rIter, parseAsyncIter).then
                   ( parsed =>
                     [ promiseWaitThread(execWait())
                     , { val
@@ -1521,7 +1531,7 @@ const
                                     );
                                   const {file, cleanup} = readFile(buf);
                                   return (
-                                    parseFile(file, parser).then
+                                    parseFile(file, parseStream).then
                                     ( parsed =>
                                       parsed.success
                                       ? { fn
