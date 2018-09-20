@@ -31,7 +31,7 @@ const
     = hasFileArg
       ? [ don.readFile(Buffer.from(program.args[0]))
         , don.stdin()
-        , don.just(don.strToInts(program.args[0]))
+        , don.ok(don.strToInts(program.args[0]))
         , program.args[0]]
       : [ don.stdin()
         , {file: Readable({read() {this.push(null)}}), cleanup: () => 0}

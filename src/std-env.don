@@ -1,10 +1,10 @@
 (fn 'cell-val
-  " (fn 'label-just
+  " (fn 'label-ok
       " ( " { (fn 'this-env
                 " (fn 'new-env
                     " (fn 'var-key
                         " (fn 'expr?
-                            " ((justp expr? )
+                            " ((okp expr? )
                                 " expr?
                                 " (new-env var-key )
                                 env )
@@ -19,7 +19,7 @@
                                 " (unok parsed
                                     (fn 'var-key
                                       " (= var-key 'source-data
-                                          "(just (q str ))
+                                          "(ok (q str ))
                                           "(new-env var-key )
                                           env )))))
                           "(err (unerr parsed 'file ))
@@ -102,9 +102,9 @@
                                   "[]
                                   env ))
                           0 ))))}
-          (fn 'var-key "(= var-key 'label (q label-just )env var-key )))
+          (fn 'var-key "(= var-key 'label (q label-ok )env var-key )))
 
-      (just
+      (ok
         (fn 'dyn-env
           " (fn 'name
               " (fn 'body
@@ -114,7 +114,7 @@
                           (body
                             (fn 'var-key
                               " (= var-key name
-                                  "(just (q (cell-val cell )))
+                                  "(ok (q (cell-val cell )))
                                   "(dyn-env var-key )
                                   env ))))
                       make-channel ))))))

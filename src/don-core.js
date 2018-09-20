@@ -176,9 +176,6 @@ function quote(val) {return mk(quoteLabel, val)}
 function makeList(vals)
 {return _.reduceRight(vals, _.ary(_.flip(makePair), 2), unit)}
 
-function just(val) {return mk(maybeLabel, {is: true, val})}
-exports.just = just;
-
 function makeInt(Int) {return mk(intLabel, Int)}
 
 function gensym(debugId) {return mk(symLabel, {sym: debugId})}
@@ -193,9 +190,9 @@ function makeIdent(key)
           , okThen
             : { fn
                 : fnOfType
-                  ( maybeLabel
+                  ( resultLabel
                   , mExpr =>
-                    mExpr.is ? {fn: mExpr.val, arg} : unknownKeyThread(key))}}))
+                    mExpr.ok ? {fn: mExpr.val, arg} : unknownKeyThread(key))}}))
     , This
       = arrToObj
         ( [ [ applySym
@@ -205,9 +202,10 @@ function makeIdent(key)
 
 function makeBool(val) {return mk(boolLabel, val)}
 
-function okResult(val) {return mk(resultLabel, {ok: true, val})}
+function ok(val) {return mk(resultLabel, {ok: true, val})}
+exports.ok = ok;
 
-function errResult(val) {return mk(resultLabel, {ok: false, val})}
+function err(val) {return mk(resultLabel, {ok: false, val})}
 
 function makeCont(fn) {return mk(contLabel, fn)}
 exports.makeCont = makeCont
@@ -258,13 +256,16 @@ const
             , arg
               : makeCont
                 ( next =>
-                  next.type === maybeLabel
-                  ? next.data.is
-                    ? next.data.val.type === intLabel
-                      ? (res({value: next.data.val.data}), [])
-                      : Null("Streamt without integrity")
-                    : (res({done: true}), [])
-                  : Null("Stream argued with definition"))}];
+                  ( next.type === resultLabel
+                    ? next.data.ok
+                      ? next.data.val.type === intLabel
+                        ? res({value: next.data.val.data})
+                        : Null("Streamt without integrity")
+                      : next.data.val === unit
+                        ? res({done: true})
+                        : Null("Non-unitial stream err")
+                    : Null("Stream argued without result")
+                  , []))}];
       return (
         { rIter
           : ( async function*()
@@ -308,7 +309,7 @@ function makeStream(rStream, cleanup)
               ( { write(...[elem,, cb])
                   { const res = prmRes;
                     topContinue
-                    ([{cont: reader, arg: just(elem)}, handleThread(cb)])
+                    ([{cont: reader, arg: ok(elem)}, handleThread(cb)])
                     .then(res)}
                 , final(cb)
                   { const res = prmRes;
@@ -329,7 +330,7 @@ function objToNs(o)
     ( identKey =>
       ( { val
           : isBytes(identKey)
-            ? (keyStr => o.hasOwnProperty(keyStr) ? just(o[keyStr]) : nothing)
+            ? (keyStr => o.hasOwnProperty(keyStr) ? ok(o[keyStr]) : nothing)
               (strVal(identKey))
             : nothing})))}
 
@@ -410,10 +411,6 @@ function eq(val0, val1)
         val0.type === callLabel
         && eq(val0.data.fnExpr, val1.data.fnExpr)
         && eq(val0.data.argExr, val1.data.argExr)
-      ||
-        val0.type === maybeLabel
-        && val0.data.is === val1.data.is
-        && (!val0.data.is || eq(val0.data.val, val1.data.val))
       || val0.type === resultLabel
          && val0.data.ok === val1.data.ok
          && eq(val0.data.val, val1.data.val)
@@ -452,9 +449,6 @@ exports.unit = unit;
 const callLabel = {label: 'call'};
 exports.callLabel = callLabel;
 
-const maybeLabel = {label: 'maybe'};
-exports.maybeLabel = maybeLabel;
-
 const boolLabel = {label: 'bool'};
 exports.boolLabel = boolLabel;
 
@@ -490,7 +484,7 @@ exports.Null = Null;
 const nullCont = makeCont(_.constant([]));
 exports.nullCont = nullCont;
 
-const nothing = exports.nothing = mk(maybeLabel, {is: false});
+const nothing = exports.nothing = err(unit);
 
 const I = makeFun(val => ({val}));
 
@@ -512,9 +506,7 @@ const makeMapCall
                   _.forEach
                   ( pairs
                   , pair =>
-                    eq(arg, pair[0])
-                    ? (toReturn = just(pair[1]), false)
-                    : true);
+                    eq(arg, pair[0]) ? (toReturn = ok(pair[1]), false) : true);
                   return {val: toReturn}})})});
 
 const
@@ -740,7 +732,7 @@ const
             : { fn
                 : makeFun
                   ( theStdin =>
-                    ( justQuoteStdin =>
+                    ( okQuoteStdin =>
                       ( { fn
                           : makeStream
                             ( rest.file.pipe(byteStream2intStream())
@@ -749,7 +741,7 @@ const
                           : { fn
                               : makeFun
                                 ( theSourceData =>
-                                  ( justQuoteSourceData =>
+                                  ( okQuoteSourceData =>
                                     ( { val
                                         : makeFun
                                           ( fn =>
@@ -760,17 +752,17 @@ const
                                                     eq
                                                     ( arg
                                                     , strToInts('source-data'))
-                                                    ? {val: justQuoteSourceData}
+                                                    ? {val: okQuoteSourceData}
                                                     : eq
                                                       ( arg
                                                       , strToInts('stdin'))
-                                                      ? {val: justQuoteStdin}
+                                                      ? {val: okQuoteStdin}
                                                       : eq(arg, srcPathVarSym)
                                                         ? {val: sourcePath}
                                                         : {fn, arg})}))}))
-                                  (just(quote(theSourceData))))}}))
-              (just(quote(theStdin))))}})))
-    (just(quote(srcPath)));
+                                  (ok(quote(theSourceData))))}}))
+              (ok(quote(theStdin))))}})))
+    (ok(quote(srcPath)));
 exports.bindRest = bindRest;
 
 const
@@ -844,12 +836,6 @@ function toString(arg)
     : argLabel === symLabel
       ? listsConcat
         ([strToInts("(gensym "), toString(argData.sym), strToInts(")")])
-
-    : argLabel === maybeLabel
-      ? argData.is
-        ? listsConcat
-          ([strToInts("(just "), toString(argData.val), strToInts(")")])
-        : strToInts("nothing ")
 
     : argLabel === boolLabel
       ? argData ? strToInts("true ") : strToInts("false ")
@@ -1099,7 +1085,7 @@ const
                   if (value.data.first.data == 2) commentLevel--;
                   else
                   { if (value.data.last.type !== intLabel) return doomed();
-                    if (value.data.last.data == 59) ++commentLevel; //;
+                    if (value.data.last.data == 59) ++commentLevel; // ;
                     else if
                     (!wsNums.includes(value.data.last.data)) return doomed();}}
                 while (commentLevel);
@@ -1173,7 +1159,7 @@ const
 
       ? varKey === delimitedVarSym
         ? { val
-            : just
+            : ok
               ( makeFun
                 ( env =>
                   ( { val
@@ -1221,7 +1207,7 @@ const
             initEnvObj.hasOwnProperty(keyStr)
             ? initEnvObj[keyStr]
             : varKey !== unit && varKey.data.first.data === "'".codePointAt(0)
-              ? {val: just(quote(varKey.data.last))}
+              ? {val: ok(quote(varKey.data.last))}
 
             //        var varParts = maybeStr[1].split(':');
             //        if (varParts.length >= 2) {
@@ -1234,7 +1220,7 @@ const
             //                                valObj(strLabel, varParts[0])))}
 
               : /^(\-|\+)?[0-9]+$/.test(keyStr)
-                ? {val: just(quote(makeInt(parseInt(keyStr, 10))))}
+                ? {val: ok(quote(makeInt(parseInt(keyStr, 10))))}
 
                 : {val: nothing})
           (strVal(varKey))
@@ -1262,7 +1248,7 @@ const
                                         : makeFun
                                           ( varKey =>
                                             eq(paramKey, varKey)
-                                            ? {val: just(quote(arg))}
+                                            ? {val: ok(quote(arg))}
                                             : {fn: env, arg: varKey}
                                           )}))}))}))}))
 
@@ -1360,10 +1346,10 @@ const
                     val += byte - 0b10000000 << --cont * 6;
                     if (!cont)
                       return (
-                        {val: makePair(just(makeInt(val)), makeInt(idx + 1))});}
+                        {val: makePair(ok(makeInt(val)), makeInt(idx + 1))});}
                   else
                   { if (byte < 0b10000000)
-                      return {val: makePair(just(makeInt(byte)), makeInt(1))};
+                      return {val: makePair(ok(makeInt(byte)), makeInt(1))};
                     else if (byte < 0b11000000)
                       return {val: makePair(nothing, makeInt(1))};
                     else if (byte < 0b11100000)
@@ -1586,9 +1572,9 @@ const
                     [ promiseWaitThread(execWait())
                     , { val
                         : parsed.success
-                          ? okResult(parsed.ast)
-                          : errResult
-                            (makeFun(name => ({val: parsed.error(name)})))}]))})
+                          ? ok(parsed.ast)
+                          : err(makeFun(name => ({val: parsed.error(name)})))}])
+                )})
           )
 
       , "path-from-dir": quote(pathFromDir)
@@ -1619,9 +1605,12 @@ const
               , okThen
                 : { fn
                     : fnOfType
-                      ( maybeLabel
+                      ( resultLabel
                       , srcPath =>
-                        { if (srcPath.is && !isBytes(srcPath.val))
+                        { if (
+                            srcPath.ok
+                            ? !isBytes(srcPath.val)
+                            : srcPath.val !== unit)
                             return (
                               { ok: false
                               , val: strToInts('Non-maybe-bytes src-path')});
@@ -1651,7 +1640,7 @@ const
                                                       ( { read()
                                                           {this.push(null);}})
                                                   , cleanup: () => 0}
-                                              , srcPath: just(srcPath)})
+                                              , srcPath: ok(srcPath)})
                                         , okThen
                                           : { fn
                                               : makeFun
@@ -1660,7 +1649,7 @@ const
                                   );});
                           return (
                             { val
-                              : srcPath.is
+                              : srcPath.ok
                                 ? makeFun
                                   ( async arg =>
                                     ( { fn: pathFromDir
@@ -1701,24 +1690,9 @@ const
 
       , "delimited": makeFun(arg => ({fn: delimitedVar, arg}))
 
-      , "just": quote(makeFun(_.flow(just, val => ({val}))))
+      , "ok": quote(makeFun(_.flow(ok, val => ({val}))))
 
-      , "nothing": quote(nothing)
-
-      , "justp": quote(fnOfType(maybeLabel, arg => ({val: makeBool(arg.is)})))
-
-      , "unjust"
-        : quote
-          ( fnOfType
-            ( maybeLabel
-            , arg =>
-              arg.is
-              ? {val: arg.val}
-              : {ok: false, val: strToInts("Nothing was unjustified")}))
-
-      , "ok": quote(makeFun(_.flow(okResult, val => ({val}))))
-
-      , "err": quote(makeFun(_.flow(errResult, val => ({val}))))
+      , "err": quote(makeFun(_.flow(err, val => ({val}))))
 
       , "okp": quote(fnOfType(resultLabel, arg => ({val: makeBool(arg.ok)})))
 
@@ -1772,6 +1746,6 @@ const
                             : [])]])})))
 
       , "null": makeFun(() => [])}
-    , expr => ({val: just(expr)}));
+    , expr => ({val: ok(expr)}));
 
 Error.stackTraceLimit = Infinity;

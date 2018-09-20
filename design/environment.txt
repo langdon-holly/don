@@ -54,10 +54,6 @@ src-path
 ident-key-m 
 delimited-var-sym 
 delimited 
-(just o )
-nothing 
-(justp maybe )
-(unjust maybe )
 (ok o )
 (err o )
 (okp result )
