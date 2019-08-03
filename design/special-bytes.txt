@@ -3,20 +3,21 @@ Allowed special bytes:
 Byte        Status : Purpose
 ----        ----------------
 space, tab,
-  LF, CR      used : end name, optional separator
-`             used : byte escape
+  LF, CR      used : separator
+`           unused
 ~           unused
 @           unused
 #           unused : shebang
 $           unused
-(             used : start delimiter (function call)
-)             used : end delimiter (function call)
-[             used : start delimiter (list)
-]             used : end delimiter (list)
-{             used : start delimiter (map)
-}             used : end delimiter (map)
-\             used : start identifier
-|             used : end identifier
+(             used : start delimiter
+)             used : end delimiter
+[           unused
+]           unused
+{             used : start identifier
+}             used : end identifier
+\             used : byte escape
+|             used : separator
 ;             used : comment
-"             used : quote
+:             used : macro, field selection, field creation
+"           unused
 ,           unused
