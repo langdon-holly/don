@@ -6,8 +6,7 @@ type DTypeTag int
 
 const (
 	UnitTypeTag = DTypeTag(iota)
-	DTypeTypeTag
-	ComTypeTag
+	GenComTypeTag
 	StructTypeTag
 )
 
@@ -18,21 +17,35 @@ type DType struct {
 	Extra interface{}
 }
 
-var (
-	UnitType  = DType{UnitTypeTag, nil}
-	DTypeType = DType{DTypeTypeTag, nil}
-)
+var UnitType = DType{UnitTypeTag, nil}
 
 func makeStructType(fields map[string]DType) DType {
 	return DType{StructTypeTag, fields}
 }
 
-func makeComType(inputType, outputType DType) DType {
-	return DType{ComTypeTag, [2]DType{inputType, outputType}}
+func makeGenComType(inputType, outputType DType) DType {
+	return DType{GenComTypeTag, [2]DType{inputType, outputType}}
 }
 
 var BoolTypeFields map[string]DType = make(map[string]DType, 2)
 var BoolType DType = makeStructType(BoolTypeFields)
+
+func writeBool(output interface{}, val bool) {
+	if val {
+		output.(map[string]interface{})["true"].(chan<- Unit) <- Unit{}
+	} else {
+		output.(map[string]interface{})["false"].(chan<- Unit) <- Unit{}
+	}
+}
+
+func readBool(input interface{}) bool {
+	select {
+	case <-input.(map[string]interface{})["true"].(<-chan Unit):
+		return true
+	case <-input.(map[string]interface{})["false"].(<-chan Unit):
+		return false
+	}
+}
 
 func makeIOChans(theType DType) (input, output interface{}) {
 	switch theType.Tag {
@@ -40,14 +53,10 @@ func makeIOChans(theType DType) (input, output interface{}) {
 		theChan := make(chan Unit, 1)
 		input = (<-chan Unit)(theChan)
 		output = chan<- Unit(theChan)
-	case DTypeTypeTag:
-		theChan := make(chan DType, 1)
-		input = (<-chan DType)(theChan)
-		output = chan<- DType(theChan)
-	case ComTypeTag:
-		theChan := make(chan Com, 1)
-		input = (<-chan Com)(theChan)
-		output = chan<- Com(theChan)
+	case GenComTypeTag:
+		theChan := make(chan GenCom, 1)
+		input = (<-chan GenCom)(theChan)
+		output = chan<- GenCom(theChan)
 	case StructTypeTag:
 		inputMap := make(map[string]interface{})
 		outputMap := make(map[string]interface{})
@@ -60,47 +69,44 @@ func makeIOChans(theType DType) (input, output interface{}) {
 	return
 }
 
-type ComTag int
+type GenCom func(inputType DType) Com
 
-const (
-	AndComTag = ComTag(iota)
-	MergeComTag
-	SplitComTag
-	ChooseComTag
-	ConstComTag
-	IComTag
-	SelectComTag
-	UnselectComTag
-	CompositeComTag
-)
-
-type Com struct {
-	Tag   ComTag
-	Extra interface{}
+type Com interface {
+	Run(input interface{}, output interface{}, quit <-chan struct{})
+	InputType() DType
+	OutputType() DType
 }
+
+type AndCom struct{}
+type MergeCom DType
+type SplitCom DType
+type ChooseCom struct{}
 
 type ConstVal struct {
 	P   bool
 	Val interface{}
 }
 
-type ConstComExtra struct {
+type ConstCom struct {
 	Type DType
 	Val  interface{}
 }
 
-type SelectExtra struct {
+type ICom DType
+type SinkCom DType
+
+type SelectCom struct {
 	Fields    map[string]DType
 	FieldName string
 }
 
-type UnselectExtra struct {
+type DeselectCom struct {
 	FieldName string
 	FieldType DType
 }
 
 type CompositeComChanSourceN struct {
-	Units, Types, Coms int
+	Units, GenComs int
 }
 
 type CompositeComEntry struct {
@@ -110,12 +116,12 @@ type CompositeComEntry struct {
 
 // Inner chans must be mapped before outer chans
 // One (1) chan per input
-type CompositeComExtra struct {
+type CompositeCom struct {
 	InputChanN  CompositeComChanSourceN
 	OutputChanN CompositeComChanSourceN
 	InnerChanN  CompositeComChanSourceN
 
-	InputType, OutputType DType
+	TheInputType, TheOutputType DType
 
 	InputMap  interface{}
 	OutputMap interface{}
@@ -132,142 +138,111 @@ var chooseComInputType DType = makeStructType(chooseComInputTypeFields)
 var chooseComOutputTypeFields map[string]DType = make(map[string]DType, 2)
 var chooseComOutputType DType = makeStructType(chooseComOutputTypeFields)
 
-var (
-	AndCom    = Com{AndComTag, nil}
-	ChooseCom = Com{ChooseComTag, nil}
-)
-
-func (com Com) InputType() DType {
-	switch com.Tag {
-	case AndComTag:
-		return andComInputType
-	case MergeComTag:
-		theType := com.Extra.(DType)
-		inputTypeExtra := make(map[string]DType, 2)
-		inputTypeExtra["a"] = theType
-		inputTypeExtra["b"] = theType
-		return DType{StructTypeTag, inputTypeExtra}
-	case SplitComTag:
-		return com.Extra.(DType)
-	case ChooseComTag:
-		return chooseComInputType
-	case ConstComTag:
-		return UnitType
-	case IComTag:
-		return com.Extra.(DType)
-	case SelectComTag:
-		return makeStructType(com.Extra.(SelectExtra).Fields)
-	case UnselectComTag:
-		return com.Extra.(UnselectExtra).FieldType
-	case CompositeComTag:
-		return com.Extra.(CompositeComExtra).InputType
-	default:
-		panic("Unreachable")
-	}
+func (com AndCom) InputType() DType {
+	return andComInputType
+}
+func (com MergeCom) InputType() DType {
+	theType := DType(com)
+	fields := make(map[string]DType, 2)
+	fields["a"] = theType
+	fields["b"] = theType
+	return DType{StructTypeTag, fields}
+}
+func (com SplitCom) InputType() DType {
+	return DType(com)
+}
+func (com ChooseCom) InputType() DType {
+	return chooseComInputType
+}
+func (com ConstCom) InputType() DType {
+	return UnitType
+}
+func (com ICom) InputType() DType {
+	return DType(com)
+}
+func (com SinkCom) InputType() DType {
+	return DType(com)
+}
+func (com SelectCom) InputType() DType {
+	return makeStructType(com.Fields)
+}
+func (com DeselectCom) InputType() DType {
+	return com.FieldType
+}
+func (com CompositeCom) InputType() DType {
+	return com.TheInputType
 }
 
-func (com Com) OutputType() DType {
-	switch com.Tag {
-	case AndComTag:
-		return BoolType
-	case MergeComTag:
-		return com.Extra.(DType)
-	case SplitComTag:
-		theType := com.Extra.(DType)
-		outputTypeExtra := make(map[string]DType, 2)
-		outputTypeExtra["a"] = theType
-		outputTypeExtra["b"] = theType
-		return DType{StructTypeTag, outputTypeExtra}
-	case ChooseComTag:
-		return chooseComOutputType
-	case ConstComTag:
-		return com.Extra.(ConstComExtra).Type
-	case IComTag:
-		return com.Extra.(DType)
-	case SelectComTag:
-		extra := com.Extra.(SelectExtra)
-		return extra.Fields[extra.FieldName]
-	case UnselectComTag:
-		extra := com.Extra.(UnselectExtra)
-		fields := make(map[string]DType, 1)
-		fields[extra.FieldName] = extra.FieldType
-		return makeStructType(fields)
-	case CompositeComTag:
-		return com.Extra.(CompositeComExtra).InputType
-	default:
-		panic("Unreachable")
-	}
+func (com AndCom) OutputType() DType {
+	return BoolType
+}
+func (com MergeCom) OutputType() DType {
+	return DType(com)
+}
+func (com SplitCom) OutputType() DType {
+	theType := DType(com)
+	fields := make(map[string]DType, 2)
+	fields["a"] = theType
+	fields["b"] = theType
+	return DType{StructTypeTag, fields}
+}
+func (com ChooseCom) OutputType() DType {
+	return chooseComOutputType
+}
+func (com ConstCom) OutputType() DType {
+	return com.Type
+}
+func (com ICom) OutputType() DType {
+	return DType(com)
+}
+func (com SinkCom) OutputType() DType {
+	return makeStructType(make(map[string]DType, 0))
+}
+func (com SelectCom) OutputType() DType {
+	return com.Fields[com.FieldName]
+}
+func (com DeselectCom) OutputType() DType {
+	fields := make(map[string]DType, 1)
+	fields[com.FieldName] = com.FieldType
+	return makeStructType(fields)
+}
+func (com CompositeCom) OutputType() DType {
+	return com.TheOutputType
 }
 
-func (com Com) Run(input interface{}, output interface{}, quit <-chan struct{}) {
-	switch com.Tag {
-	case AndComTag:
-		i := input.(map[string]interface{})
-		a := i["a"].(map[string]interface{})
-		b := i["b"].(map[string]interface{})
-		aTrue := a["true"].(<-chan Unit)
-		aFalse := a["false"].(<-chan Unit)
-		bTrue := b["true"].(<-chan Unit)
-		bFalse := b["false"].(<-chan Unit)
+// Each chan (except quit) corresponds to exactly one input
+func (com AndCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
+	i := input.(map[string]interface{})
+	a := i["a"].(map[string]interface{})
+	b := i["b"].(map[string]interface{})
+	aTrue := a["true"].(<-chan Unit)
+	aFalse := a["false"].(<-chan Unit)
+	bTrue := b["true"].(<-chan Unit)
+	bFalse := b["false"].(<-chan Unit)
 
-		o := output.(map[string]interface{})
-		oTrue := o["true"].(chan<- Unit)
-		oFalse := o["false"].(chan<- Unit)
+	o := output.(map[string]interface{})
+	oTrue := o["true"].(chan<- Unit)
+	oFalse := o["false"].(chan<- Unit)
 
-		runAnd(aTrue, aFalse, bTrue, bFalse, oTrue, oFalse, quit)
-	case MergeComTag:
-		inputStruct := input.(map[string]interface{})
-		runMerge(com.Extra.(DType), inputStruct["a"], inputStruct["b"], output, quit)
-	case SplitComTag:
-		outputStruct := output.(map[string]interface{})
-		runSplit(com.Extra.(DType), input, outputStruct["a"], outputStruct["b"], quit)
-	case ChooseComTag:
-		i := input.(map[string]interface{})
-		iA := i["a"].(<-chan Unit)
-		iB := i["b"].(<-chan Unit)
-		ready := i["ready"].(<-chan Unit)
-
-		o := output.(map[string]interface{})
-		oA := o["a"].(chan<- Unit)
-		oB := o["b"].(chan<- Unit)
-
-		runChoose(iA, iB, ready, oA, oB, quit)
-	case ConstComTag:
-		extra := com.Extra.(ConstComExtra)
-		runConst(extra.Type, extra.Val, input.(<-chan Unit), output, quit)
-	case IComTag:
-		runI(com.Extra.(DType), input, output, quit)
-	case SelectComTag:
-		extra := com.Extra.(SelectExtra)
-		runI(extra.Fields[extra.FieldName], input.(map[string]interface{})[extra.FieldName], output, quit)
-	case UnselectComTag:
-		extra := com.Extra.(UnselectExtra)
-		runI(extra.FieldType, input, output.(map[string]interface{})[extra.FieldName], quit)
-	case CompositeComTag:
-		runComposite(com.Extra.(CompositeComExtra), input, output, quit)
-	}
-}
-
-func runAnd(aTrue, aFalse, bTrue, bFalse <-chan Unit, oTrue, oFalse chan<- Unit, quit <-chan struct{}) {
-	var a, b bool
+	var aVal, bVal bool
 	for {
 		select {
 		case <-aTrue:
-			a = true
+			aVal = true
 		case <-aFalse:
-			a = false
+			aVal = false
 		case <-quit:
 			return
 		}
 		select {
 		case <-bTrue:
-			b = true
+			bVal = true
 		case <-bFalse:
-			b = false
+			bVal = false
 		case <-quit:
 			return
 		}
-		if a && b {
+		if aVal && bVal {
 			oTrue <- Unit{}
 		} else {
 			oFalse <- Unit{}
@@ -290,22 +265,9 @@ func runMerge(theType DType, inputA, inputB interface{}, output interface{}, qui
 				return
 			}
 		}
-	case DTypeTypeTag:
-		a, b := inputA.(<-chan DType), inputB.(<-chan DType)
-		o := output.(chan<- DType)
-		for {
-			select {
-			case v := <-a:
-				o <- v
-			case v := <-b:
-				o <- v
-			case <-quit:
-				return
-			}
-		}
-	case ComTypeTag:
-		a, b := inputA.(<-chan Com), inputB.(<-chan Com)
-		o := output.(chan<- Com)
+	case GenComTypeTag:
+		a, b := inputA.(<-chan GenCom), inputB.(<-chan GenCom)
+		o := output.(chan<- GenCom)
 		for {
 			select {
 			case v := <-a:
@@ -325,8 +287,9 @@ func runMerge(theType DType, inputA, inputB interface{}, output interface{}, qui
 	}
 }
 
-func merge(theType DType) Com {
-	return Com{MergeComTag, theType}
+func (com MergeCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
+	inputStruct := input.(map[string]interface{})
+	runMerge(DType(com), inputStruct["a"], inputStruct["b"], output, quit)
 }
 
 func runSplit(theType DType, input interface{}, outputA, outputB interface{}, quit <-chan struct{}) {
@@ -343,21 +306,9 @@ func runSplit(theType DType, input interface{}, outputA, outputB interface{}, qu
 				return
 			}
 		}
-	case DTypeTypeTag:
-		i := input.(<-chan DType)
-		a, b := outputA.(chan<- DType), outputB.(chan<- DType)
-		for {
-			select {
-			case v := <-i:
-				a <- v
-				b <- v
-			case <-quit:
-				return
-			}
-		}
-	case ComTypeTag:
-		i := input.(<-chan Com)
-		a, b := outputA.(chan<- Com), outputB.(chan<- Com)
+	case GenComTypeTag:
+		i := input.(<-chan GenCom)
+		a, b := outputA.(chan<- GenCom), outputB.(chan<- GenCom)
 		for {
 			select {
 			case v := <-i:
@@ -376,11 +327,21 @@ func runSplit(theType DType, input interface{}, outputA, outputB interface{}, qu
 	}
 }
 
-func split(theType DType) Com {
-	return Com{SplitComTag, theType}
+func (com SplitCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
+	outputStruct := output.(map[string]interface{})
+	runSplit(DType(com), input, outputStruct["a"], outputStruct["b"], quit)
 }
 
-func runChoose(iA, iB, ready <-chan Unit, oA, oB chan<- Unit, quit <-chan struct{}) {
+func (com ChooseCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
+	i := input.(map[string]interface{})
+	iA := i["a"].(<-chan Unit)
+	iB := i["b"].(<-chan Unit)
+	ready := i["ready"].(<-chan Unit)
+
+	o := output.(map[string]interface{})
+	oA := o["a"].(chan<- Unit)
+	oB := o["b"].(chan<- Unit)
+
 	for {
 		select {
 		case <-ready:
@@ -398,29 +359,155 @@ func runChoose(iA, iB, ready <-chan Unit, oA, oB chan<- Unit, quit <-chan struct
 	}
 }
 
+type constGenComEntry struct {
+	Chan chan<- GenCom
+	Val  GenCom
+}
+
+func putConstEntries(units *[]chan<- Unit, genComs *[]constGenComEntry, theType DType, val interface{}, output interface{}) {
+	switch theType.Tag {
+	case UnitTypeTag:
+		constVal := val.(ConstVal)
+		if constVal.P {
+			*units = append(*units, output.(chan<- Unit))
+		}
+	case GenComTypeTag:
+		constVal := val.(ConstVal)
+		if constVal.P {
+			*genComs = append(*genComs, constGenComEntry{output.(chan<- GenCom), constVal.Val.(GenCom)})
+		}
+	case StructTypeTag:
+		for fieldName, fieldType := range theType.Extra.(map[string]DType) {
+			putConstEntries(units, genComs, fieldType, val.(map[string]interface{})[fieldName], output.(map[string]interface{})[fieldName])
+		}
+	}
+}
+
+func (com ConstCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
+	i := input.(<-chan Unit)
+
+	var units []chan<- Unit
+	var genComs []constGenComEntry
+
+	putConstEntries(&units, &genComs, com.Type, com.Val, output)
+
+	for {
+		select {
+		case <-i:
+			for _, entry := range units {
+				entry <- Unit{}
+			}
+			for _, entry := range genComs {
+				entry.Chan <- entry.Val
+			}
+		case <-quit:
+			return
+		}
+	}
+}
+
+func runI(theType DType, input interface{}, output interface{}, quit <-chan struct{}) {
+	switch theType.Tag {
+	case UnitTypeTag:
+		i := input.(<-chan Unit)
+		o := output.(chan<- Unit)
+		for {
+			select {
+			case <-i:
+				o <- Unit{}
+			case <-quit:
+				return
+			}
+		}
+	case GenComTypeTag:
+		i := input.(<-chan GenCom)
+		o := output.(chan<- GenCom)
+		for {
+			select {
+			case v := <-i:
+				o <- v
+			case <-quit:
+				return
+			}
+		}
+	case StructTypeTag:
+		i := input.(map[string]interface{})
+		o := output.(map[string]interface{})
+		for fieldName, fieldType := range theType.Extra.(map[string]DType) {
+			go runI(fieldType, i[fieldName], o[fieldName], quit)
+		}
+	}
+}
+
+func (com ICom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
+	runI(DType(com), input, output, quit)
+}
+
+func runSink(theType DType, input interface{}, quit <-chan struct{}) {
+	switch theType.Tag {
+	case UnitTypeTag:
+		i := input.(<-chan Unit)
+		for {
+			select {
+			case <-i:
+			case <-quit:
+				return
+			}
+		}
+	case GenComTypeTag:
+		i := input.(<-chan GenCom)
+		for {
+			select {
+			case <-i:
+			case <-quit:
+				return
+			}
+		}
+	case StructTypeTag:
+		i := input.(map[string]interface{})
+		for fieldName, fieldType := range theType.Extra.(map[string]DType) {
+			go runSink(fieldType, i[fieldName], quit)
+		}
+	}
+}
+
+func (com SinkCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
+	runSink(DType(com), input, quit)
+}
+
+func (com SelectCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
+	i := input.(map[string]interface{})
+	for fieldName, fieldType := range com.Fields {
+		if fieldName == com.FieldName {
+			go runI(fieldType, i[fieldName], output, quit)
+		} else {
+			go runSink(fieldType, i[fieldName], quit)
+		}
+	}
+}
+func (com DeselectCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
+	runI(com.FieldType, input, output.(map[string]interface{})[com.FieldName], quit)
+}
+
 type inputChanSource struct {
-	Units []<-chan Unit
-	Types []<-chan DType
-	Coms  []<-chan Com
+	Units   []<-chan Unit
+	GenComs []<-chan GenCom
 }
 
 type outputChanSource struct {
-	Units []chan<- Unit
-	Types []chan<- DType
-	Coms  []chan<- Com
+	Units   []chan<- Unit
+	GenComs []chan<- GenCom
 }
 
 func makeInputChanSource(n CompositeComChanSourceN) (ret inputChanSource) {
 	ret.Units = make([]<-chan Unit, n.Units)
-	ret.Types = make([]<-chan DType, n.Types)
-	ret.Coms = make([]<-chan Com, n.Coms)
+	ret.GenComs = make([]<-chan GenCom, n.GenComs)
 	return
 }
 
 func makeOutputChanSource(n CompositeComChanSourceN) (ret outputChanSource) {
 	ret.Units = make([]chan<- Unit, n.Units)
-	ret.Types = make([]chan<- DType, n.Types)
-	ret.Coms = make([]chan<- Com, n.Coms)
+	ret.GenComs = make([]chan<- GenCom, n.GenComs)
 	return
 }
 
@@ -428,10 +515,8 @@ func putInputChans(dType DType, chanMap interface{}, input interface{}, chans in
 	switch dType.Tag {
 	case UnitTypeTag:
 		chans.Units[chanMap.(int)] = input.(<-chan Unit)
-	case DTypeTypeTag:
-		chans.Types[chanMap.(int)] = input.(<-chan DType)
-	case ComTypeTag:
-		chans.Coms[chanMap.(int)] = input.(<-chan Com)
+	case GenComTypeTag:
+		chans.GenComs[chanMap.(int)] = input.(<-chan GenCom)
 	case StructTypeTag:
 		for fieldName, fieldType := range dType.Extra.(map[string]DType) {
 			putInputChans(fieldType, chanMap.(map[string]interface{})[fieldName], input.(map[string]interface{})[fieldName], chans)
@@ -443,10 +528,8 @@ func putOutputChans(dType DType, chanMap interface{}, input interface{}, chans o
 	switch dType.Tag {
 	case UnitTypeTag:
 		chans.Units[chanMap.(int)] = input.(chan<- Unit)
-	case DTypeTypeTag:
-		chans.Types[chanMap.(int)] = input.(chan<- DType)
-	case ComTypeTag:
-		chans.Coms[chanMap.(int)] = input.(chan<- Com)
+	case GenComTypeTag:
+		chans.GenComs[chanMap.(int)] = input.(chan<- GenCom)
 	case StructTypeTag:
 		for fieldName, fieldType := range dType.Extra.(map[string]DType) {
 			putOutputChans(fieldType, chanMap.(map[string]interface{})[fieldName], input.(map[string]interface{})[fieldName], chans)
@@ -458,10 +541,8 @@ func getInput(dType DType, chanMap interface{}, chans inputChanSource) interface
 	switch dType.Tag {
 	case UnitTypeTag:
 		return chans.Units[chanMap.(int)]
-	case DTypeTypeTag:
-		return chans.Types[chanMap.(int)]
-	case ComTypeTag:
-		return chans.Coms[chanMap.(int)]
+	case GenComTypeTag:
+		return chans.GenComs[chanMap.(int)]
 	case StructTypeTag:
 		input := make(map[string]interface{})
 		for fieldName, fieldType := range dType.Extra.(map[string]DType) {
@@ -477,10 +558,8 @@ func getOutput(dType DType, chanMap interface{}, chans outputChanSource) interfa
 	switch dType.Tag {
 	case UnitTypeTag:
 		return chans.Units[chanMap.(int)]
-	case DTypeTypeTag:
-		return chans.Types[chanMap.(int)]
-	case ComTypeTag:
-		return chans.Coms[chanMap.(int)]
+	case GenComTypeTag:
+		return chans.GenComs[chanMap.(int)]
 	case StructTypeTag:
 		output := make(map[string]interface{})
 		for fieldName, fieldType := range dType.Extra.(map[string]DType) {
@@ -492,143 +571,25 @@ func getOutput(dType DType, chanMap interface{}, chans outputChanSource) interfa
 	}
 }
 
-type constDTypeEntry struct {
-	Chan chan<- DType
-	Val  DType
-}
+func (com CompositeCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
+	inChans := makeInputChanSource(com.InputChanN)
+	outChans := makeOutputChanSource(com.OutputChanN)
 
-type constComEntry struct {
-	Chan chan<- Com
-	Val  Com
-}
+	putInputChans(com.TheInputType, com.InputMap, input, inChans)
+	putOutputChans(com.TheOutputType, com.OutputMap, output, outChans)
 
-func putConstEntries(units *[]chan<- Unit, types *[]constDTypeEntry, coms *[]constComEntry, theType DType, val interface{}, output interface{}) {
-	switch theType.Tag {
-	case UnitTypeTag:
-		constVal := val.(ConstVal)
-		if constVal.P {
-			*units = append(*units, output.(chan<- Unit))
-		}
-	case DTypeTypeTag:
-		constVal := val.(ConstVal)
-		if constVal.P {
-			*types = append(*types, constDTypeEntry{output.(chan<- DType), constVal.Val.(DType)})
-		}
-	case ComTypeTag:
-		constVal := val.(ConstVal)
-		if constVal.P {
-			*coms = append(*coms, constComEntry{output.(chan<- Com), constVal.Val.(Com)})
-		}
-	case StructTypeTag:
-		for fieldName, fieldType := range theType.Extra.(map[string]DType) {
-			putConstEntries(units, types, coms, fieldType, val.(map[string]interface{})[fieldName], output.(map[string]interface{})[fieldName])
-		}
-	}
-}
-
-func runConst(theType DType, val interface{}, input <-chan Unit, output interface{}, quit <-chan struct{}) {
-	var units []chan<- Unit
-	var types []constDTypeEntry
-	var coms []constComEntry
-
-	putConstEntries(&units, &types, &coms, theType, val, output)
-
-	for {
-		select {
-		case <-input:
-			for _, entry := range units {
-				entry <- Unit{}
-			}
-			for _, entry := range types {
-				entry.Chan <- entry.Val
-			}
-			for _, entry := range coms {
-				entry.Chan <- entry.Val
-			}
-		case <-quit:
-			return
-		}
-	}
-}
-
-func makeConst(theType DType, val interface{}) Com {
-	return Com{ConstComTag, ConstComExtra{theType, val}}
-}
-
-func runI(theType DType, input interface{}, output interface{}, quit <-chan struct{}) {
-	switch theType.Tag {
-	case UnitTypeTag:
-		i := input.(<-chan Unit)
-		o := input.(chan<- Unit)
-		select {
-		case <-i:
-			o <- Unit{}
-		case <-quit:
-			return
-		}
-	case DTypeTypeTag:
-		i := input.(<-chan DType)
-		o := input.(chan<- DType)
-		select {
-		case v := <-i:
-			o <- v
-		case <-quit:
-			return
-		}
-	case ComTypeTag:
-		i := input.(<-chan Com)
-		o := input.(chan<- Com)
-		select {
-		case v := <-i:
-			o <- v
-		case <-quit:
-			return
-		}
-	case StructTypeTag:
-		i := input.(map[string]interface{})
-		o := output.(map[string]interface{})
-		for fieldName, fieldType := range theType.Extra.(map[string]DType) {
-			go runI(fieldType, i[fieldName], o[fieldName], quit)
-		}
-	}
-}
-
-func makeI(theType DType) Com {
-	return Com{IComTag, theType}
-}
-
-func makeSelect(fieldName string, fields map[string]DType) Com {
-	return Com{SelectComTag, SelectExtra{fields, fieldName}}
-}
-
-func makeUnselect(fieldName string, fieldType DType) Com {
-	return Com{UnselectComTag, UnselectExtra{fieldName, fieldType}}
-}
-
-func runComposite(extra CompositeComExtra, input interface{}, output interface{}, quit <-chan struct{}) {
-	inChans := makeInputChanSource(extra.InputChanN)
-	outChans := makeOutputChanSource(extra.OutputChanN)
-
-	putInputChans(extra.InputType, extra.InputMap, input, inChans)
-	putOutputChans(extra.OutputType, extra.OutputMap, output, outChans)
-
-	for i := 0; i < extra.InnerChanN.Units; i++ {
+	for i := 0; i < com.InnerChanN.Units; i++ {
 		theChan := make(chan Unit, 1)
 		inChans.Units[i] = (<-chan Unit)(theChan)
 		outChans.Units[i] = chan<- Unit(theChan)
 	}
-	for i := 0; i < extra.InnerChanN.Types; i++ {
-		theChan := make(chan DType, 1)
-		inChans.Types[i] = (<-chan DType)(theChan)
-		outChans.Types[i] = chan<- DType(theChan)
-	}
-	for i := 0; i < extra.InnerChanN.Coms; i++ {
-		theChan := make(chan Com, 1)
-		inChans.Coms[i] = (<-chan Com)(theChan)
-		outChans.Coms[i] = chan<- Com(theChan)
+	for i := 0; i < com.InnerChanN.GenComs; i++ {
+		theChan := make(chan GenCom, 1)
+		inChans.GenComs[i] = (<-chan GenCom)(theChan)
+		outChans.GenComs[i] = chan<- GenCom(theChan)
 	}
 
-	for _, comEntry := range extra.ComEntries {
+	for _, comEntry := range com.ComEntries {
 		input := getInput(comEntry.InputType(), comEntry.InputMap, inChans)
 		output := getOutput(comEntry.OutputType(), comEntry.OutputMap, outChans)
 		go comEntry.Run(input, output, quit)
@@ -641,14 +602,10 @@ func makeMaps(map0, map1 *interface{}, chanN *CompositeComChanSourceN, theType D
 		*map0 = chanN.Units
 		*map1 = chanN.Units
 		chanN.Units++
-	case DTypeTypeTag:
-		*map0 = chanN.Types
-		*map1 = chanN.Types
-		chanN.Types++
-	case ComTypeTag:
-		*map0 = chanN.Coms
-		*map1 = chanN.Coms
-		chanN.Coms++
+	case GenComTypeTag:
+		*map0 = chanN.GenComs
+		*map1 = chanN.GenComs
+		chanN.GenComs++
 	case StructTypeTag:
 		map0Val := make(map[string]interface{})
 		*map0 = map0Val
@@ -669,29 +626,27 @@ func makeMaps(map0, map1 *interface{}, chanN *CompositeComChanSourceN, theType D
 }
 
 // len(coms) > 0
-func pipe(coms []Com) Com {
-	var extra CompositeComExtra
+func pipe(coms []Com) (ret CompositeCom) {
+	ret.TheInputType = coms[0].InputType()
+	ret.TheOutputType = coms[len(coms)-1].OutputType()
 
-	extra.InputType = coms[0].InputType()
-	extra.OutputType = coms[len(coms)-1].OutputType()
-
-	extra.ComEntries = make([]CompositeComEntry, len(coms))
+	ret.ComEntries = make([]CompositeComEntry, len(coms))
 	for i, com := range coms {
-		extra.ComEntries[i].Com = com
+		ret.ComEntries[i].Com = com
 	}
 
-	for i := 0; i < len(extra.ComEntries)-1; i++ {
+	for i := 0; i < len(ret.ComEntries)-1; i++ {
 		//TODO: Check types
-		makeMaps(&extra.ComEntries[i].OutputMap, &extra.ComEntries[i+1].InputMap, &extra.InputChanN, extra.ComEntries[i].OutputType())
+		makeMaps(&ret.ComEntries[i].OutputMap, &ret.ComEntries[i+1].InputMap, &ret.InputChanN, ret.ComEntries[i].OutputType())
 	}
 
-	extra.OutputChanN = extra.InputChanN
-	extra.InnerChanN = extra.InputChanN
+	ret.OutputChanN = ret.InputChanN
+	ret.InnerChanN = ret.InputChanN
 
-	makeMaps(&extra.InputMap, &extra.ComEntries[0].InputMap, &extra.InputChanN, extra.InputType)
-	makeMaps(&extra.OutputMap, &extra.ComEntries[len(coms)-1].OutputMap, &extra.OutputChanN, extra.OutputType)
+	makeMaps(&ret.InputMap, &ret.ComEntries[0].InputMap, &ret.InputChanN, ret.TheInputType)
+	makeMaps(&ret.OutputMap, &ret.ComEntries[len(coms)-1].OutputMap, &ret.OutputChanN, ret.TheOutputType)
 
-	return Com{CompositeComTag, extra}
+	return
 }
 
 func main() {
@@ -708,7 +663,7 @@ func main() {
 	chooseComOutputTypeFields["a"] = UnitType
 	chooseComOutputTypeFields["b"] = UnitType
 
-	com := pipe([]Com{split(BoolType), AndCom})
+	com := pipe([]Com{ICom(BoolType), SplitCom(BoolType), AndCom{}})
 
 	inputI, inputO := makeIOChans(com.InputType())
 	outputI, outputO := makeIOChans(com.OutputType())
@@ -718,19 +673,12 @@ func main() {
 
 	go com.Run(inputI, outputO, quit)
 
-	inputO.(map[string]interface{})["true"].(chan<- Unit) <- Unit{}
-	select {
-	case <-outputI.(map[string]interface{})["true"].(<-chan Unit):
-		fmt.Println(true)
-	case <-outputI.(map[string]interface{})["false"].(<-chan Unit):
-		fmt.Println(false)
-	}
+	writeBool(inputO, true)
+	fmt.Println(readBool(outputI))
 
-	inputO.(map[string]interface{})["false"].(chan<- Unit) <- Unit{}
-	select {
-	case <-outputI.(map[string]interface{})["true"].(<-chan Unit):
-		fmt.Println(true)
-	case <-outputI.(map[string]interface{})["false"].(<-chan Unit):
-		fmt.Println(false)
-	}
+	writeBool(inputO, true)
+	fmt.Println(readBool(outputI))
+
+	writeBool(inputO, false)
+	fmt.Println(readBool(outputI))
 }
