@@ -26,7 +26,10 @@ type String string
 
 type Lol [][]Syntax
 
-type MCall struct{ Macro, Arg Syntax }
+type MCall struct {
+	Macro Syntax /* String or MCall */
+	Arg   Syntax /* String or Lol */
+}
 
 type QuotedCom GenCom
 
