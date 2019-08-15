@@ -6,17 +6,38 @@ type DTypeTag int
 
 const (
 	UnitTypeTag = DTypeTag(iota)
-	StringTypeTag
-	LoLTypeTag
+	SyntaxTypeTag
 	GenComTypeTag
 	StructTypeTag
 )
 
 type Unit struct{}
 
+type SyntaxTag int
+
+const (
+	StringSyntaxTag = SyntaxTag(iota)
+	LolSyntaxTag
+	MCallSyntaxTag
+	QuotedComSyntaxTag
+)
+
 type String string
 
-type LoL [][]interface{}
+type Lol [][]Syntax
+
+type MCall struct{ Macro, Arg Syntax }
+
+type QuotedCom GenCom
+
+type Syntax struct {
+	Tag   SyntaxTag
+	Extra interface{}
+}
+
+type GenCom func(inputType DType) Com
+
+type Struct map[string]interface{}
 
 type DType struct {
 	Tag   DTypeTag
@@ -25,16 +46,12 @@ type DType struct {
 
 var UnitType = DType{UnitTypeTag, nil}
 
-var StringType = DType{StringTypeTag, nil}
+var SyntaxType = DType{SyntaxTypeTag, nil}
 
-var LoLType = DType{LoLTypeTag, nil}
+var GenComType = DType{GenComTypeTag, nil}
 
 func makeStructType(fields map[string]DType) DType {
 	return DType{StructTypeTag, fields}
-}
-
-func makeGenComType(inputType, outputType DType) DType {
-	return DType{GenComTypeTag, [2]DType{inputType, outputType}}
 }
 
 var BoolTypeFields map[string]DType = make(map[string]DType, 2)
@@ -42,17 +59,17 @@ var BoolType DType = makeStructType(BoolTypeFields)
 
 func writeBool(output interface{}, val bool) {
 	if val {
-		output.(map[string]interface{})["true"].(chan<- Unit) <- Unit{}
+		output.(Struct)["true"].(chan<- Unit) <- Unit{}
 	} else {
-		output.(map[string]interface{})["false"].(chan<- Unit) <- Unit{}
+		output.(Struct)["false"].(chan<- Unit) <- Unit{}
 	}
 }
 
 func readBool(input interface{}) bool {
 	select {
-	case <-input.(map[string]interface{})["true"].(<-chan Unit):
+	case <-input.(Struct)["true"].(<-chan Unit):
 		return true
-	case <-input.(map[string]interface{})["false"].(<-chan Unit):
+	case <-input.(Struct)["false"].(<-chan Unit):
 		return false
 	}
 }
@@ -63,21 +80,17 @@ func makeIOChans(theType DType) (input, output interface{}) {
 		theChan := make(chan Unit, 1)
 		input = (<-chan Unit)(theChan)
 		output = chan<- Unit(theChan)
-	case StringTypeTag:
-		theChan := make(chan String, 1)
-		input = (<-chan String)(theChan)
-		output = chan<- String(theChan)
-	case LoLTypeTag:
-		theChan := make(chan LoL, 1)
-		input = (<-chan LoL)(theChan)
-		output = chan<- LoL(theChan)
+	case SyntaxTypeTag:
+		theChan := make(chan Syntax, 1)
+		input = (<-chan Syntax)(theChan)
+		output = chan<- Syntax(theChan)
 	case GenComTypeTag:
 		theChan := make(chan GenCom, 1)
 		input = (<-chan GenCom)(theChan)
 		output = chan<- GenCom(theChan)
 	case StructTypeTag:
-		inputMap := make(map[string]interface{})
-		outputMap := make(map[string]interface{})
+		inputMap := make(Struct)
+		outputMap := make(Struct)
 		input = inputMap
 		output = outputMap
 		for fieldName, fieldType := range theType.Extra.(map[string]DType) {
@@ -86,8 +99,6 @@ func makeIOChans(theType DType) (input, output interface{}) {
 	}
 	return
 }
-
-type GenCom func(inputType DType) Com
 
 type Com interface {
 	Run(input interface{}, output interface{}, quit <-chan struct{})
@@ -124,7 +135,7 @@ type DeselectCom struct {
 }
 
 type CompositeComChanSourceN struct {
-	Units, Strings, LoLs, GenComs int
+	Units, Syntaxen, GenComs int
 }
 
 type CompositeComEntry struct {
@@ -230,15 +241,15 @@ func (com CompositeCom) OutputType() DType {
 
 // Each chan (except quit) corresponds to exactly one input
 func (com AndCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
-	i := input.(map[string]interface{})
-	a := i["a"].(map[string]interface{})
-	b := i["b"].(map[string]interface{})
+	i := input.(Struct)
+	a := i["a"].(Struct)
+	b := i["b"].(Struct)
 	aTrue := a["true"].(<-chan Unit)
 	aFalse := a["false"].(<-chan Unit)
 	bTrue := b["true"].(<-chan Unit)
 	bFalse := b["false"].(<-chan Unit)
 
-	o := output.(map[string]interface{})
+	o := output.(Struct)
 	oTrue := o["true"].(chan<- Unit)
 	oFalse := o["false"].(chan<- Unit)
 
@@ -283,22 +294,9 @@ func runMerge(theType DType, inputA, inputB interface{}, output interface{}, qui
 				return
 			}
 		}
-	case StringTypeTag:
-		a, b := inputA.(<-chan String), inputB.(<-chan String)
-		o := output.(chan<- String)
-		for {
-			select {
-			case v := <-a:
-				o <- v
-			case v := <-b:
-				o <- v
-			case <-quit:
-				return
-			}
-		}
-	case LoLTypeTag:
-		a, b := inputA.(<-chan LoL), inputB.(<-chan LoL)
-		o := output.(chan<- LoL)
+	case SyntaxTypeTag:
+		a, b := inputA.(<-chan Syntax), inputB.(<-chan Syntax)
+		o := output.(chan<- Syntax)
 		for {
 			select {
 			case v := <-a:
@@ -323,8 +321,8 @@ func runMerge(theType DType, inputA, inputB interface{}, output interface{}, qui
 			}
 		}
 	case StructTypeTag:
-		a, b := inputA.(map[string]interface{}), inputB.(map[string]interface{})
-		o := output.(map[string]interface{})
+		a, b := inputA.(Struct), inputB.(Struct)
+		o := output.(Struct)
 		for fieldName, fieldType := range theType.Extra.(map[string]DType) {
 			go runMerge(fieldType, a[fieldName], b[fieldName], o[fieldName], quit)
 		}
@@ -332,7 +330,7 @@ func runMerge(theType DType, inputA, inputB interface{}, output interface{}, qui
 }
 
 func (com MergeCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
-	inputStruct := input.(map[string]interface{})
+	inputStruct := input.(Struct)
 	runMerge(DType(com), inputStruct["a"], inputStruct["b"], output, quit)
 }
 
@@ -350,21 +348,9 @@ func runSplit(theType DType, input interface{}, outputA, outputB interface{}, qu
 				return
 			}
 		}
-	case StringTypeTag:
-		i := input.(<-chan String)
-		a, b := outputA.(chan<- String), outputB.(chan<- String)
-		for {
-			select {
-			case v := <-i:
-				a <- v
-				b <- v
-			case <-quit:
-				return
-			}
-		}
-	case LoLTypeTag:
-		i := input.(<-chan LoL)
-		a, b := outputA.(chan<- LoL), outputB.(chan<- LoL)
+	case SyntaxTypeTag:
+		i := input.(<-chan Syntax)
+		a, b := outputA.(chan<- Syntax), outputB.(chan<- Syntax)
 		for {
 			select {
 			case v := <-i:
@@ -387,8 +373,8 @@ func runSplit(theType DType, input interface{}, outputA, outputB interface{}, qu
 			}
 		}
 	case StructTypeTag:
-		i := input.(map[string]interface{})
-		a, b := outputA.(map[string]interface{}), outputB.(map[string]interface{})
+		i := input.(Struct)
+		a, b := outputA.(Struct), outputB.(Struct)
 		for fieldName, fieldType := range theType.Extra.(map[string]DType) {
 			go runSplit(fieldType, i[fieldName], a[fieldName], b[fieldName], quit)
 		}
@@ -396,17 +382,17 @@ func runSplit(theType DType, input interface{}, outputA, outputB interface{}, qu
 }
 
 func (com SplitCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
-	outputStruct := output.(map[string]interface{})
+	outputStruct := output.(Struct)
 	runSplit(DType(com), input, outputStruct["a"], outputStruct["b"], quit)
 }
 
 func (com ChooseCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
-	i := input.(map[string]interface{})
+	i := input.(Struct)
 	iA := i["a"].(<-chan Unit)
 	iB := i["b"].(<-chan Unit)
 	ready := i["ready"].(<-chan Unit)
 
-	o := output.(map[string]interface{})
+	o := output.(Struct)
 	oA := o["a"].(chan<- Unit)
 	oB := o["b"].(chan<- Unit)
 
@@ -427,14 +413,9 @@ func (com ChooseCom) Run(input interface{}, output interface{}, quit <-chan stru
 	}
 }
 
-type constStringEntry struct {
-	Chan chan<- String
-	Val  String
-}
-
-type constLoLEntry struct {
-	Chan chan<- LoL
-	Val  LoL
+type constSyntaxEntry struct {
+	Chan chan<- Syntax
+	Val  Syntax
 }
 
 type constGenComEntry struct {
@@ -442,22 +423,17 @@ type constGenComEntry struct {
 	Val  GenCom
 }
 
-func putConstEntries(units *[]chan<- Unit, strings *[]constStringEntry, loLs *[]constLoLEntry, genComs *[]constGenComEntry, theType DType, val interface{}, output interface{}) {
+func putConstEntries(units *[]chan<- Unit, syntaxen *[]constSyntaxEntry, genComs *[]constGenComEntry, theType DType, val interface{}, output interface{}) {
 	switch theType.Tag {
 	case UnitTypeTag:
 		constVal := val.(ConstVal)
 		if constVal.P {
 			*units = append(*units, output.(chan<- Unit))
 		}
-	case StringTypeTag:
+	case SyntaxTypeTag:
 		constVal := val.(ConstVal)
 		if constVal.P {
-			*strings = append(*strings, constStringEntry{output.(chan<- String), constVal.Val.(String)})
-		}
-	case LoLTypeTag:
-		constVal := val.(ConstVal)
-		if constVal.P {
-			*loLs = append(*loLs, constLoLEntry{output.(chan<- LoL), constVal.Val.(LoL)})
+			*syntaxen = append(*syntaxen, constSyntaxEntry{output.(chan<- Syntax), constVal.Val.(Syntax)})
 		}
 	case GenComTypeTag:
 		constVal := val.(ConstVal)
@@ -466,7 +442,7 @@ func putConstEntries(units *[]chan<- Unit, strings *[]constStringEntry, loLs *[]
 		}
 	case StructTypeTag:
 		for fieldName, fieldType := range theType.Extra.(map[string]DType) {
-			putConstEntries(units, strings, loLs, genComs, fieldType, val.(map[string]interface{})[fieldName], output.(map[string]interface{})[fieldName])
+			putConstEntries(units, syntaxen, genComs, fieldType, val.(Struct)[fieldName], output.(Struct)[fieldName])
 		}
 	}
 }
@@ -475,11 +451,10 @@ func (com ConstCom) Run(input interface{}, output interface{}, quit <-chan struc
 	i := input.(<-chan Unit)
 
 	var units []chan<- Unit
-	var strings []constStringEntry
-	var loLs []constLoLEntry
+	var syntaxen []constSyntaxEntry
 	var genComs []constGenComEntry
 
-	putConstEntries(&units, &strings, &loLs, &genComs, com.Type, com.Val, output)
+	putConstEntries(&units, &syntaxen, &genComs, com.Type, com.Val, output)
 
 	for {
 		select {
@@ -487,10 +462,7 @@ func (com ConstCom) Run(input interface{}, output interface{}, quit <-chan struc
 			for _, entry := range units {
 				entry <- Unit{}
 			}
-			for _, entry := range strings {
-				entry.Chan <- entry.Val
-			}
-			for _, entry := range loLs {
+			for _, entry := range syntaxen {
 				entry.Chan <- entry.Val
 			}
 			for _, entry := range genComs {
@@ -515,20 +487,9 @@ func runI(theType DType, input interface{}, output interface{}, quit <-chan stru
 				return
 			}
 		}
-	case StringTypeTag:
-		i := input.(<-chan String)
-		o := output.(chan<- String)
-		for {
-			select {
-			case v := <-i:
-				o <- v
-			case <-quit:
-				return
-			}
-		}
-	case LoLTypeTag:
-		i := input.(<-chan LoL)
-		o := output.(chan<- LoL)
+	case SyntaxTypeTag:
+		i := input.(<-chan Syntax)
+		o := output.(chan<- Syntax)
 		for {
 			select {
 			case v := <-i:
@@ -549,8 +510,8 @@ func runI(theType DType, input interface{}, output interface{}, quit <-chan stru
 			}
 		}
 	case StructTypeTag:
-		i := input.(map[string]interface{})
-		o := output.(map[string]interface{})
+		i := input.(Struct)
+		o := output.(Struct)
 		for fieldName, fieldType := range theType.Extra.(map[string]DType) {
 			go runI(fieldType, i[fieldName], o[fieldName], quit)
 		}
@@ -572,17 +533,8 @@ func runSink(theType DType, input interface{}, quit <-chan struct{}) {
 				return
 			}
 		}
-	case StringTypeTag:
-		i := input.(<-chan String)
-		for {
-			select {
-			case <-i:
-			case <-quit:
-				return
-			}
-		}
-	case LoLTypeTag:
-		i := input.(<-chan LoL)
+	case SyntaxTypeTag:
+		i := input.(<-chan Syntax)
 		for {
 			select {
 			case <-i:
@@ -600,7 +552,7 @@ func runSink(theType DType, input interface{}, quit <-chan struct{}) {
 			}
 		}
 	case StructTypeTag:
-		i := input.(map[string]interface{})
+		i := input.(Struct)
 		for fieldName, fieldType := range theType.Extra.(map[string]DType) {
 			go runSink(fieldType, i[fieldName], quit)
 		}
@@ -612,7 +564,7 @@ func (com SinkCom) Run(input interface{}, output interface{}, quit <-chan struct
 }
 
 func (com SelectCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
-	i := input.(map[string]interface{})
+	i := input.(Struct)
 	for fieldName, fieldType := range com.Fields {
 		if fieldName == com.FieldName {
 			go runI(fieldType, i[fieldName], output, quit)
@@ -622,21 +574,19 @@ func (com SelectCom) Run(input interface{}, output interface{}, quit <-chan stru
 	}
 }
 func (com DeselectCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
-	runI(com.FieldType, input, output.(map[string]interface{})[com.FieldName], quit)
+	runI(com.FieldType, input, output.(Struct)[com.FieldName], quit)
 }
 
 type inputChanSource struct {
-	Units   []<-chan Unit
-	Strings []<-chan String
-	LoLs    []<-chan LoL
-	GenComs []<-chan GenCom
+	Units    []<-chan Unit
+	Syntaxen []<-chan Syntax
+	GenComs  []<-chan GenCom
 }
 
 type outputChanSource struct {
-	Units   []chan<- Unit
-	Strings []chan<- String
-	LoLs    []chan<- LoL
-	GenComs []chan<- GenCom
+	Units    []chan<- Unit
+	Syntaxen []chan<- Syntax
+	GenComs  []chan<- GenCom
 }
 
 func makeInputChanSource(n CompositeComChanSourceN) (ret inputChanSource) {
@@ -655,15 +605,13 @@ func putInputChans(dType DType, chanMap interface{}, input interface{}, chans in
 	switch dType.Tag {
 	case UnitTypeTag:
 		chans.Units[chanMap.(int)] = input.(<-chan Unit)
-	case StringTypeTag:
-		chans.Strings[chanMap.(int)] = input.(<-chan String)
-	case LoLTypeTag:
-		chans.LoLs[chanMap.(int)] = input.(<-chan LoL)
+	case SyntaxTypeTag:
+		chans.Syntaxen[chanMap.(int)] = input.(<-chan Syntax)
 	case GenComTypeTag:
 		chans.GenComs[chanMap.(int)] = input.(<-chan GenCom)
 	case StructTypeTag:
 		for fieldName, fieldType := range dType.Extra.(map[string]DType) {
-			putInputChans(fieldType, chanMap.(map[string]interface{})[fieldName], input.(map[string]interface{})[fieldName], chans)
+			putInputChans(fieldType, chanMap.(Struct)[fieldName], input.(Struct)[fieldName], chans)
 		}
 	}
 }
@@ -672,15 +620,13 @@ func putOutputChans(dType DType, chanMap interface{}, input interface{}, chans o
 	switch dType.Tag {
 	case UnitTypeTag:
 		chans.Units[chanMap.(int)] = input.(chan<- Unit)
-	case StringTypeTag:
-		chans.Strings[chanMap.(int)] = input.(chan<- String)
-	case LoLTypeTag:
-		chans.LoLs[chanMap.(int)] = input.(chan<- LoL)
+	case SyntaxTypeTag:
+		chans.Syntaxen[chanMap.(int)] = input.(chan<- Syntax)
 	case GenComTypeTag:
 		chans.GenComs[chanMap.(int)] = input.(chan<- GenCom)
 	case StructTypeTag:
 		for fieldName, fieldType := range dType.Extra.(map[string]DType) {
-			putOutputChans(fieldType, chanMap.(map[string]interface{})[fieldName], input.(map[string]interface{})[fieldName], chans)
+			putOutputChans(fieldType, chanMap.(Struct)[fieldName], input.(Struct)[fieldName], chans)
 		}
 	}
 }
@@ -689,16 +635,14 @@ func getInput(dType DType, chanMap interface{}, chans inputChanSource) interface
 	switch dType.Tag {
 	case UnitTypeTag:
 		return chans.Units[chanMap.(int)]
-	case StringTypeTag:
-		return chans.Strings[chanMap.(int)]
-	case LoLTypeTag:
-		return chans.LoLs[chanMap.(int)]
+	case SyntaxTypeTag:
+		return chans.Syntaxen[chanMap.(int)]
 	case GenComTypeTag:
 		return chans.GenComs[chanMap.(int)]
 	case StructTypeTag:
-		input := make(map[string]interface{})
+		input := make(Struct)
 		for fieldName, fieldType := range dType.Extra.(map[string]DType) {
-			input[fieldName] = getInput(fieldType, chanMap.(map[string]interface{})[fieldName], chans)
+			input[fieldName] = getInput(fieldType, chanMap.(Struct)[fieldName], chans)
 		}
 		return input
 	default:
@@ -710,16 +654,14 @@ func getOutput(dType DType, chanMap interface{}, chans outputChanSource) interfa
 	switch dType.Tag {
 	case UnitTypeTag:
 		return chans.Units[chanMap.(int)]
-	case StringTypeTag:
-		return chans.Strings[chanMap.(int)]
-	case LoLTypeTag:
-		return chans.LoLs[chanMap.(int)]
+	case SyntaxTypeTag:
+		return chans.Syntaxen[chanMap.(int)]
 	case GenComTypeTag:
 		return chans.GenComs[chanMap.(int)]
 	case StructTypeTag:
-		output := make(map[string]interface{})
+		output := make(Struct)
 		for fieldName, fieldType := range dType.Extra.(map[string]DType) {
-			output[fieldName] = getOutput(fieldType, chanMap.(map[string]interface{})[fieldName], chans)
+			output[fieldName] = getOutput(fieldType, chanMap.(Struct)[fieldName], chans)
 		}
 		return output
 	default:
@@ -758,23 +700,19 @@ func makeMaps(map0, map1 *interface{}, chanN *CompositeComChanSourceN, theType D
 		*map0 = chanN.Units
 		*map1 = chanN.Units
 		chanN.Units++
-	case StringTypeTag:
-		*map0 = chanN.Strings
-		*map1 = chanN.Strings
-		chanN.Strings++
-	case LoLTypeTag:
-		*map0 = chanN.LoLs
-		*map1 = chanN.LoLs
-		chanN.LoLs++
+	case SyntaxTypeTag:
+		*map0 = chanN.Syntaxen
+		*map1 = chanN.Syntaxen
+		chanN.Syntaxen++
 	case GenComTypeTag:
 		*map0 = chanN.GenComs
 		*map1 = chanN.GenComs
 		chanN.GenComs++
 	case StructTypeTag:
-		map0Val := make(map[string]interface{})
+		map0Val := make(Struct)
 		*map0 = map0Val
 
-		map1Val := make(map[string]interface{})
+		map1Val := make(Struct)
 		*map1 = map1Val
 
 		for fieldName, fieldType := range theType.Extra.(map[string]DType) {
