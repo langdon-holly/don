@@ -754,6 +754,47 @@ func pipe(coms []Com) (ret CompositeCom) {
 	return
 }
 
+func genAnd(inputType DType) Com { /* TODO: Check inputType */ return AndCom{} }
+
+func genMerge(inputType DType) Com { return MergeCom(inputType) }
+
+func genSplit(inputType DType) Com { return SplitCom(inputType) }
+
+func genChoose(inputType DType) Com { /* TODO: Check inputType */ return ChooseCom{} }
+
+func genConst(outputType DType, val interface{}) GenCom {
+	return func(inputType DType) Com { /* TODO: Check inputType */ return ConstCom{outputType, val} }
+}
+
+func genI(inputType DType) Com { return ICom(inputType) }
+
+func genSink(inputType DType) Com { return SinkCom(inputType) }
+
+func genSelect(fieldName string) GenCom {
+	return func(inputType DType) Com {
+		if inputType.Tag != StructTypeTag {
+			panic("Type error")
+		}
+		return SelectCom{inputType.Extra.(map[string]DType), fieldName}
+	}
+}
+
+func genDeselect(fieldName string) GenCom {
+	return func(inputType DType) Com { return DeselectCom{fieldName, inputType} }
+}
+
+func genPipe(genComs []GenCom) GenCom {
+	return func(inputType DType) Com {
+		coms := make([]Com, len(genComs))
+		for i, genCom := range genComs {
+			com := genCom(inputType)
+			coms[i] = com
+			inputType = com.OutputType()
+		}
+		return pipe(coms)
+	}
+}
+
 func main() {
 	BoolTypeFields["true"] = UnitType
 	BoolTypeFields["false"] = UnitType
@@ -768,7 +809,7 @@ func main() {
 	chooseComOutputTypeFields["a"] = UnitType
 	chooseComOutputTypeFields["b"] = UnitType
 
-	com := pipe([]Com{ICom(BoolType), SplitCom(BoolType), AndCom{}})
+	com := genPipe([]GenCom{genI, genSplit, genAnd})(BoolType)
 
 	inputI, inputO := makeIOChans(com.InputType())
 	outputI, outputO := makeIOChans(com.OutputType())
