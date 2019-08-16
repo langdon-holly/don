@@ -27,3 +27,17 @@ func MakeIOChans(theType DType) (input, output interface{}) {
 	}
 	return
 }
+
+func Run(com Com) (inputO, outputI interface{}, quit chan<- struct{}) {
+	var inputI, outputO interface{}
+
+	inputI, inputO = MakeIOChans(com.InputType())
+	outputI, outputO = MakeIOChans(com.OutputType())
+
+	quitChan := make(chan struct{})
+	quit = quitChan
+
+	go com.Run(inputI, outputO, quitChan)
+
+	return
+}

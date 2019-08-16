@@ -11,20 +11,15 @@ import (
 func main() {
 	com := coms.GenPipe([]GenCom{coms.GenI, coms.GenSplit, coms.GenAnd})(BoolType)
 
-	inputI, inputO := extra.MakeIOChans(com.InputType())
-	outputI, outputO := extra.MakeIOChans(com.OutputType())
-
-	quit := make(chan struct{})
+	input, output, quit := extra.Run(com)
 	defer close(quit)
 
-	go com.Run(inputI, outputO, quit)
+	WriteBool(input, true)
+	fmt.Println(ReadBool(output))
 
-	WriteBool(inputO, true)
-	fmt.Println(ReadBool(outputI))
+	WriteBool(input, true)
+	fmt.Println(ReadBool(output))
 
-	WriteBool(inputO, true)
-	fmt.Println(ReadBool(outputI))
-
-	WriteBool(inputO, false)
-	fmt.Println(ReadBool(outputI))
+	WriteBool(input, false)
+	fmt.Println(ReadBool(output))
 }
