@@ -795,7 +795,7 @@ func genPipe(genComs []GenCom) GenCom {
 	}
 }
 
-func main() {
+func init() {
 	BoolTypeFields["true"] = UnitType
 	BoolTypeFields["false"] = UnitType
 
@@ -808,7 +808,9 @@ func main() {
 
 	chooseComOutputTypeFields["a"] = UnitType
 	chooseComOutputTypeFields["b"] = UnitType
+}
 
+func main() {
 	com := genPipe([]GenCom{genI, genSplit, genAnd})(BoolType)
 
 	inputI, inputO := makeIOChans(com.InputType())
