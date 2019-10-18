@@ -197,7 +197,7 @@ func MakeCompositeComMaps(map0, map1 *CompositeComChanMap, chanN *CompositeComCh
 
 type ReaderId struct {
 	InternalP   bool
-	InternalIdx int /* when InternalP */
+	InternalIdx int /* for InternalP */
 }
 
 type SignalReaderId struct {
@@ -207,8 +207,8 @@ type SignalReaderId struct {
 
 type SignalReaderIdTree struct {
 	ParentP        bool
-	Children       map[string]SignalReaderIdTree /* when ParentP */
-	SignalReaderId                               /* when !ParentP */
+	Children       map[string]SignalReaderIdTree /* for ParentP */
+	SignalReaderId                               /* for !ParentP */
 }
 
 type GenCompositeEntry struct {
@@ -286,8 +286,8 @@ func (gc GenComposite) OutputType(inputType PartialType) PartialType {
 
 type externalityTree struct {
 	ParentP   bool
-	Children  map[string]*externalityTree /* when ParentP */
-	ExternalP bool                        /* when !ParentP */
+	Children  map[string]*externalityTree /* for ParentP */
+	ExternalP bool                        /* for !ParentP */
 }
 
 func initExternalityTrees(externalities []externalityTree, externalInputMap SignalReaderIdTree) {

@@ -3,7 +3,7 @@ package core
 type PartialType struct {
 	P      bool
 	Tag    DTypeTag
-	Fields map[string]PartialType /* when Tag == StructTypeTag */
+	Fields map[string]PartialType /* for Tag == StructTypeTag */
 }
 
 func (pt0 PartialType) Equal(pt1 PartialType) bool {
