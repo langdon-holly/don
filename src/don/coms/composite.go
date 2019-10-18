@@ -213,9 +213,8 @@ type GenCompositeEntry struct {
 }
 
 type GenComposite struct {
-	GenComs    []GenCompositeEntry
-	InputPType PartialType
-	InputMap   SignalReaderIdTree
+	GenComs  []GenCompositeEntry
+	InputMap SignalReaderIdTree
 }
 
 type ReaderInputTypes struct {
@@ -223,14 +222,14 @@ type ReaderInputTypes struct {
 	External  PartialType
 }
 
-func SendTypeToReaders(pType PartialType, outputMap SignalReaderIdTree, readerInputTypes *ReaderInputTypes, waiters map[int]struct{}) {
+func sendTypeToReaders(pType PartialType, outputMap SignalReaderIdTree, readerInputTypes *ReaderInputTypes, waiters map[int]struct{}) {
 	if outputMap.ParentP {
 		if !pType.P {
 			return
 		}
 
 		for fieldName, innerOutputMap := range outputMap.Children {
-			SendTypeToReaders(pType.Fields[fieldName], innerOutputMap, readerInputTypes, waiters)
+			sendTypeToReaders(pType.Fields[fieldName], innerOutputMap, readerInputTypes, waiters)
 		}
 	} else {
 		readerInputType := PartialTypeAtPath(pType, outputMap.FieldPath)
@@ -257,8 +256,6 @@ func grabInt(ints map[int]struct{}) (int, bool) {
 }
 
 func (gc GenComposite) InferTypes(inputPType PartialType) (out ReaderInputTypes) {
-	inputPType = MergePartialTypes(inputPType, gc.InputPType)
-
 	out.Internals = make([]PartialType, len(gc.GenComs))
 
 	waiters := make(map[int]struct{}, len(gc.GenComs))
@@ -266,14 +263,14 @@ func (gc GenComposite) InferTypes(inputPType PartialType) (out ReaderInputTypes)
 		waiters[i] = struct{}{}
 	}
 
-	SendTypeToReaders(inputPType, gc.InputMap, &out, waiters)
+	sendTypeToReaders(inputPType, gc.InputMap, &out, waiters)
 	for {
 		waiter, ok := grabInt(waiters)
 		if !ok {
 			break
 		}
 		entry := gc.GenComs[waiter]
-		SendTypeToReaders(entry.OutputType(out.Internals[waiter]), entry.OutputMap, &out, waiters)
+		sendTypeToReaders(entry.OutputType(out.Internals[waiter]), entry.OutputMap, &out, waiters)
 	}
 
 	return
@@ -281,36 +278,6 @@ func (gc GenComposite) InferTypes(inputPType PartialType) (out ReaderInputTypes)
 
 func (gc GenComposite) OutputType(inputType PartialType) PartialType {
 	return gc.InferTypes(inputType).External
-}
-
-func addChanN(chanSourceN *CompositeComChanSourceN, dType DType) {
-	switch dType.Tag {
-	case UnitTypeTag:
-		chanSourceN.Units++
-	case SyntaxTypeTag:
-		chanSourceN.Syntaxen++
-	case GenComTypeTag:
-		chanSourceN.GenComs++
-	case StructTypeTag:
-		for _, fieldType := range dType.Extra.(map[string]DType) {
-			addChanN(chanSourceN, fieldType)
-		}
-	}
-}
-
-func subChanN(chanSourceN *CompositeComChanSourceN, dType DType) {
-	switch dType.Tag {
-	case UnitTypeTag:
-		chanSourceN.Units--
-	case SyntaxTypeTag:
-		chanSourceN.Syntaxen--
-	case GenComTypeTag:
-		chanSourceN.GenComs--
-	case StructTypeTag:
-		for _, fieldType := range dType.Extra.(map[string]DType) {
-			subChanN(chanSourceN, fieldType)
-		}
-	}
 }
 
 type externalityTree struct {
