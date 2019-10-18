@@ -1,23 +1,22 @@
 Allowed special bytes:
 
-Byte        Status : Purpose
-----        ----------------
-space, tab,
-  LF, CR      used : separator
-`           unused
-~           unused
-@           unused
-#           unused : shebang
-$           unused
-(             used : start delimiter
-)             used : end delimiter
-[           unused
-]           unused
-{             used : start identifier
-}             used : end identifier
-\             used : byte escape
-|             used : separator
-;             used : comment
-:             used : macro, field selection, field creation
-"           unused
-,           unused
+Byte	Status : Purpose
+----	----------------
+space, tab, CR	  used : separator
+LF, |	  used : statement separator
+`	unused
+~	unused
+@	unused
+#	unused : shebang
+$	unused
+(	  used : start block
+)	  used : end block
+[	unused
+]	unused
+{	  used : start identifier
+}	  used : end identifier
+\	  used : byte escape
+;	  used : comment
+:	  used : macro, field (de)selection
+"	unused
+,	  used : continue statement
