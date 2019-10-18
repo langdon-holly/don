@@ -60,75 +60,77 @@ func makeOutputChanSource(n CompositeComChanSourceN) (ret outputChanSource) {
 	return
 }
 
-func putInputChans(dType DType, chanMap interface{}, input interface{}, chans inputChanSource) {
+func putInputChans(dType DType, chanMap interface{}, input Input, chans inputChanSource) {
 	switch dType.Tag {
 	case UnitTypeTag:
-		chans.Units[chanMap.(int)] = input.(<-chan Unit)
+		chans.Units[chanMap.(int)] = input.Unit
 	case SyntaxTypeTag:
-		chans.Syntaxen[chanMap.(int)] = input.(<-chan Syntax)
+		chans.Syntaxen[chanMap.(int)] = input.Syntax
 	case GenComTypeTag:
-		chans.GenComs[chanMap.(int)] = input.(<-chan GenCom)
+		chans.GenComs[chanMap.(int)] = input.GenCom
 	case StructTypeTag:
-		for fieldName, fieldType := range dType.Extra.(map[string]DType) {
-			putInputChans(fieldType, chanMap.(Struct)[fieldName], input.(Struct)[fieldName], chans)
+		for fieldName, fieldType := range dType.Fields {
+			putInputChans(fieldType, chanMap.(map[string]interface{})[fieldName], input.Struct[fieldName], chans)
 		}
 	}
 }
 
-func putOutputChans(dType DType, chanMap interface{}, input interface{}, chans outputChanSource) {
+func putOutputChans(dType DType, chanMap interface{}, output Output, chans outputChanSource) {
 	switch dType.Tag {
 	case UnitTypeTag:
-		chans.Units[chanMap.(int)] = input.(chan<- Unit)
+		chans.Units[chanMap.(int)] = output.Unit
 	case SyntaxTypeTag:
-		chans.Syntaxen[chanMap.(int)] = input.(chan<- Syntax)
+		chans.Syntaxen[chanMap.(int)] = output.Syntax
 	case GenComTypeTag:
-		chans.GenComs[chanMap.(int)] = input.(chan<- GenCom)
+		chans.GenComs[chanMap.(int)] = output.GenCom
 	case StructTypeTag:
-		for fieldName, fieldType := range dType.Extra.(map[string]DType) {
-			putOutputChans(fieldType, chanMap.(Struct)[fieldName], input.(Struct)[fieldName], chans)
+		for fieldName, fieldType := range dType.Fields {
+			putOutputChans(fieldType, chanMap.(map[string]interface{})[fieldName], output.Struct[fieldName], chans)
 		}
 	}
 }
 
-func getInput(dType DType, chanMap interface{}, chans inputChanSource) interface{} {
+func getInput(dType DType, chanMap interface{}, chans inputChanSource) (ret Input) {
 	switch dType.Tag {
 	case UnitTypeTag:
-		return chans.Units[chanMap.(int)]
+		ret.Unit = chans.Units[chanMap.(int)]
 	case SyntaxTypeTag:
-		return chans.Syntaxen[chanMap.(int)]
+		ret.Syntax = chans.Syntaxen[chanMap.(int)]
 	case GenComTypeTag:
-		return chans.GenComs[chanMap.(int)]
+		ret.GenCom = chans.GenComs[chanMap.(int)]
 	case StructTypeTag:
-		input := make(Struct)
-		for fieldName, fieldType := range dType.Extra.(map[string]DType) {
-			input[fieldName] = getInput(fieldType, chanMap.(Struct)[fieldName], chans)
+		ret.Struct = make(StructIn)
+		for fieldName, fieldType := range dType.Fields {
+			ret.Struct[fieldName] = getInput(fieldType, chanMap.(map[string]interface{})[fieldName], chans)
 		}
-		return input
 	default:
 		panic("Unreachable")
 	}
+
+	return
 }
 
-func getOutput(dType DType, chanMap interface{}, chans outputChanSource) interface{} {
+func getOutput(dType DType, chanMap interface{}, chans outputChanSource) (ret Output) {
 	switch dType.Tag {
 	case UnitTypeTag:
-		return chans.Units[chanMap.(int)]
+		ret.Unit = chans.Units[chanMap.(int)]
 	case SyntaxTypeTag:
-		return chans.Syntaxen[chanMap.(int)]
+		ret.Syntax = chans.Syntaxen[chanMap.(int)]
 	case GenComTypeTag:
-		return chans.GenComs[chanMap.(int)]
+		ret.GenCom = chans.GenComs[chanMap.(int)]
 	case StructTypeTag:
-		output := make(Struct)
-		for fieldName, fieldType := range dType.Extra.(map[string]DType) {
-			output[fieldName] = getOutput(fieldType, chanMap.(Struct)[fieldName], chans)
+		ret.Struct = make(StructOut)
+		for fieldName, fieldType := range dType.Fields {
+			ret.Struct[fieldName] = getOutput(fieldType, chanMap.(map[string]interface{})[fieldName], chans)
 		}
-		return output
 	default:
 		panic("Unreachable")
 	}
+
+	return
 }
 
-func (com CompositeCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
+func (com CompositeCom) Run(input Input, output Output, quit <-chan struct{}) {
 	inChans := makeInputChanSource(com.InputChanN)
 	outChans := makeOutputChanSource(com.OutputChanN)
 
@@ -173,13 +175,13 @@ func MakeCompositeComMaps(map0, map1 *interface{}, chanN *CompositeComChanSource
 		*map1 = chanN.GenComs
 		chanN.GenComs++
 	case StructTypeTag:
-		map0Val := make(Struct)
+		map0Val := make(map[string]interface{})
 		*map0 = map0Val
 
-		map1Val := make(Struct)
+		map1Val := make(map[string]interface{})
 		*map1 = map1Val
 
-		for fieldName, fieldType := range theType.Extra.(map[string]DType) {
+		for fieldName, fieldType := range theType.Fields {
 			var fieldMap0 interface{}
 			var fieldMap1 interface{}
 
@@ -325,10 +327,9 @@ func initExternalityTree(externality *externalityTree, fieldPath []string) {
 
 func makeInputMapInnards(inputMap *interface{}, inputChanN *CompositeComChanSourceN, externality externalityTree, inputType DType) {
 	if externality.ParentP {
-		structFields := inputType.Extra.(map[string]DType)
-		inputMapVal := make(Struct, len(structFields))
+		inputMapVal := make(map[string]interface{}, len(inputType.Fields))
 		*inputMap = inputMapVal
-		for fieldName, fieldType := range structFields {
+		for fieldName, fieldType := range inputType.Fields {
 			var subExternality externalityTree
 			subExternalityPointer := externality.Children[fieldName]
 			if subExternalityPointer != nil {
@@ -347,7 +348,7 @@ func makeInputMapInnards(inputMap *interface{}, inputChanN *CompositeComChanSour
 func makeInputMapExternals(inputMap *interface{}, inputChanN *CompositeComChanSourceN, externality externalityTree, inputType DType) {
 	if externality.ParentP {
 		inputMapVal := (*inputMap).(map[string]interface{})
-		for fieldName, fieldType := range inputType.Extra.(map[string]DType) {
+		for fieldName, fieldType := range inputType.Fields {
 			var subExternality externalityTree
 			subExternalityPointer := externality.Children[fieldName]
 			if subExternalityPointer != nil {
@@ -365,7 +366,7 @@ func makeInputMapExternals(inputMap *interface{}, inputChanN *CompositeComChanSo
 
 func makeOutputMap(genOutputMap SignalReaderIdTree, entries []CompositeComEntry, externalOutputMap interface{}) interface{} {
 	if genOutputMap.ParentP {
-		fields := make(Struct, len(genOutputMap.Children))
+		fields := make(map[string]interface{}, len(genOutputMap.Children))
 		for fieldName, subMap := range genOutputMap.Children {
 			fields[fieldName] = makeOutputMap(subMap, entries, externalOutputMap)
 		}

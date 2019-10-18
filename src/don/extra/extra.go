@@ -2,34 +2,33 @@ package extra
 
 import . "don/core"
 
-func MakeIOChans(theType DType) (input, output interface{}) {
+func MakeIOChans(theType DType) (input Input, output Output) {
 	switch theType.Tag {
 	case UnitTypeTag:
 		theChan := make(chan Unit, 1)
-		input = (<-chan Unit)(theChan)
-		output = chan<- Unit(theChan)
+		input.Unit = theChan
+		output.Unit = theChan
 	case SyntaxTypeTag:
 		theChan := make(chan Syntax, 1)
-		input = (<-chan Syntax)(theChan)
-		output = chan<- Syntax(theChan)
+		input.Syntax = theChan
+		output.Syntax = theChan
 	case GenComTypeTag:
 		theChan := make(chan GenCom, 1)
-		input = (<-chan GenCom)(theChan)
-		output = chan<- GenCom(theChan)
+		input.GenCom = theChan
+		output.GenCom = theChan
 	case StructTypeTag:
-		inputMap := make(Struct)
-		outputMap := make(Struct)
-		input = inputMap
-		output = outputMap
-		for fieldName, fieldType := range theType.Extra.(map[string]DType) {
-			inputMap[fieldName], outputMap[fieldName] = MakeIOChans(fieldType)
+		input.Struct = make(map[string]Input)
+		output.Struct = make(map[string]Output)
+		for fieldName, fieldType := range theType.Fields {
+			input.Struct[fieldName], output.Struct[fieldName] = MakeIOChans(fieldType)
 		}
 	}
 	return
 }
 
-func Run(com Com) (inputO, outputI interface{}, quit chan<- struct{}) {
-	var inputI, outputO interface{}
+func Run(com Com) (inputO Output, outputI Input, quit chan<- struct{}) {
+	var inputI Input
+	var outputO Output
 
 	inputI, inputO = MakeIOChans(com.InputType())
 	outputI, outputO = MakeIOChans(com.OutputType())

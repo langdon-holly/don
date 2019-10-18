@@ -30,33 +30,31 @@ type constGenComEntry struct {
 	Val  GenCom
 }
 
-func putConstEntries(units *[]chan<- Unit, syntaxen *[]constSyntaxEntry, genComs *[]constGenComEntry, theType DType, val interface{}, output interface{}) {
+func putConstEntries(units *[]chan<- Unit, syntaxen *[]constSyntaxEntry, genComs *[]constGenComEntry, theType DType, val interface{}, output Output) {
 	switch theType.Tag {
 	case UnitTypeTag:
 		constVal := val.(ConstVal)
 		if constVal.P {
-			*units = append(*units, output.(chan<- Unit))
+			*units = append(*units, output.Unit)
 		}
 	case SyntaxTypeTag:
 		constVal := val.(ConstVal)
 		if constVal.P {
-			*syntaxen = append(*syntaxen, constSyntaxEntry{output.(chan<- Syntax), constVal.Val.(Syntax)})
+			*syntaxen = append(*syntaxen, constSyntaxEntry{output.Syntax, constVal.Val.(Syntax)})
 		}
 	case GenComTypeTag:
 		constVal := val.(ConstVal)
 		if constVal.P {
-			*genComs = append(*genComs, constGenComEntry{output.(chan<- GenCom), constVal.Val.(GenCom)})
+			*genComs = append(*genComs, constGenComEntry{output.GenCom, constVal.Val.(GenCom)})
 		}
 	case StructTypeTag:
-		for fieldName, fieldType := range theType.Extra.(map[string]DType) {
-			putConstEntries(units, syntaxen, genComs, fieldType, val.(Struct)[fieldName], output.(Struct)[fieldName])
+		for fieldName, fieldType := range theType.Fields {
+			putConstEntries(units, syntaxen, genComs, fieldType, val.(map[string]interface{})[fieldName], output.Struct[fieldName])
 		}
 	}
 }
 
-func (com ConstCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
-	i := input.(<-chan Unit)
-
+func (com ConstCom) Run(input Input, output Output, quit <-chan struct{}) {
 	var units []chan<- Unit
 	var syntaxen []constSyntaxEntry
 	var genComs []constGenComEntry
@@ -65,7 +63,7 @@ func (com ConstCom) Run(input interface{}, output interface{}, quit <-chan struc
 
 	for {
 		select {
-		case <-i:
+		case <-input.Unit:
 			for _, entry := range units {
 				entry <- Unit{}
 			}

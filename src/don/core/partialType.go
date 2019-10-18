@@ -68,9 +68,8 @@ func MergePartialTypes(t0, t1 PartialType) PartialType {
 
 func PartializeType(theType DType) PartialType {
 	if theType.Tag == StructTypeTag {
-		fields := theType.Extra.(map[string]DType)
-		pFields := make(map[string]PartialType, len(fields))
-		for fieldName, fieldType := range fields {
+		pFields := make(map[string]PartialType, len(theType.Fields))
+		for fieldName, fieldType := range theType.Fields {
 			pFields[fieldName] = PartializeType(fieldType)
 		}
 		return PartialType{P: true, Tag: StructTypeTag, Fields: pFields}
@@ -89,7 +88,7 @@ func HolizePartialType(pType PartialType) DType {
 		for fieldName, fieldPType := range pType.Fields {
 			fields[fieldName] = HolizePartialType(fieldPType)
 		}
-		return DType{Tag: StructTypeTag, Extra: fields}
+		return MakeStructType(fields)
 	} else {
 		return DType{Tag: pType.Tag}
 	}

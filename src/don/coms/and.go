@@ -20,18 +20,18 @@ func (com AndCom) OutputType() DType {
 	return BoolType
 }
 
-func (com AndCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
-	i := input.(Struct)
-	a := i["a"].(Struct)
-	b := i["b"].(Struct)
-	aTrue := a["true"].(<-chan Unit)
-	aFalse := a["false"].(<-chan Unit)
-	bTrue := b["true"].(<-chan Unit)
-	bFalse := b["false"].(<-chan Unit)
+func (com AndCom) Run(input Input, output Output, quit <-chan struct{}) {
+	i := input.Struct
+	a := i["a"].Struct
+	b := i["b"].Struct
+	aTrue := a["true"].Unit
+	aFalse := a["false"].Unit
+	bTrue := b["true"].Unit
+	bFalse := b["false"].Unit
 
-	o := output.(Struct)
-	oTrue := o["true"].(chan<- Unit)
-	oFalse := o["false"].(chan<- Unit)
+	o := output.Struct
+	oTrue := o["true"].Unit
+	oFalse := o["false"].Unit
 
 	var aVal, bVal bool
 	for {

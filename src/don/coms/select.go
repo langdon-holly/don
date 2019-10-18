@@ -15,8 +15,8 @@ func (com SelectCom) OutputType() DType {
 	return com.Fields[com.FieldName]
 }
 
-func (com SelectCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
-	i := input.(Struct)
+func (com SelectCom) Run(input Input, output Output, quit <-chan struct{}) {
+	i := input.Struct
 	for fieldName, fieldType := range com.Fields {
 		if fieldName == com.FieldName {
 			go RunI(fieldType, i[fieldName], output, quit)
@@ -38,6 +38,6 @@ func (gc GenSelect) OutputType(inputType PartialType) PartialType {
 
 func (gc GenSelect) Com(inputType DType) Com {
 	return SelectCom{
-		Fields:    inputType.Extra.(map[string]DType),
+		Fields:    inputType.Fields,
 		FieldName: string(gc)}
 }

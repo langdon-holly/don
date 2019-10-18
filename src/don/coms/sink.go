@@ -12,10 +12,10 @@ func (com SinkCom) OutputType() DType {
 	return MakeStructType(make(map[string]DType, 0))
 }
 
-func RunSink(theType DType, input interface{}, quit <-chan struct{}) {
+func RunSink(theType DType, input Input, quit <-chan struct{}) {
 	switch theType.Tag {
 	case UnitTypeTag:
-		i := input.(<-chan Unit)
+		i := input.Unit
 		for {
 			select {
 			case <-i:
@@ -24,7 +24,7 @@ func RunSink(theType DType, input interface{}, quit <-chan struct{}) {
 			}
 		}
 	case SyntaxTypeTag:
-		i := input.(<-chan Syntax)
+		i := input.Syntax
 		for {
 			select {
 			case <-i:
@@ -33,7 +33,7 @@ func RunSink(theType DType, input interface{}, quit <-chan struct{}) {
 			}
 		}
 	case GenComTypeTag:
-		i := input.(<-chan GenCom)
+		i := input.GenCom
 		for {
 			select {
 			case <-i:
@@ -42,14 +42,14 @@ func RunSink(theType DType, input interface{}, quit <-chan struct{}) {
 			}
 		}
 	case StructTypeTag:
-		i := input.(Struct)
-		for fieldName, fieldType := range theType.Extra.(map[string]DType) {
+		i := input.Struct
+		for fieldName, fieldType := range theType.Fields {
 			go RunSink(fieldType, i[fieldName], quit)
 		}
 	}
 }
 
-func (com SinkCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
+func (com SinkCom) Run(input Input, output Output, quit <-chan struct{}) {
 	RunSink(DType(com), input, quit)
 }
 

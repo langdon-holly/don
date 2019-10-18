@@ -17,8 +17,8 @@ func (com DeselectCom) OutputType() DType {
 	return MakeStructType(fields)
 }
 
-func (com DeselectCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
-	RunI(com.FieldType, input, output.(Struct)[com.FieldName], quit)
+func (com DeselectCom) Run(input Input, output Output, quit <-chan struct{}) {
+	RunI(com.FieldType, input, output.Struct[com.FieldName], quit)
 }
 
 type GenDeselect string

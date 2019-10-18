@@ -29,15 +29,15 @@ func (com ChooseCom) OutputType() DType {
 	return chooseComOutputType
 }
 
-func (com ChooseCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
-	i := input.(Struct)
-	iA := i["a"].(<-chan Unit)
-	iB := i["b"].(<-chan Unit)
-	ready := i["ready"].(<-chan Unit)
+func (com ChooseCom) Run(input Input, output Output, quit <-chan struct{}) {
+	i := input.Struct
+	iA := i["a"].Unit
+	iB := i["b"].Unit
+	ready := i["ready"].Unit
 
-	o := output.(Struct)
-	oA := o["a"].(chan<- Unit)
-	oB := o["b"].(chan<- Unit)
+	o := output.Struct
+	oA := o["a"].Unit
+	oB := o["b"].Unit
 
 	for {
 		select {

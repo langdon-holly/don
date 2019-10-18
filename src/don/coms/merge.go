@@ -16,11 +16,11 @@ func (com MergeCom) OutputType() DType {
 	return DType(com)
 }
 
-func runMerge(theType DType, inputA, inputB interface{}, output interface{}, quit <-chan struct{}) {
+func runMerge(theType DType, inputA, inputB Input, output Output, quit <-chan struct{}) {
 	switch theType.Tag {
 	case UnitTypeTag:
-		a, b := inputA.(<-chan Unit), inputB.(<-chan Unit)
-		o := output.(chan<- Unit)
+		a, b := inputA.Unit, inputB.Unit
+		o := output.Unit
 		for {
 			select {
 			case <-a:
@@ -32,8 +32,8 @@ func runMerge(theType DType, inputA, inputB interface{}, output interface{}, qui
 			}
 		}
 	case SyntaxTypeTag:
-		a, b := inputA.(<-chan Syntax), inputB.(<-chan Syntax)
-		o := output.(chan<- Syntax)
+		a, b := inputA.Syntax, inputB.Syntax
+		o := output.Syntax
 		for {
 			select {
 			case v := <-a:
@@ -45,8 +45,8 @@ func runMerge(theType DType, inputA, inputB interface{}, output interface{}, qui
 			}
 		}
 	case GenComTypeTag:
-		a, b := inputA.(<-chan GenCom), inputB.(<-chan GenCom)
-		o := output.(chan<- GenCom)
+		a, b := inputA.GenCom, inputB.GenCom
+		o := output.GenCom
 		for {
 			select {
 			case v := <-a:
@@ -58,17 +58,16 @@ func runMerge(theType DType, inputA, inputB interface{}, output interface{}, qui
 			}
 		}
 	case StructTypeTag:
-		a, b := inputA.(Struct), inputB.(Struct)
-		o := output.(Struct)
-		for fieldName, fieldType := range theType.Extra.(map[string]DType) {
+		a, b := inputA.Struct, inputB.Struct
+		o := output.Struct
+		for fieldName, fieldType := range theType.Fields {
 			go runMerge(fieldType, a[fieldName], b[fieldName], o[fieldName], quit)
 		}
 	}
 }
 
-func (com MergeCom) Run(input interface{}, output interface{}, quit <-chan struct{}) {
-	inputStruct := input.(Struct)
-	runMerge(DType(com), inputStruct["a"], inputStruct["b"], output, quit)
+func (com MergeCom) Run(input Input, output Output, quit <-chan struct{}) {
+	runMerge(DType(com), input.Struct["a"], input.Struct["b"], output, quit)
 }
 
 type GenMerge struct{}
@@ -81,4 +80,4 @@ func (GenMerge) OutputType(inputType PartialType) PartialType {
 	}
 }
 
-func (GenMerge) Com(inputType DType) Com { return MergeCom(inputType.Extra.(map[string]DType)["a"]) }
+func (GenMerge) Com(inputType DType) Com { return MergeCom(inputType.Fields["a"]) }
