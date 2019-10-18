@@ -2,16 +2,6 @@ package coms
 
 import . "don/core"
 
-type ICom DType
-
-func (com ICom) InputType() DType {
-	return DType(com)
-}
-
-func (com ICom) OutputType() DType {
-	return DType(com)
-}
-
 func RunI(theType DType, input Input, output Output, quit <-chan struct{}) {
 	switch theType.Tag {
 	case UnitTypeTag:
@@ -36,9 +26,9 @@ func RunI(theType DType, input Input, output Output, quit <-chan struct{}) {
 				return
 			}
 		}
-	case GenComTypeTag:
-		i := input.GenCom
-		o := output.GenCom
+	case ComTypeTag:
+		i := input.Com
+		o := output.Com
 		for {
 			select {
 			case v := <-i:
@@ -56,11 +46,10 @@ func RunI(theType DType, input Input, output Output, quit <-chan struct{}) {
 	}
 }
 
-func (com ICom) Run(input Input, output Output, quit <-chan struct{}) {
-	RunI(DType(com), input, output, quit)
+type ICom struct{}
+
+func (ICom) OutputType(inputType PartialType) PartialType { return inputType }
+
+func (ICom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
+	RunI(inputType, input, output, quit)
 }
-
-type GenI struct{}
-
-func (GenI) OutputType(inputType PartialType) PartialType { return inputType }
-func (GenI) Com(inputType DType) Com                      { return ICom(inputType) }

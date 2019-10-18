@@ -7,7 +7,7 @@ type DTypeTag int
 const (
 	UnitTypeTag = DTypeTag(iota)
 	SyntaxTypeTag
-	GenComTypeTag
+	ComTypeTag
 	StructTypeTag
 )
 
@@ -22,7 +22,7 @@ var UnitType = DType{Tag: UnitTypeTag}
 
 var SyntaxType = DType{Tag: SyntaxTypeTag}
 
-var GenComType = DType{Tag: GenComTypeTag}
+var ComType = DType{Tag: ComTypeTag}
 
 func MakeStructType(fields map[string]DType) DType {
 	return DType{Tag: StructTypeTag, Fields: fields}

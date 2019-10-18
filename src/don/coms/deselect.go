@@ -2,28 +2,9 @@ package coms
 
 import . "don/core"
 
-type DeselectCom struct {
-	FieldName string
-	FieldType DType
-}
+type DeselectCom string
 
-func (com DeselectCom) InputType() DType {
-	return com.FieldType
-}
-
-func (com DeselectCom) OutputType() DType {
-	fields := make(map[string]DType, 1)
-	fields[com.FieldName] = com.FieldType
-	return MakeStructType(fields)
-}
-
-func (com DeselectCom) Run(input Input, output Output, quit <-chan struct{}) {
-	RunI(com.FieldType, input, output.Struct[com.FieldName], quit)
-}
-
-type GenDeselect string
-
-func (gd GenDeselect) OutputType(inputType PartialType) (ret PartialType) {
+func (gd DeselectCom) OutputType(inputType PartialType) (ret PartialType) {
 	ret.P = true
 	ret.Tag = StructTypeTag
 
@@ -33,6 +14,6 @@ func (gd GenDeselect) OutputType(inputType PartialType) (ret PartialType) {
 	return
 }
 
-func (gd GenDeselect) Com(inputType DType) Com {
-	return DeselectCom{FieldName: string(gd), FieldType: inputType}
+func (gd DeselectCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
+	RunI(inputType, input, output.Struct[string(gd)], quit)
 }

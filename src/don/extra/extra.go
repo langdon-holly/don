@@ -12,10 +12,10 @@ func MakeIOChans(theType DType) (input Input, output Output) {
 		theChan := make(chan Syntax, 1)
 		input.Syntax = theChan
 		output.Syntax = theChan
-	case GenComTypeTag:
-		theChan := make(chan GenCom, 1)
-		input.GenCom = theChan
-		output.GenCom = theChan
+	case ComTypeTag:
+		theChan := make(chan Com, 1)
+		input.Com = theChan
+		output.Com = theChan
 	case StructTypeTag:
 		input.Struct = make(map[string]Input)
 		output.Struct = make(map[string]Output)
@@ -26,17 +26,17 @@ func MakeIOChans(theType DType) (input Input, output Output) {
 	return
 }
 
-func Run(com Com) (inputO Output, outputI Input, quit chan<- struct{}) {
+func Run(com Com, inputType DType) (inputO Output, outputI Input, quit chan<- struct{}) {
 	var inputI Input
 	var outputO Output
 
-	inputI, inputO = MakeIOChans(com.InputType())
-	outputI, outputO = MakeIOChans(com.OutputType())
+	inputI, inputO = MakeIOChans(inputType)
+	outputI, outputO = MakeIOChans(HolizePartialType(com.OutputType(PartializeType(inputType))))
 
 	quitChan := make(chan struct{})
 	quit = quitChan
 
-	go com.Run(inputI, outputO, quitChan)
+	go com.Run(inputType, inputI, outputO, quitChan)
 
 	return
 }

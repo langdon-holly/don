@@ -2,20 +2,6 @@ package coms
 
 import . "don/core"
 
-type SplitCom DType
-
-func (com SplitCom) InputType() DType {
-	return DType(com)
-}
-
-func (com SplitCom) OutputType() DType {
-	theType := DType(com)
-	fields := make(map[string]DType, 2)
-	fields["a"] = theType
-	fields["b"] = theType
-	return DType{StructTypeTag, fields}
-}
-
 func runSplit(theType DType, input Input, outputA, outputB Output, quit <-chan struct{}) {
 	switch theType.Tag {
 	case UnitTypeTag:
@@ -42,9 +28,9 @@ func runSplit(theType DType, input Input, outputA, outputB Output, quit <-chan s
 				return
 			}
 		}
-	case GenComTypeTag:
-		i := input.GenCom
-		a, b := outputA.GenCom, outputB.GenCom
+	case ComTypeTag:
+		i := input.Com
+		a, b := outputA.Com, outputB.Com
 		for {
 			select {
 			case v := <-i:
@@ -63,18 +49,15 @@ func runSplit(theType DType, input Input, outputA, outputB Output, quit <-chan s
 	}
 }
 
-func (com SplitCom) Run(input Input, output Output, quit <-chan struct{}) {
-	outputStruct := output.Struct
-	runSplit(DType(com), input, outputStruct["a"], outputStruct["b"], quit)
-}
+type SplitCom struct{}
 
-type GenSplit struct{}
-
-func (GenSplit) OutputType(inputType PartialType) PartialType {
+func (SplitCom) OutputType(inputType PartialType) PartialType {
 	fields := make(map[string]PartialType, 2)
 	fields["a"] = inputType
 	fields["b"] = inputType
 	return PartialType{P: true, Tag: StructTypeTag, Fields: fields}
 }
 
-func (GenSplit) Com(inputType DType) Com { return SplitCom(inputType) }
+func (SplitCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
+	runSplit(inputType, input, output.Struct["a"], output.Struct["b"], quit)
+}

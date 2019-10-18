@@ -32,13 +32,13 @@ type StructOut map[string]Output
 type Input struct {
 	Unit   <-chan Unit
 	Syntax <-chan Syntax
-	GenCom <-chan GenCom
+	Com <-chan Com
 	Struct StructIn
 }
 
 type Output struct {
 	Unit   chan<- Unit
 	Syntax chan<- Syntax
-	GenCom chan<- GenCom
+	Com chan<- Com
 	Struct StructOut
 }

@@ -2,21 +2,6 @@ package coms
 
 import . "don/core"
 
-type ChooseCom struct{}
-
-var chooseComInputTypeFields map[string]DType = make(map[string]DType, 3)
-var chooseComInputType DType = MakeStructType(chooseComInputTypeFields)
-
-func init() {
-	chooseComInputTypeFields["a"] = UnitType
-	chooseComInputTypeFields["b"] = UnitType
-	chooseComInputTypeFields["ready"] = UnitType
-}
-
-func (com ChooseCom) InputType() DType {
-	return chooseComInputType
-}
-
 var chooseComOutputTypeFields map[string]DType = make(map[string]DType, 2)
 var chooseComOutputType DType = MakeStructType(chooseComOutputTypeFields)
 
@@ -25,11 +10,13 @@ func init() {
 	chooseComOutputTypeFields["b"] = UnitType
 }
 
-func (com ChooseCom) OutputType() DType {
-	return chooseComOutputType
+type ChooseCom struct{}
+
+func (ChooseCom) OutputType(inputType PartialType) PartialType {
+	return PartializeType(chooseComOutputType)
 }
 
-func (com ChooseCom) Run(input Input, output Output, quit <-chan struct{}) {
+func (ChooseCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
 	i := input.Struct
 	iA := i["a"].Unit
 	iB := i["b"].Unit
@@ -55,11 +42,3 @@ func (com ChooseCom) Run(input Input, output Output, quit <-chan struct{}) {
 		}
 	}
 }
-
-type GenChoose struct{}
-
-func (GenChoose) OutputType(inputType PartialType) PartialType {
-	return PartializeType(chooseComOutputType)
-}
-
-func (GenChoose) Com(inputType DType) Com { return ChooseCom{} }

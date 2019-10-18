@@ -2,16 +2,6 @@ package coms
 
 import . "don/core"
 
-type SinkCom DType
-
-func (com SinkCom) InputType() DType {
-	return DType(com)
-}
-
-func (com SinkCom) OutputType() DType {
-	return MakeStructType(make(map[string]DType, 0))
-}
-
 func RunSink(theType DType, input Input, quit <-chan struct{}) {
 	switch theType.Tag {
 	case UnitTypeTag:
@@ -32,8 +22,8 @@ func RunSink(theType DType, input Input, quit <-chan struct{}) {
 				return
 			}
 		}
-	case GenComTypeTag:
-		i := input.GenCom
+	case ComTypeTag:
+		i := input.Com
 		for {
 			select {
 			case <-i:
@@ -49,17 +39,15 @@ func RunSink(theType DType, input Input, quit <-chan struct{}) {
 	}
 }
 
-func (com SinkCom) Run(input Input, output Output, quit <-chan struct{}) {
-	RunSink(DType(com), input, quit)
-}
+type SinkCom struct{}
 
-type GenSink struct{}
-
-func (GenSink) OutputType(inputType PartialType) PartialType {
+func (SinkCom) OutputType(inputType PartialType) PartialType {
 	return PartialType{
 		P:      true,
 		Tag:    StructTypeTag,
 		Fields: make(map[string]PartialType, 0)}
 }
 
-func (GenSink) Com(inputType DType) Com { return SinkCom(inputType) }
+func (SinkCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
+	RunSink(inputType, input, quit)
+}

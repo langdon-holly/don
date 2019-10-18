@@ -5,21 +5,8 @@ import . "don/core"
 type ConstVal struct {
 	P         bool /* for !struct */
 	SyntaxVal Syntax
-	GenComVal GenCom
+	ComVal    Com
 	StructVal map[string]ConstVal
-}
-
-type ConstCom struct {
-	Type DType
-	Val  ConstVal
-}
-
-func (com ConstCom) InputType() DType {
-	return UnitType
-}
-
-func (com ConstCom) OutputType() DType {
-	return com.Type
 }
 
 type constSyntaxEntry struct {
@@ -27,12 +14,12 @@ type constSyntaxEntry struct {
 	Val  Syntax
 }
 
-type constGenComEntry struct {
-	Chan chan<- GenCom
-	Val  GenCom
+type constComEntry struct {
+	Chan chan<- Com
+	Val  Com
 }
 
-func putConstEntries(units *[]chan<- Unit, syntaxen *[]constSyntaxEntry, genComs *[]constGenComEntry, theType DType, val ConstVal, output Output) {
+func putConstEntries(units *[]chan<- Unit, syntaxen *[]constSyntaxEntry, coms *[]constComEntry, theType DType, val ConstVal, output Output) {
 	switch theType.Tag {
 	case UnitTypeTag:
 		if val.P {
@@ -42,23 +29,30 @@ func putConstEntries(units *[]chan<- Unit, syntaxen *[]constSyntaxEntry, genComs
 		if val.P {
 			*syntaxen = append(*syntaxen, constSyntaxEntry{output.Syntax, val.SyntaxVal})
 		}
-	case GenComTypeTag:
+	case ComTypeTag:
 		if val.P {
-			*genComs = append(*genComs, constGenComEntry{output.GenCom, val.GenComVal})
+			*coms = append(*coms, constComEntry{output.Com, val.ComVal})
 		}
 	case StructTypeTag:
 		for fieldName, fieldType := range theType.Fields {
-			putConstEntries(units, syntaxen, genComs, fieldType, val.StructVal[fieldName], output.Struct[fieldName])
+			putConstEntries(units, syntaxen, coms, fieldType, val.StructVal[fieldName], output.Struct[fieldName])
 		}
 	}
 }
 
-func (com ConstCom) Run(input Input, output Output, quit <-chan struct{}) {
+type ConstCom struct {
+	Type DType
+	Val  ConstVal
+}
+
+func (gc ConstCom) OutputType(inputType PartialType) PartialType { return PartializeType(gc.Type) }
+
+func (gc ConstCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
 	var units []chan<- Unit
 	var syntaxen []constSyntaxEntry
-	var genComs []constGenComEntry
+	var coms []constComEntry
 
-	putConstEntries(&units, &syntaxen, &genComs, com.Type, com.Val, output)
+	putConstEntries(&units, &syntaxen, &coms, gc.Type, gc.Val, output)
 
 	for {
 		select {
@@ -69,7 +63,7 @@ func (com ConstCom) Run(input Input, output Output, quit <-chan struct{}) {
 			for _, entry := range syntaxen {
 				entry.Chan <- entry.Val
 			}
-			for _, entry := range genComs {
+			for _, entry := range coms {
 				entry.Chan <- entry.Val
 			}
 		case <-quit:
@@ -77,11 +71,3 @@ func (com ConstCom) Run(input Input, output Output, quit <-chan struct{}) {
 		}
 	}
 }
-
-type GenConst struct {
-	Type DType
-	Val  ConstVal
-}
-
-func (gc GenConst) OutputType(inputType PartialType) PartialType { return PartializeType(gc.Type) }
-func (gc GenConst) Com(inputType DType) Com                      { return ConstCom{Type: gc.Type, Val: gc.Val} }

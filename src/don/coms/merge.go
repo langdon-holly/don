@@ -2,20 +2,6 @@ package coms
 
 import . "don/core"
 
-type MergeCom DType
-
-func (com MergeCom) InputType() DType {
-	theType := DType(com)
-	fields := make(map[string]DType, 2)
-	fields["a"] = theType
-	fields["b"] = theType
-	return DType{StructTypeTag, fields}
-}
-
-func (com MergeCom) OutputType() DType {
-	return DType(com)
-}
-
 func runMerge(theType DType, inputA, inputB Input, output Output, quit <-chan struct{}) {
 	switch theType.Tag {
 	case UnitTypeTag:
@@ -44,9 +30,9 @@ func runMerge(theType DType, inputA, inputB Input, output Output, quit <-chan st
 				return
 			}
 		}
-	case GenComTypeTag:
-		a, b := inputA.GenCom, inputB.GenCom
-		o := output.GenCom
+	case ComTypeTag:
+		a, b := inputA.Com, inputB.Com
+		o := output.Com
 		for {
 			select {
 			case v := <-a:
@@ -66,13 +52,9 @@ func runMerge(theType DType, inputA, inputB Input, output Output, quit <-chan st
 	}
 }
 
-func (com MergeCom) Run(input Input, output Output, quit <-chan struct{}) {
-	runMerge(DType(com), input.Struct["a"], input.Struct["b"], output, quit)
-}
+type MergeCom struct{}
 
-type GenMerge struct{}
-
-func (GenMerge) OutputType(inputType PartialType) PartialType {
+func (MergeCom) OutputType(inputType PartialType) PartialType {
 	if inputType.P {
 		return MergePartialTypes(inputType.Fields["a"], inputType.Fields["b"])
 	} else {
@@ -80,4 +62,6 @@ func (GenMerge) OutputType(inputType PartialType) PartialType {
 	}
 }
 
-func (GenMerge) Com(inputType DType) Com { return MergeCom(inputType.Fields["a"]) }
+func (MergeCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
+	runMerge(inputType.Fields["a"], input.Struct["a"], input.Struct["b"], output, quit)
+}

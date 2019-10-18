@@ -1,7 +1,6 @@
 package core
 
 type Com interface {
-	Run(input Input, output Output, quit <-chan struct{})
-	InputType() DType
-	OutputType() DType
+	OutputType(inputType PartialType) PartialType
+	Run(inputType DType, input Input, output Output, quit <-chan struct{})
 }

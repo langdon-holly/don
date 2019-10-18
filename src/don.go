@@ -9,9 +9,9 @@ import (
 )
 
 func main() {
-	com := coms.GenPipe([]GenCom{coms.GenI{}, coms.GenSplit{}, coms.GenAnd{}}).Com(BoolType)
+	com := coms.Pipe([]Com{coms.ICom{}, coms.SplitCom{}, coms.AndCom{}})
 
-	input, output, quit := extra.Run(com)
+	input, output, quit := extra.Run(com, BoolType)
 	defer close(quit)
 
 	WriteBool(input, true)

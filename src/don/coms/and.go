@@ -4,23 +4,9 @@ import . "don/core"
 
 type AndCom struct{}
 
-var andComInputTypeFields map[string]DType = make(map[string]DType, 2)
-var andComInputType DType = MakeStructType(andComInputTypeFields)
+func (AndCom) OutputType(inputType PartialType) PartialType { return PartializeType(BoolType) }
 
-func init() {
-	andComInputTypeFields["a"] = BoolType
-	andComInputTypeFields["b"] = BoolType
-}
-
-func (com AndCom) InputType() DType {
-	return andComInputType
-}
-
-func (com AndCom) OutputType() DType {
-	return BoolType
-}
-
-func (com AndCom) Run(input Input, output Output, quit <-chan struct{}) {
+func (AndCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
 	i := input.Struct
 	a := i["a"].Struct
 	b := i["b"].Struct
@@ -58,8 +44,3 @@ func (com AndCom) Run(input Input, output Output, quit <-chan struct{}) {
 		}
 	}
 }
-
-type GenAnd struct{}
-
-func (GenAnd) OutputType(inputType PartialType) PartialType { return PartializeType(BoolType) }
-func (GenAnd) Com(inputType DType) Com                      { return AndCom{} }
