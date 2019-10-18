@@ -7,37 +7,36 @@ type AndCom struct{}
 func (AndCom) OutputType(inputType PartialType) PartialType { return PartializeType(BoolType) }
 
 func (AndCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
-	i := input.Struct
-	a := i["a"].Struct
-	b := i["b"].Struct
-	aTrue := a["true"].Unit
-	aFalse := a["false"].Unit
-	bTrue := b["true"].Unit
-	bFalse := b["false"].Unit
+	n := len(inputType.Fields)
+
+	trues := make([]<-chan Unit, n)
+	falses := make([]<-chan Unit, n)
+
+	i := 0
+	for fieldName := range inputType.Fields {
+		trues[i] = input.Struct[fieldName].Struct["true"].Unit
+		falses[i] = input.Struct[fieldName].Struct["false"].Unit
+		i++
+	}
 
 	o := output.Struct
 	oTrue := o["true"].Unit
 	oFalse := o["false"].Unit
 
-	var aVal, bVal bool
 	for {
-		select {
-		case <-aTrue:
-			aVal = true
-		case <-aFalse:
-			aVal = false
-		case <-quit:
-			return
+		val := true
+
+		for i := 0; i < n; i++ {
+			select {
+			case <-trues[i]:
+			case <-falses[i]:
+				val = false
+			case <-quit:
+				return
+			}
 		}
-		select {
-		case <-bTrue:
-			bVal = true
-		case <-bFalse:
-			bVal = false
-		case <-quit:
-			return
-		}
-		if aVal && bVal {
+
+		if val {
 			oTrue <- Unit{}
 		} else {
 			oFalse <- Unit{}
