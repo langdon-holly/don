@@ -15,6 +15,17 @@ func RunI(theType DType, input Input, output Output, quit <-chan struct{}) {
 				return
 			}
 		}
+	case RefTypeTag:
+		i := input.Ref
+		o := output.Ref
+		for {
+			select {
+			case v := <-i:
+				o <- v
+			case <-quit:
+				return
+			}
+		}
 	case SyntaxTypeTag:
 		i := input.Syntax
 		o := output.Syntax

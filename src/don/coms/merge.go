@@ -17,6 +17,19 @@ func runMerge(theType DType, inputA, inputB Input, output Output, quit <-chan st
 				return
 			}
 		}
+	case RefTypeTag:
+		a, b := inputA.Ref, inputB.Ref
+		o := output.Ref
+		for {
+			select {
+			case v := <-a:
+				o <- v
+			case v := <-b:
+				o <- v
+			case <-quit:
+				return
+			}
+		}
 	case SyntaxTypeTag:
 		a, b := inputA.Syntax, inputB.Syntax
 		o := output.Syntax

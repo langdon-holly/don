@@ -4,9 +4,15 @@ import . "don/core"
 
 type ConstVal struct {
 	P         bool /* for !struct */
+	RefVal    Ref
 	SyntaxVal Syntax
 	ComVal    Com
 	StructVal map[string]ConstVal
+}
+
+type constRefEntry struct {
+	Chan chan<- Ref
+	Val  Ref
 }
 
 type constSyntaxEntry struct {
@@ -19,11 +25,15 @@ type constComEntry struct {
 	Val  Com
 }
 
-func putConstEntries(units *[]chan<- Unit, syntaxen *[]constSyntaxEntry, coms *[]constComEntry, theType DType, val ConstVal, output Output) {
+func putConstEntries(units *[]chan<- Unit, refs *[]constRefEntry, syntaxen *[]constSyntaxEntry, coms *[]constComEntry, theType DType, val ConstVal, output Output) {
 	switch theType.Tag {
 	case UnitTypeTag:
 		if val.P {
 			*units = append(*units, output.Unit)
+		}
+	case RefTypeTag:
+		if val.P {
+			*refs = append(*refs, constRefEntry{output.Ref, val.RefVal})
 		}
 	case SyntaxTypeTag:
 		if val.P {
@@ -35,7 +45,7 @@ func putConstEntries(units *[]chan<- Unit, syntaxen *[]constSyntaxEntry, coms *[
 		}
 	case StructTypeTag:
 		for fieldName, fieldType := range theType.Fields {
-			putConstEntries(units, syntaxen, coms, fieldType, val.StructVal[fieldName], output.Struct[fieldName])
+			putConstEntries(units, refs, syntaxen, coms, fieldType, val.StructVal[fieldName], output.Struct[fieldName])
 		}
 	}
 }
@@ -49,10 +59,11 @@ func (gc ConstCom) OutputType(inputType PartialType) PartialType { return Partia
 
 func (gc ConstCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
 	var units []chan<- Unit
+	var refs []constRefEntry
 	var syntaxen []constSyntaxEntry
 	var coms []constComEntry
 
-	putConstEntries(&units, &syntaxen, &coms, gc.Type, gc.Val, output)
+	putConstEntries(&units, &refs, &syntaxen, &coms, gc.Type, gc.Val, output)
 
 	for {
 		select {

@@ -16,6 +16,18 @@ func runSplit(theType DType, input Input, outputA, outputB Output, quit <-chan s
 				return
 			}
 		}
+	case RefTypeTag:
+		i := input.Ref
+		a, b := outputA.Ref, outputB.Ref
+		for {
+			select {
+			case v := <-i:
+				a <- v
+				b <- v
+			case <-quit:
+				return
+			}
+		}
 	case SyntaxTypeTag:
 		i := input.Syntax
 		a, b := outputA.Syntax, outputB.Syntax

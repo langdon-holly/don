@@ -13,6 +13,15 @@ func RunSink(theType DType, input Input, quit <-chan struct{}) {
 				return
 			}
 		}
+	case RefTypeTag:
+		i := input.Ref
+		for {
+			select {
+			case <-i:
+			case <-quit:
+				return
+			}
+		}
 	case SyntaxTypeTag:
 		i := input.Syntax
 		for {

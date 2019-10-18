@@ -6,14 +6,16 @@ type DTypeTag int
 
 const (
 	UnitTypeTag = DTypeTag(iota)
+	RefTypeTag
 	SyntaxTypeTag
 	ComTypeTag
 	StructTypeTag
 )
 
 type DType struct {
-	Tag    DTypeTag
-	Fields map[string]DType /* for Tag == StructTypeTag */
+	Tag      DTypeTag
+	Referent *DType           /* for Tag == RefTypeTag */
+	Fields   map[string]DType /* for Tag == StructTypeTag */
 }
 
 // Get DType
