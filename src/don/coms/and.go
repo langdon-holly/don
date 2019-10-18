@@ -59,4 +59,7 @@ func (com AndCom) Run(input interface{}, output interface{}, quit <-chan struct{
 	}
 }
 
-func GenAnd(inputType DType) Com { /* TODO: Check inputType */ return AndCom{} }
+type GenAnd struct{}
+
+func (GenAnd) OutputType(inputType PartialType) PartialType { return PartializeType(BoolType) }
+func (GenAnd) Com(inputType DType) Com                      { return AndCom{} }

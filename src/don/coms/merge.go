@@ -71,4 +71,14 @@ func (com MergeCom) Run(input interface{}, output interface{}, quit <-chan struc
 	runMerge(DType(com), inputStruct["a"], inputStruct["b"], output, quit)
 }
 
-func GenMerge(inputType DType) Com { return MergeCom(inputType) }
+type GenMerge struct{}
+
+func (GenMerge) OutputType(inputType PartialType) PartialType {
+	if inputType.P {
+		return MergePartialTypes(inputType.Fields["a"], inputType.Fields["b"])
+	} else {
+		return PartialType{}
+	}
+}
+
+func (GenMerge) Com(inputType DType) Com { return MergeCom(inputType.Extra.(map[string]DType)["a"]) }

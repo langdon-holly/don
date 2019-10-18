@@ -26,11 +26,18 @@ func (com SelectCom) Run(input interface{}, output interface{}, quit <-chan stru
 	}
 }
 
-func GenSelect(fieldName string) GenCom {
-	return func(inputType DType) Com {
-		if inputType.Tag != StructTypeTag {
-			panic("Type error")
-		}
-		return SelectCom{inputType.Extra.(map[string]DType), fieldName}
+type GenSelect string
+
+func (gc GenSelect) OutputType(inputType PartialType) PartialType {
+	if inputType.P {
+		return inputType.Fields[string(gc)]
+	} else {
+		return PartialType{}
 	}
+}
+
+func (gc GenSelect) Com(inputType DType) Com {
+	return SelectCom{
+		Fields:    inputType.Extra.(map[string]DType),
+		FieldName: string(gc)}
 }

@@ -56,4 +56,10 @@ func (com ChooseCom) Run(input interface{}, output interface{}, quit <-chan stru
 	}
 }
 
-func GenChoose(inputType DType) Com { /* TODO: Check inputType */ return ChooseCom{} }
+type GenChoose struct{}
+
+func (GenChoose) OutputType(inputType PartialType) PartialType {
+	return PartializeType(chooseComOutputType)
+}
+
+func (GenChoose) Com(inputType DType) Com { return ChooseCom{} }

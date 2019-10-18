@@ -81,6 +81,10 @@ func (com ConstCom) Run(input interface{}, output interface{}, quit <-chan struc
 	}
 }
 
-func GenConst(outputType DType, val interface{}) GenCom {
-	return func(inputType DType) Com { /* TODO: Check inputType */ return ConstCom{outputType, val} }
+type GenConst struct {
+	Type DType
+	Val  interface{}
 }
+
+func (gc GenConst) OutputType(inputType PartialType) PartialType { return PartializeType(gc.Type) }
+func (gc GenConst) Com(inputType DType) Com                      { return ConstCom{Type: gc.Type, Val: gc.Val} }

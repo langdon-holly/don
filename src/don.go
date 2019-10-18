@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	com := coms.GenPipe([]GenCom{coms.GenI, coms.GenSplit, coms.GenAnd})(BoolType)
+	com := coms.GenPipe([]GenCom{coms.GenI{}, coms.GenSplit{}, coms.GenAnd{}}).Com(BoolType)
 
 	input, output, quit := extra.Run(com)
 	defer close(quit)

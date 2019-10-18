@@ -53,4 +53,13 @@ func (com SinkCom) Run(input interface{}, output interface{}, quit <-chan struct
 	RunSink(DType(com), input, quit)
 }
 
-func GenSink(inputType DType) Com { return SinkCom(inputType) }
+type GenSink struct{}
+
+func (GenSink) OutputType(inputType PartialType) PartialType {
+	return PartialType{
+		P:      true,
+		Tag:    StructTypeTag,
+		Fields: make(map[string]PartialType, 0)}
+}
+
+func (GenSink) Com(inputType DType) Com { return SinkCom(inputType) }

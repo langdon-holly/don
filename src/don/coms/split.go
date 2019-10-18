@@ -68,4 +68,13 @@ func (com SplitCom) Run(input interface{}, output interface{}, quit <-chan struc
 	runSplit(DType(com), input, outputStruct["a"], outputStruct["b"], quit)
 }
 
-func GenSplit(inputType DType) Com { return SplitCom(inputType) }
+type GenSplit struct{}
+
+func (GenSplit) OutputType(inputType PartialType) PartialType {
+	fields := make(map[string]PartialType, 2)
+	fields["a"] = inputType
+	fields["b"] = inputType
+	return PartialType{P: true, Tag: StructTypeTag, Fields: fields}
+}
+
+func (GenSplit) Com(inputType DType) Com { return SplitCom(inputType) }

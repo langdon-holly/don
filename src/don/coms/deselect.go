@@ -21,6 +21,18 @@ func (com DeselectCom) Run(input interface{}, output interface{}, quit <-chan st
 	RunI(com.FieldType, input, output.(Struct)[com.FieldName], quit)
 }
 
-func GenDeselect(fieldName string) GenCom {
-	return func(inputType DType) Com { return DeselectCom{fieldName, inputType} }
+type GenDeselect string
+
+func (gd GenDeselect) OutputType(inputType PartialType) (ret PartialType) {
+	ret.P = true
+	ret.Tag = StructTypeTag
+
+	ret.Fields = make(map[string]PartialType, 1)
+	ret.Fields[string(gd)] = inputType
+
+	return
+}
+
+func (gd GenDeselect) Com(inputType DType) Com {
+	return DeselectCom{FieldName: string(gd), FieldType: inputType}
 }

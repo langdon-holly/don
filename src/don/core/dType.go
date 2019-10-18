@@ -26,7 +26,6 @@ const (
 	StringSyntaxTag = SyntaxTag(iota)
 	LolSyntaxTag
 	MCallSyntaxTag
-	QuotedComSyntaxTag
 )
 
 type String string
@@ -38,14 +37,10 @@ type MCall struct {
 	Arg   Syntax /* String or Lol */
 }
 
-type QuotedCom GenCom
-
 type Syntax struct {
 	Tag   SyntaxTag
 	Extra interface{}
 }
-
-type GenCom func(inputType DType) Com
 
 type Struct map[string]interface{}
 

@@ -60,4 +60,7 @@ func (com ICom) Run(input interface{}, output interface{}, quit <-chan struct{})
 	RunI(DType(com), input, output, quit)
 }
 
-func GenI(inputType DType) Com { return ICom(inputType) }
+type GenI struct{}
+
+func (GenI) OutputType(inputType PartialType) PartialType { return inputType }
+func (GenI) Com(inputType DType) Com                      { return ICom(inputType) }
