@@ -3,13 +3,15 @@ package coms
 import . "don/core"
 
 type ConstVal struct {
-	P   bool
-	Val interface{}
+	P         bool /* for !struct */
+	SyntaxVal Syntax
+	GenComVal GenCom
+	StructVal map[string]ConstVal
 }
 
 type ConstCom struct {
 	Type DType
-	Val  interface{}
+	Val  ConstVal
 }
 
 func (com ConstCom) InputType() DType {
@@ -30,26 +32,23 @@ type constGenComEntry struct {
 	Val  GenCom
 }
 
-func putConstEntries(units *[]chan<- Unit, syntaxen *[]constSyntaxEntry, genComs *[]constGenComEntry, theType DType, val interface{}, output Output) {
+func putConstEntries(units *[]chan<- Unit, syntaxen *[]constSyntaxEntry, genComs *[]constGenComEntry, theType DType, val ConstVal, output Output) {
 	switch theType.Tag {
 	case UnitTypeTag:
-		constVal := val.(ConstVal)
-		if constVal.P {
+		if val.P {
 			*units = append(*units, output.Unit)
 		}
 	case SyntaxTypeTag:
-		constVal := val.(ConstVal)
-		if constVal.P {
-			*syntaxen = append(*syntaxen, constSyntaxEntry{output.Syntax, constVal.Val.(Syntax)})
+		if val.P {
+			*syntaxen = append(*syntaxen, constSyntaxEntry{output.Syntax, val.SyntaxVal})
 		}
 	case GenComTypeTag:
-		constVal := val.(ConstVal)
-		if constVal.P {
-			*genComs = append(*genComs, constGenComEntry{output.GenCom, constVal.Val.(GenCom)})
+		if val.P {
+			*genComs = append(*genComs, constGenComEntry{output.GenCom, val.GenComVal})
 		}
 	case StructTypeTag:
 		for fieldName, fieldType := range theType.Fields {
-			putConstEntries(units, syntaxen, genComs, fieldType, val.(map[string]interface{})[fieldName], output.Struct[fieldName])
+			putConstEntries(units, syntaxen, genComs, fieldType, val.StructVal[fieldName], output.Struct[fieldName])
 		}
 	}
 }
@@ -81,7 +80,7 @@ func (com ConstCom) Run(input Input, output Output, quit <-chan struct{}) {
 
 type GenConst struct {
 	Type DType
-	Val  interface{}
+	Val  ConstVal
 }
 
 func (gc GenConst) OutputType(inputType PartialType) PartialType { return PartializeType(gc.Type) }
