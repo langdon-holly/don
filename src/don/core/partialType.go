@@ -7,7 +7,7 @@ type PartialType struct {
 	Fields   map[string]PartialType /* for Tag == StructTypeTag */
 }
 
-func (pt0 PartialType) Equal(pt1 PartialType) bool {
+func assumingEqual(pt0, pt1 PartialType, assumedEquals map[*PartialType]map[*PartialType]struct{}) bool {
 	if pt0.P != pt1.P {
 		return false
 	}
@@ -18,24 +18,44 @@ func (pt0 PartialType) Equal(pt1 PartialType) bool {
 	if pt0.Tag != pt1.Tag {
 		return false
 	}
-	if pt0.Tag != StructTypeTag {
-		return true
-	}
 
-	if len(pt0.Fields) != len(pt1.Fields) {
-		return false
-	}
-	for fieldName, fieldPType0 := range pt0.Fields {
-		fieldPType1, exists := pt1.Fields[fieldName]
-		if !exists {
+	if pt0.Tag == RefTypeTag {
+		rights, ok := assumedEquals[pt0.Referent]
+		if !ok {
+			rights = make(map[*PartialType]struct{}, 1)
+			assumedEquals[pt0.Referent] = rights
+		}
+
+		_, ok = rights[pt1.Referent]
+		if ok {
+			/* assumed equal */
+			return true
+		} else {
+			/* assume they're equal */
+			rights[pt1.Referent] = struct{}{}
+			return assumingEqual(*pt0.Referent, *pt1.Referent, assumedEquals)
+		}
+	} else if pt0.Tag == StructTypeTag {
+
+		if len(pt0.Fields) != len(pt1.Fields) {
 			return false
 		}
-		if !fieldPType0.Equal(fieldPType1) {
-			return false
+		for fieldName, fieldPType0 := range pt0.Fields {
+			fieldPType1, exists := pt1.Fields[fieldName]
+			if !exists {
+				return false
+			}
+			if !fieldPType0.Equal(fieldPType1) {
+				return false
+			}
 		}
 	}
 
 	return true
+}
+
+func (pt0 PartialType) Equal(pt1 PartialType) bool {
+	return assumingEqual(pt0, pt1, make(map[*PartialType]map[*PartialType]struct{}))
 }
 
 func MergePartialTypes(t0, t1 PartialType) PartialType {
