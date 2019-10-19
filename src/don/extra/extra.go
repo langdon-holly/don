@@ -8,10 +8,10 @@ func MakeIOChans(theType DType) (input Input, output Output) {
 		theChan := make(chan Unit, 1)
 		input.Unit = theChan
 		output.Unit = theChan
-	case ComTypeTag:
-		theChan := make(chan Com, 1)
-		input.Com = theChan
-		output.Com = theChan
+	case RefTypeTag:
+		theChan := make(chan Ref, 1)
+		input.Ref = theChan
+		output.Ref = theChan
 	case StructTypeTag:
 		input.Struct = make(map[string]Input)
 		output.Struct = make(map[string]Output)

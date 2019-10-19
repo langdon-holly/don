@@ -22,15 +22,6 @@ func RunSink(theType DType, input Input, quit <-chan struct{}) {
 				return
 			}
 		}
-	case ComTypeTag:
-		i := input.Com
-		for {
-			select {
-			case <-i:
-			case <-quit:
-				return
-			}
-		}
 	case StructTypeTag:
 		i := input.Struct
 		for fieldName, fieldType := range theType.Fields {

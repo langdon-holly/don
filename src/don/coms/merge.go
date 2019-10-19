@@ -24,17 +24,6 @@ func listenRef(input <-chan Ref, output chan<- Ref, quit <-chan struct{}) {
 	}
 }
 
-func listenCom(input <-chan Com, output chan<- Com, quit <-chan struct{}) {
-	for {
-		select {
-		case val := <-input:
-			output <- val
-		case <-quit:
-			return
-		}
-	}
-}
-
 func runMerge(theType DType, inputs []Input, output Output, quit <-chan struct{}) {
 	switch theType.Tag {
 	case UnitTypeTag:
@@ -44,10 +33,6 @@ func runMerge(theType DType, inputs []Input, output Output, quit <-chan struct{}
 	case RefTypeTag:
 		for _, input := range inputs {
 			go listenRef(input.Ref, output.Ref, quit)
-		}
-	case ComTypeTag:
-		for _, input := range inputs {
-			go listenCom(input.Com, output.Com, quit)
 		}
 	case StructTypeTag:
 		for fieldName, fieldType := range theType.Fields {

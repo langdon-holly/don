@@ -26,17 +26,6 @@ func RunI(theType DType, input Input, output Output, quit <-chan struct{}) {
 				return
 			}
 		}
-	case ComTypeTag:
-		i := input.Com
-		o := output.Com
-		for {
-			select {
-			case v := <-i:
-				o <- v
-			case <-quit:
-				return
-			}
-		}
 	case StructTypeTag:
 		i := input.Struct
 		o := output.Struct

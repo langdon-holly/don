@@ -26,17 +26,6 @@ func runSplit(theType DType, input Input, outputs []Output, quit <-chan struct{}
 				return
 			}
 		}
-	case ComTypeTag:
-		for {
-			select {
-			case val := <-input.Com:
-				for _, output := range outputs {
-					output.Com <- val
-				}
-			case <-quit:
-				return
-			}
-		}
 	case StructTypeTag:
 		for fieldName, fieldType := range theType.Fields {
 			subOutputs := make([]Output, len(outputs))
