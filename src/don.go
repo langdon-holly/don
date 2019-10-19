@@ -10,7 +10,12 @@ import (
 )
 
 func main() {
-	com := coms.Pipe([]Com{coms.ICom{}, coms.SplitCom([]string{"hello", "hi"}), coms.AndCom{}})
+	com := coms.Pipe([]Com{
+		coms.ICom{},
+		coms.SplitCom([]string{"hello", "hi"}),
+		coms.AndCom{},
+		coms.Deselect("l"),
+		coms.SelectCom("l")})
 
 	input, output, quit := extra.Run(com, types.BoolType)
 	defer close(quit)
