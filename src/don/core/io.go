@@ -7,19 +7,26 @@ type Ref struct {
 	Input /* for P */
 }
 
-type StructIn map[string]Input
-type StructOut map[string]Output
-
 type Input struct {
 	Unit   <-chan Unit
 	Ref    <-chan Ref
-	Com    <-chan Com
-	Struct StructIn
+	Struct map[string]Input
 }
 
 type Output struct {
-	Unit   chan<- Unit
-	Ref    chan<- Ref
-	Com    chan<- Com
-	Struct StructOut
+	Unit   []chan<- Unit
+	Ref    []chan<- Ref
+	Struct map[string]Output
+}
+
+func (o Output) WriteUnit() {
+	for _, oChan := range o.Unit {
+		oChan <- Unit{}
+	}
+}
+
+func (o Output) WriteRef(val Ref) {
+	for _, oChan := range o.Ref {
+		oChan <- val
+	}
 }

@@ -9,23 +9,23 @@ type ConstVal struct {
 }
 
 type constRefEntry struct {
-	Chan chan<- Ref
-	Val  Ref
+	Output
+	Val Ref
 }
 
-func putConstEntries(units *[]chan<- Unit, refs *[]constRefEntry, theType DType, val ConstVal, output Output) {
+func putConstEntries(unitChans *[]chan<- Unit, refs *[]constRefEntry, theType DType, val ConstVal, output Output) {
 	switch theType.Tag {
 	case UnitTypeTag:
 		if val.P {
-			*units = append(*units, output.Unit)
+			*unitChans = append(*unitChans, output.Unit...)
 		}
 	case RefTypeTag:
 		if val.P {
-			*refs = append(*refs, constRefEntry{output.Ref, val.RefVal})
+			*refs = append(*refs, constRefEntry{Output: output, Val: val.RefVal})
 		}
 	case StructTypeTag:
 		for fieldName, fieldType := range theType.Fields {
-			putConstEntries(units, refs, fieldType, val.StructVal[fieldName], output.Struct[fieldName])
+			putConstEntries(unitChans, refs, fieldType, val.StructVal[fieldName], output.Struct[fieldName])
 		}
 	}
 }
@@ -38,19 +38,17 @@ type ConstCom struct {
 func (gc ConstCom) OutputType(inputType PartialType) PartialType { return PartializeType(gc.Type) }
 
 func (gc ConstCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
-	var units []chan<- Unit
+	var units Output
 	var refs []constRefEntry
 
-	putConstEntries(&units, &refs, gc.Type, gc.Val, output)
+	putConstEntries(&units.Unit, &refs, gc.Type, gc.Val, output)
 
 	for {
 		select {
 		case <-input.Unit:
-			for _, entry := range units {
-				entry <- Unit{}
-			}
+			units.WriteUnit()
 			for _, entry := range refs {
-				entry.Chan <- entry.Val
+				entry.WriteRef(entry.Val)
 			}
 		case <-quit:
 			return

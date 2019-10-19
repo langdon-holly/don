@@ -21,8 +21,8 @@ func (AndCom) Run(inputType DType, input Input, output Output, quit <-chan struc
 	}
 
 	o := output.Struct
-	oTrue := o["true"].Unit
-	oFalse := o["false"].Unit
+	oTrue := o["true"]
+	oFalse := o["false"]
 
 	for {
 		val := true
@@ -38,9 +38,9 @@ func (AndCom) Run(inputType DType, input Input, output Output, quit <-chan struc
 		}
 
 		if val {
-			oTrue <- Unit{}
+			oTrue.WriteUnit()
 		} else {
-			oFalse <- Unit{}
+			oFalse.WriteUnit()
 		}
 	}
 }

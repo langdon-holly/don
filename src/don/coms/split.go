@@ -9,7 +9,7 @@ func runSplit(theType DType, input Input, outputs []Output, quit <-chan struct{}
 			select {
 			case <-input.Unit:
 				for _, output := range outputs {
-					output.Unit <- Unit{}
+					output.WriteUnit()
 				}
 			case <-quit:
 				return
@@ -20,7 +20,7 @@ func runSplit(theType DType, input Input, outputs []Output, quit <-chan struct{}
 			select {
 			case val := <-input.Ref:
 				for _, output := range outputs {
-					output.Ref <- val
+					output.WriteRef(val)
 				}
 			case <-quit:
 				return

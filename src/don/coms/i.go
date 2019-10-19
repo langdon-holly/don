@@ -5,32 +5,26 @@ import . "don/core"
 func RunI(theType DType, input Input, output Output, quit <-chan struct{}) {
 	switch theType.Tag {
 	case UnitTypeTag:
-		i := input.Unit
-		o := output.Unit
 		for {
 			select {
-			case <-i:
-				o <- Unit{}
+			case <-input.Unit:
+				output.WriteUnit()
 			case <-quit:
 				return
 			}
 		}
 	case RefTypeTag:
-		i := input.Ref
-		o := output.Ref
 		for {
 			select {
-			case v := <-i:
-				o <- v
+			case val := <-input.Ref:
+				output.WriteRef(val)
 			case <-quit:
 				return
 			}
 		}
 	case StructTypeTag:
-		i := input.Struct
-		o := output.Struct
 		for fieldName, fieldType := range theType.Fields {
-			go RunI(fieldType, i[fieldName], o[fieldName], quit)
+			go RunI(fieldType, input.Struct[fieldName], output.Struct[fieldName], quit)
 		}
 	}
 }

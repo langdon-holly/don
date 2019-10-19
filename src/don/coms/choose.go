@@ -42,7 +42,7 @@ func (ChooseCom) Run(inputType DType, input Input, output Output, quit <-chan st
 		}
 		select {
 		case chosen := <-chosens:
-			choicesOut[chosen].Unit <- Unit{}
+			choicesOut[chosen].WriteUnit()
 		case <-quit:
 			return
 		}

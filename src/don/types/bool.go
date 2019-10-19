@@ -7,9 +7,9 @@ var BoolType DType = MakeStructType(BoolTypeFields)
 
 func WriteBool(output Output, val bool) {
 	if val {
-		output.Struct["true"].Unit <- Unit{}
+		output.Struct["true"].WriteUnit()
 	} else {
-		output.Struct["false"].Unit <- Unit{}
+		output.Struct["false"].WriteUnit()
 	}
 }
 

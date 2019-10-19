@@ -7,11 +7,11 @@ func MakeIOChans(theType DType) (input Input, output Output) {
 	case UnitTypeTag:
 		theChan := make(chan Unit, 1)
 		input.Unit = theChan
-		output.Unit = theChan
+		output.Unit = []chan<- Unit{theChan}
 	case RefTypeTag:
 		theChan := make(chan Ref, 1)
 		input.Ref = theChan
-		output.Ref = theChan
+		output.Ref = []chan<- Ref{theChan}
 	case StructTypeTag:
 		input.Struct = make(map[string]Input)
 		output.Struct = make(map[string]Output)
