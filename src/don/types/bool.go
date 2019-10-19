@@ -1,4 +1,6 @@
-package core
+package types
+
+import . "don/core"
 
 var BoolTypeFields map[string]DType = make(map[string]DType, 2)
 var BoolType DType = MakeStructType(BoolTypeFields)

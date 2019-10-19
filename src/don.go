@@ -6,20 +6,21 @@ import (
 	"don/coms"
 	. "don/core"
 	"don/extra"
+	"don/types"
 )
 
 func main() {
 	com := coms.Pipe([]Com{coms.ICom{}, coms.SplitCom([]string{"hello", "hi"}), coms.AndCom{}})
 
-	input, output, quit := extra.Run(com, BoolType)
+	input, output, quit := extra.Run(com, types.BoolType)
 	defer close(quit)
 
-	WriteBool(input, true)
-	fmt.Println(ReadBool(output))
+	types.WriteBool(input, true)
+	fmt.Println(types.ReadBool(output))
 
-	WriteBool(input, true)
-	fmt.Println(ReadBool(output))
+	types.WriteBool(input, true)
+	fmt.Println(types.ReadBool(output))
 
-	WriteBool(input, false)
-	fmt.Println(ReadBool(output))
+	types.WriteBool(input, false)
+	fmt.Println(types.ReadBool(output))
 }

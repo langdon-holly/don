@@ -8,10 +8,6 @@ func MakeIOChans(theType DType) (input Input, output Output) {
 		theChan := make(chan Unit, 1)
 		input.Unit = theChan
 		output.Unit = theChan
-	case SyntaxTypeTag:
-		theChan := make(chan Syntax, 1)
-		input.Syntax = theChan
-		output.Syntax = theChan
 	case ComTypeTag:
 		theChan := make(chan Com, 1)
 		input.Com = theChan

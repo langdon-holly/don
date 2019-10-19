@@ -22,15 +22,6 @@ func RunSink(theType DType, input Input, quit <-chan struct{}) {
 				return
 			}
 		}
-	case SyntaxTypeTag:
-		i := input.Syntax
-		for {
-			select {
-			case <-i:
-			case <-quit:
-				return
-			}
-		}
 	case ComTypeTag:
 		i := input.Com
 		for {

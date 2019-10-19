@@ -1,10 +1,11 @@
 package coms
 
 import . "don/core"
+import "don/types"
 
 type AndCom struct{}
 
-func (AndCom) OutputType(inputType PartialType) PartialType { return PartializeType(BoolType) }
+func (AndCom) OutputType(inputType PartialType) PartialType { return PartializeType(types.BoolType) }
 
 func (AndCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
 	n := len(inputType.Fields)

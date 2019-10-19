@@ -7,7 +7,6 @@ type DTypeTag int
 const (
 	UnitTypeTag = DTypeTag(iota)
 	RefTypeTag
-	SyntaxTypeTag
 	ComTypeTag
 	StructTypeTag
 )
@@ -22,7 +21,9 @@ type DType struct {
 
 var UnitType = DType{Tag: UnitTypeTag}
 
-var SyntaxType = DType{Tag: SyntaxTypeTag}
+func MakeRefType(referentType DType) DType {
+	return DType{Tag: RefTypeTag, Referent: &referentType}
+}
 
 var ComType = DType{Tag: ComTypeTag}
 

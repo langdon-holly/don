@@ -26,17 +26,6 @@ func runSplit(theType DType, input Input, outputs []Output, quit <-chan struct{}
 				return
 			}
 		}
-	case SyntaxTypeTag:
-		for {
-			select {
-			case val := <-input.Syntax:
-				for _, output := range outputs {
-					output.Syntax <- val
-				}
-			case <-quit:
-				return
-			}
-		}
 	case ComTypeTag:
 		for {
 			select {
