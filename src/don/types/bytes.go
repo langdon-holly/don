@@ -1,3 +1,3 @@
 package types
 
-var BytesType = MakeLinkedListType(ByteType)
+var BytesType, Bytes1Type = MakeLinkedListType(ByteType)

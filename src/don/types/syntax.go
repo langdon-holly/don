@@ -6,7 +6,9 @@ var SyntaxType = MakeStructType(make(map[string]DType, 3))
 
 func init() {
 	SyntaxType.Fields["block?"] = UnitType
-	SyntaxType.Fields["block"] = MakeLinkedListType(*MakeLinkedListType(SyntaxType).Referent)
+
+	_, syntaxen1Type := MakeLinkedListType(SyntaxType)
+	SyntaxType.Fields["block"], _ = MakeLinkedListType(syntaxen1Type) /* for block? */
 
 	mCallFields := make(map[string]DType, 2)
 	mCallFields["macro"] = SyntaxType
@@ -16,5 +18,6 @@ func init() {
 	SyntaxType.Fields["ident?"] = UnitType
 	SyntaxType.Fields["select?"] = UnitType
 	SyntaxType.Fields["deselect?"] = UnitType
-	SyntaxType.Fields["field-path"] = *MakeLinkedListType(BytesType).Referent
+
+	_, SyntaxType.Fields["field-path"] = MakeLinkedListType(BytesType) /* for ident? or select? or deselect? */
 }

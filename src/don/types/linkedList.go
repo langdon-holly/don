@@ -2,8 +2,8 @@ package types
 
 import . "don/core"
 
-func MakeLinkedListType(elementType DType) (ret DType) {
-	ret1 := MakeStructType(make(map[string]DType, 2))
+func MakeLinkedListType(elementType DType) (ret DType, ret1 DType) {
+	ret1 = MakeStructType(make(map[string]DType, 2))
 
 	ret = MakeRefType(ret1)
 
