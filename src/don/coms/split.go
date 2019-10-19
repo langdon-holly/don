@@ -2,74 +2,80 @@ package coms
 
 import . "don/core"
 
-func runSplit(theType DType, input Input, outputA, outputB Output, quit <-chan struct{}) {
+func runSplit(theType DType, input Input, outputs []Output, quit <-chan struct{}) {
 	switch theType.Tag {
 	case UnitTypeTag:
-		i := input.Unit
-		a, b := outputA.Unit, outputB.Unit
 		for {
 			select {
-			case <-i:
-				a <- Unit{}
-				b <- Unit{}
+			case <-input.Unit:
+				for _, output := range outputs {
+					output.Unit <- Unit{}
+				}
 			case <-quit:
 				return
 			}
 		}
 	case RefTypeTag:
-		i := input.Ref
-		a, b := outputA.Ref, outputB.Ref
 		for {
 			select {
-			case v := <-i:
-				a <- v
-				b <- v
+			case val := <-input.Ref:
+				for _, output := range outputs {
+					output.Ref <- val
+				}
 			case <-quit:
 				return
 			}
 		}
 	case SyntaxTypeTag:
-		i := input.Syntax
-		a, b := outputA.Syntax, outputB.Syntax
 		for {
 			select {
-			case v := <-i:
-				a <- v
-				b <- v
+			case val := <-input.Syntax:
+				for _, output := range outputs {
+					output.Syntax <- val
+				}
 			case <-quit:
 				return
 			}
 		}
 	case ComTypeTag:
-		i := input.Com
-		a, b := outputA.Com, outputB.Com
 		for {
 			select {
-			case v := <-i:
-				a <- v
-				b <- v
+			case val := <-input.Com:
+				for _, output := range outputs {
+					output.Com <- val
+				}
 			case <-quit:
 				return
 			}
 		}
 	case StructTypeTag:
-		i := input.Struct
-		a, b := outputA.Struct, outputB.Struct
 		for fieldName, fieldType := range theType.Fields {
-			go runSplit(fieldType, i[fieldName], a[fieldName], b[fieldName], quit)
+			subOutputs := make([]Output, len(outputs))
+			for i, output := range outputs {
+				subOutputs[i] = output.Struct[fieldName]
+			}
+
+			go runSplit(fieldType, input.Struct[fieldName], subOutputs, quit)
 		}
 	}
 }
 
-type SplitCom struct{}
+type SplitCom []string
 
-func (SplitCom) OutputType(inputType PartialType) PartialType {
-	fields := make(map[string]PartialType, 2)
-	fields["a"] = inputType
-	fields["b"] = inputType
+func (sc SplitCom) OutputType(inputType PartialType) PartialType {
+	fields := make(map[string]PartialType, len(sc))
+	for _, fieldName := range sc {
+		fields[fieldName] = inputType
+	}
+
 	return PartialType{P: true, Tag: StructTypeTag, Fields: fields}
 }
 
-func (SplitCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
-	runSplit(inputType, input, output.Struct["a"], output.Struct["b"], quit)
+func (sc SplitCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
+	outputs := make([]Output, len(sc))
+	for i, fieldName := range sc {
+		outputs[i] = output.Struct[fieldName]
+	}
+
+	runSplit(inputType, input, outputs, quit)
 }

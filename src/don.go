@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	com := coms.Pipe([]Com{coms.ICom{}, coms.SplitCom{}, coms.AndCom{}})
+	com := coms.Pipe([]Com{coms.ICom{}, coms.SplitCom([]string{"hello", "hi"}), coms.AndCom{}})
 
 	input, output, quit := extra.Run(com, BoolType)
 	defer close(quit)
