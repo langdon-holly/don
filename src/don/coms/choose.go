@@ -2,29 +2,37 @@ package coms
 
 import . "don/core"
 
-var chooseComOutputTypeFields map[string]DType = make(map[string]DType, 2)
-var chooseComOutputType DType = MakeStructType(chooseComOutputTypeFields)
-
-func init() {
-	chooseComOutputTypeFields["a"] = UnitType
-	chooseComOutputTypeFields["b"] = UnitType
-}
-
 type ChooseCom struct{}
 
-func (ChooseCom) OutputType(inputType PartialType) PartialType {
-	return PartializeType(chooseComOutputType)
+func (ChooseCom) OutputType(inputType PartialType) (ret PartialType) {
+	ret = PartialType{P: true, Tag: StructTypeTag}
+	if inputType.P {
+		ret = MergePartialTypes(ret, inputType.Fields["choices"])
+	}
+	return
+}
+
+func listen(chosens chan<- string, fieldName string, choice <-chan Unit, quit <-chan struct{}) {
+	for {
+		select {
+		case <-choice:
+			chosens <- fieldName
+		case <-quit:
+			return
+		}
+	}
 }
 
 func (ChooseCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
-	i := input.Struct
-	iA := i["a"].Unit
-	iB := i["b"].Unit
-	ready := i["ready"].Unit
+	choicesIn := input.Struct["choices"].Struct
+	ready := input.Struct["ready"].Unit
+	choicesOut := output.Struct
 
-	o := output.Struct
-	oA := o["a"].Unit
-	oB := o["b"].Unit
+	chosens := make(chan string)
+
+	for fieldName, _ := range inputType.Fields["choices"].Fields {
+		go listen(chosens, fieldName, choicesIn[fieldName].Unit, quit)
+	}
 
 	for {
 		select {
@@ -33,10 +41,8 @@ func (ChooseCom) Run(inputType DType, input Input, output Output, quit <-chan st
 			return
 		}
 		select {
-		case <-iA:
-			oA <- Unit{}
-		case <-iB:
-			oB <- Unit{}
+		case chosen := <-chosens:
+			choicesOut[chosen].Unit <- Unit{}
 		case <-quit:
 			return
 		}
