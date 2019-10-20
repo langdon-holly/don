@@ -8,50 +8,47 @@ type ConstVal struct {
 	StructVal map[string]ConstVal
 }
 
-type constRefEntry struct {
-	Output
-	Val Ref
-}
-
-func putConstEntries(unitChans *[]chan<- Unit, refs *[]constRefEntry, theType DType, val ConstVal, output Output) {
-	switch theType.Tag {
+func Const(outputType DType, val ConstVal) Com {
+	switch outputType.Tag {
 	case UnitTypeTag:
 		if val.P {
-			*unitChans = append(*unitChans, output.Unit...)
+			return ICom{}
+		} else {
+			return SinkCom{}
 		}
 	case RefTypeTag:
 		if val.P {
-			*refs = append(*refs, constRefEntry{Output: output, Val: val.RefVal})
+			return ConstRefCom{ReferentType: *outputType.Referent, Val: val.RefVal}
+		} else {
+			return SinkCom{}
 		}
 	case StructTypeTag:
-		for fieldName, fieldType := range theType.Fields {
-			putConstEntries(unitChans, refs, fieldType, val.StructVal[fieldName], output.Struct[fieldName])
+		inputMap := SignalReaderIdTree{
+			SignalReaderId: SignalReaderId{
+				ReaderId: ReaderId{InternalP: true}}}
+
+		fieldNames := make([]string, len(outputType.Fields))
+		splitOutputMapFields := make(map[string]SignalReaderIdTree, len(outputType.Fields))
+		coms := make([]CompositeComEntry, len(outputType.Fields)+1)
+
+		i := 0
+		for fieldName, fieldType := range outputType.Fields {
+			splitOutputMapFields[fieldName] = SignalReaderIdTree{
+				SignalReaderId: SignalReaderId{
+					ReaderId: ReaderId{InternalP: true, InternalIdx: i}}}
+			coms[i+1] = CompositeComEntry{
+				Com: Const(fieldType, val.StructVal[fieldName]),
+				OutputMap: SignalReaderIdTree{
+					SignalReaderId: SignalReaderId{
+						FieldPath: []string{fieldName}}}}
+			fieldNames[i] = fieldName
+			i++
 		}
-	}
-}
 
-type ConstCom struct {
-	Type DType
-	Val  ConstVal
-}
+		coms[0] = CompositeComEntry{Com: SplitCom(fieldNames), OutputMap: SignalReaderIdTree{ParentP: true, Children: splitOutputMapFields}}
 
-func (gc ConstCom) OutputType(inputType PartialType) PartialType { return PartializeType(gc.Type) }
-
-func (gc ConstCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
-	var units Output
-	var refs []constRefEntry
-
-	putConstEntries(&units.Unit, &refs, gc.Type, gc.Val, output)
-
-	for {
-		select {
-		case <-input.Unit:
-			units.WriteUnit()
-			for _, entry := range refs {
-				entry.WriteRef(entry.Val)
-			}
-		case <-quit:
-			return
-		}
+		return CompositeCom{Coms: coms, InputMap: inputMap}
+	default:
+		panic("Unreachable")
 	}
 }
