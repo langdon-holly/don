@@ -2,37 +2,52 @@ package extra
 
 import . "don/core"
 
-func MakeIOChans(theType DType) (input Input, output Output) {
+func MakeIOChans(theType DType, nInputs int) (inputs []Input, output Output) {
+	inputs = make([]Input, nInputs)
 	switch theType.Tag {
 	case UnitTypeTag:
-		theChan := make(chan Unit, 1)
-		input.Unit = theChan
-		output.Unit = []chan<- Unit{theChan}
+		output.Unit = make([]chan<- Unit, nInputs)
+		for i := 0; i < nInputs; i++ {
+			theChan := make(chan Unit, 1)
+			inputs[i].Unit = theChan
+			output.Unit[i] = theChan
+		}
 	case RefTypeTag:
-		theChan := make(chan Ref, 1)
-		input.Ref = theChan
-		output.Ref = []chan<- Ref{theChan}
+		output.Ref = make([]chan<- Ref, nInputs)
+		for i := 0; i < nInputs; i++ {
+			theChan := make(chan Ref, 1)
+			inputs[i].Ref = theChan
+			output.Ref[i] = theChan
+		}
 	case StructTypeTag:
-		input.Struct = make(map[string]Input)
+		for i := 0; i < nInputs; i++ {
+			inputs[i].Struct = make(map[string]Input)
+		}
 		output.Struct = make(map[string]Output)
 		for fieldName, fieldType := range theType.Fields {
-			input.Struct[fieldName], output.Struct[fieldName] = MakeIOChans(fieldType)
+			subInputs, subOutput := MakeIOChans(fieldType, nInputs)
+			for i := 0; i < nInputs; i++ {
+				inputs[i].Struct[fieldName] = subInputs[i]
+			}
+			output.Struct[fieldName] = subOutput
 		}
 	}
 	return
 }
 
-func Run(com Com, inputType DType) (inputO Output, outputI Input, quit chan<- struct{}) {
-	var inputI Input
+func Run(com Com, inputType DType, outputIN int) (inputO Output, outputIs []Input, quit chan<- struct{}) {
+	var inputIs []Input
 	var outputO Output
 
-	inputI, inputO = MakeIOChans(inputType)
-	outputI, outputO = MakeIOChans(HolizePartialType(com.OutputType(PartializeType(inputType))))
+	inputIs, inputO = MakeIOChans(inputType, 1)
+	outputIs, outputO = MakeIOChans(
+		HolizePartialType(com.OutputType(PartializeType(inputType))),
+		outputIN)
 
 	quitChan := make(chan struct{})
 	quit = quitChan
 
-	go com.Run(inputType, inputI, outputO, quitChan)
+	go com.Run(inputType, inputIs[0], outputO, quitChan)
 
 	return
 }

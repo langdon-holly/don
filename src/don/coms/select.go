@@ -1,6 +1,7 @@
 package coms
 
 import . "don/core"
+import "don/extra"
 
 type SelectCom string
 
@@ -17,7 +18,8 @@ func (gc SelectCom) Run(inputType DType, input Input, output Output, quit <-chan
 		if fieldName == string(gc) {
 			go RunI(fieldType, input.Struct[fieldName], output, quit)
 		} else {
-			go RunSink(fieldType, input.Struct[fieldName], quit)
+			_, sink := extra.MakeIOChans(fieldType, 0)
+			go RunI(fieldType, input.Struct[fieldName], sink, quit)
 		}
 	}
 }

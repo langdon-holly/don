@@ -1,34 +1,7 @@
 package coms
 
 import . "don/core"
-
-func RunSink(theType DType, input Input, quit <-chan struct{}) {
-	switch theType.Tag {
-	case UnitTypeTag:
-		i := input.Unit
-		for {
-			select {
-			case <-i:
-			case <-quit:
-				return
-			}
-		}
-	case RefTypeTag:
-		i := input.Ref
-		for {
-			select {
-			case <-i:
-			case <-quit:
-				return
-			}
-		}
-	case StructTypeTag:
-		i := input.Struct
-		for fieldName, fieldType := range theType.Fields {
-			go RunSink(fieldType, i[fieldName], quit)
-		}
-	}
-}
+import "don/extra"
 
 type SinkCom struct{}
 
@@ -40,5 +13,6 @@ func (SinkCom) OutputType(inputType PartialType) PartialType {
 }
 
 func (SinkCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
-	RunSink(inputType, input, quit)
+	_, newOutput := extra.MakeIOChans(inputType, 0)
+	RunI(inputType, input, newOutput, quit)
 }

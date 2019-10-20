@@ -25,7 +25,7 @@ type CompositeComEntry struct {
 }
 
 type CompositeCom struct {
-	Coms  []CompositeComEntry
+	Coms     []CompositeComEntry
 	InputMap SignalReaderIdTree
 }
 
@@ -137,7 +137,9 @@ func (gc CompositeCom) Run(inputType DType, input Input, output Output, quit <-c
 	inputIs := make([]Input, len(gc.Coms))
 	inputOs := make([]Output, len(gc.Coms))
 	for i, inputType := range inputTypes.Internals {
-		inputIs[i], inputOs[i] = extra.MakeIOChans(HolizePartialType(inputType))
+		subInputs, subOutput := extra.MakeIOChans(HolizePartialType(inputType), 1)
+		inputIs[i] = subInputs[0]
+		inputOs[i] = subOutput
 	}
 	putExternalInput(gc.InputMap, input, inputIs)
 
