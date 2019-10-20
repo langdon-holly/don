@@ -14,13 +14,13 @@ func Const(outputType DType, val ConstVal) Com {
 		if val.P {
 			return ICom{}
 		} else {
-			return SinkCom{}
+			return Sink
 		}
 	case RefTypeTag:
 		if val.P {
 			return ConstRefCom{ReferentType: *outputType.Referent, Val: val.RefVal}
 		} else {
-			return SinkCom{}
+			return Sink
 		}
 	case StructTypeTag:
 		inputMap := SignalReaderIdTree{
