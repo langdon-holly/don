@@ -3,8 +3,8 @@ package core
 type Unit struct{}
 
 type Ref struct {
-	P     bool
-	Input /* for P */
+	P           bool
+	InputGetter /* for P */
 }
 
 type Input struct {
