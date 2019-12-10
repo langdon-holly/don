@@ -7,6 +7,10 @@ type PartialType struct {
 	Fields   map[string]PartialType /* for Tag == StructTypeTag */
 }
 
+func MakeRefPartialType(referentType PartialType) PartialType {
+	return PartialType{Tag: RefTypeTag, Referent: &referentType}
+}
+
 func assumingEqual(pt0, pt1 PartialType, assumedEquals map[*PartialType]map[*PartialType]struct{}) bool {
 	if pt0.P != pt1.P {
 		return false
