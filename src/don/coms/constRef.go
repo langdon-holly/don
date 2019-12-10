@@ -11,7 +11,10 @@ func (crc ConstRefCom) OutputType(inputType PartialType) PartialType {
 	return PartializeType(MakeRefType(crc.ReferentType))
 }
 
-func (crc ConstRefCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
+func (crc ConstRefCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
+	input := inputGetter.GetInput(UnitType)
+	output := outputGetter.GetOutput(MakeRefType(crc.ReferentType))
+
 	for {
 		select {
 		case <-input.Unit:

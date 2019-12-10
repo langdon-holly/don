@@ -2,9 +2,15 @@ package coms
 
 import . "don/core"
 
-func runSplit(theType DType, input Input, outputs []Output, quit <-chan struct{}) {
+func runSplit(theType DType, inputGetter InputGetter, outputGetters []OutputGetter, quit <-chan struct{}) {
 	switch theType.Tag {
 	case UnitTypeTag:
+		input := inputGetter.GetInput(theType)
+		outputs := make([]Output, len(outputGetters))
+		for i, outputGetter := range outputGetters {
+			outputs[i] = outputGetter.GetOutput(theType)
+		}
+
 		for {
 			select {
 			case <-input.Unit:
@@ -16,6 +22,12 @@ func runSplit(theType DType, input Input, outputs []Output, quit <-chan struct{}
 			}
 		}
 	case RefTypeTag:
+		input := inputGetter.GetInput(theType)
+		outputs := make([]Output, len(outputGetters))
+		for i, outputGetter := range outputGetters {
+			outputs[i] = outputGetter.GetOutput(theType)
+		}
+
 		for {
 			select {
 			case val := <-input.Ref:
@@ -28,12 +40,12 @@ func runSplit(theType DType, input Input, outputs []Output, quit <-chan struct{}
 		}
 	case StructTypeTag:
 		for fieldName, fieldType := range theType.Fields {
-			subOutputs := make([]Output, len(outputs))
-			for i, output := range outputs {
-				subOutputs[i] = output.Struct[fieldName]
+			subOutputGetters := make([]OutputGetter, len(outputGetters))
+			for i, outputGetter := range outputGetters {
+				subOutputGetters[i] = outputGetter.Struct[fieldName]
 			}
 
-			go runSplit(fieldType, input.Struct[fieldName], subOutputs, quit)
+			go runSplit(fieldType, inputGetter.Struct[fieldName], subOutputGetters, quit)
 		}
 	}
 }
@@ -49,11 +61,11 @@ func (sc SplitCom) OutputType(inputType PartialType) PartialType {
 	return PartialType{P: true, Tag: StructTypeTag, Fields: fields}
 }
 
-func (sc SplitCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
-	outputs := make([]Output, len(sc))
+func (sc SplitCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
+	outputGetters := make([]OutputGetter, len(sc))
 	for i, fieldName := range sc {
-		outputs[i] = output.Struct[fieldName]
+		outputGetters[i] = outputGetter.Struct[fieldName]
 	}
 
-	runSplit(inputType, input, outputs, quit)
+	runSplit(inputType, inputGetter, outputGetters, quit)
 }

@@ -1,13 +1,15 @@
 package coms
 
-import . "don/core"
-import "don/types"
+import (
+	. "don/core"
+	"don/types"
+)
 
 type AndCom struct{}
 
 func (AndCom) OutputType(inputType PartialType) PartialType { return PartializeType(types.BoolType) }
 
-func (AndCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
+func (AndCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
 	n := len(inputType.Fields)
 
 	trues := make([]<-chan Unit, n)
@@ -15,14 +17,13 @@ func (AndCom) Run(inputType DType, input Input, output Output, quit <-chan struc
 
 	i := 0
 	for fieldName := range inputType.Fields {
-		trues[i] = input.Struct[fieldName].Struct["true"].Unit
-		falses[i] = input.Struct[fieldName].Struct["false"].Unit
+		trues[i] = inputGetter.Struct[fieldName].Struct["true"].GetInput(UnitType).Unit
+		falses[i] = inputGetter.Struct[fieldName].Struct["false"].GetInput(UnitType).Unit
 		i++
 	}
 
-	o := output.Struct
-	oTrue := o["true"]
-	oFalse := o["false"]
+	oTrue := outputGetter.Struct["true"].GetOutput(UnitType)
+	oFalse := outputGetter.Struct["false"].GetOutput(UnitType)
 
 	for {
 		val := true

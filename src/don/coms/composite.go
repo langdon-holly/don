@@ -1,7 +1,6 @@
 package coms
 
 import . "don/core"
-import "don/extra"
 
 type ReaderId struct {
 	InternalP   bool
@@ -92,35 +91,35 @@ func (gc CompositeCom) OutputType(inputType PartialType) PartialType {
 	return gc.InferTypes(inputType).External
 }
 
-func putExternalInput(inputMap SignalReaderIdTree, input Input, inputIs []Input /* mutated */) {
+func putExternalInput(inputMap SignalReaderIdTree, inputGetter InputGetter, inputIGetters []InputGetter /* mutated */) {
 	if inputMap.ParentP {
 		for fieldName, innerInputMap := range inputMap.Children {
-			putExternalInput(innerInputMap, input.Struct[fieldName], inputIs)
+			putExternalInput(innerInputMap, inputGetter.Struct[fieldName], inputIGetters)
 		}
 	} else {
 		if len(inputMap.FieldPath) == 0 {
-			inputIs[inputMap.InternalIdx] = input
+			inputIGetters[inputMap.InternalIdx] = inputGetter
 		} else {
-			parentStruct := inputIs[inputMap.InternalIdx].Struct
+			parentStruct := inputIGetters[inputMap.InternalIdx].Struct
 			for _, fieldName := range inputMap.FieldPath[:len(inputMap.FieldPath)-1] {
 				parentStruct = parentStruct[fieldName].Struct
 			}
-			parentStruct[inputMap.FieldPath[len(inputMap.FieldPath)]] = input
+			parentStruct[inputMap.FieldPath[len(inputMap.FieldPath)]] = inputGetter
 		}
 	}
 }
 
-func getInternalOutput(outputMap SignalReaderIdTree, inputOs []Output, externalOutput Output) (ret Output) {
+func getInternalOutput(outputMap SignalReaderIdTree, inputOGetters []OutputGetter, externalOutputGetter OutputGetter) (ret OutputGetter) {
 	if outputMap.ParentP {
-		ret.Struct = make(map[string]Output, len(outputMap.Children))
+		ret.Struct = make(map[string]OutputGetter, len(outputMap.Children))
 		for fieldName, innerOutputMap := range outputMap.Children {
-			ret.Struct[fieldName] = getInternalOutput(innerOutputMap, inputOs, externalOutput)
+			ret.Struct[fieldName] = getInternalOutput(innerOutputMap, inputOGetters, externalOutputGetter)
 		}
 	} else {
 		if outputMap.InternalP {
-			ret = inputOs[outputMap.InternalIdx]
+			ret = inputOGetters[outputMap.InternalIdx]
 		} else {
-			ret = externalOutput
+			ret = externalOutputGetter
 		}
 
 		for _, fieldName := range outputMap.FieldPath {
@@ -131,24 +130,22 @@ func getInternalOutput(outputMap SignalReaderIdTree, inputOs []Output, externalO
 	return
 }
 
-func (gc CompositeCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
+func (gc CompositeCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
 	inputTypes := gc.InferTypes(PartializeType(inputType))
 
-	inputIs := make([]Input, len(gc.Coms))
-	inputOs := make([]Output, len(gc.Coms))
+	inputIGetters := make([]InputGetter, len(gc.Coms))
+	inputOGetters := make([]OutputGetter, len(gc.Coms))
 	for i, inputType := range inputTypes.Internals {
-		subInputs, subOutput := extra.MakeIOChans(HolizePartialType(inputType), 1)
-		inputIs[i] = subInputs[0]
-		inputOs[i] = subOutput
+		inputIGetters[i], inputOGetters[i] = MakeIO(HolizePartialType(inputType))
 	}
-	putExternalInput(gc.InputMap, input, inputIs)
+	putExternalInput(gc.InputMap, inputGetter, inputIGetters)
 
-	outputOs := make([]Output, len(gc.Coms))
+	outputOGetters := make([]OutputGetter, len(gc.Coms))
 	for i, entry := range gc.Coms {
-		outputOs[i] = getInternalOutput(entry.OutputMap, inputOs, output)
+		outputOGetters[i] = getInternalOutput(entry.OutputMap, inputOGetters, outputGetter)
 	}
 
 	for i, com := range gc.Coms {
-		go com.Run(HolizePartialType(inputTypes.Internals[i]), inputIs[i], outputOs[i], quit)
+		go com.Run(HolizePartialType(inputTypes.Internals[i]), inputIGetters[i], outputOGetters[i], quit)
 	}
 }

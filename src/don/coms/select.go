@@ -1,7 +1,6 @@
 package coms
 
 import . "don/core"
-import "don/extra"
 
 type SelectCom string
 
@@ -13,13 +12,12 @@ func (gc SelectCom) OutputType(inputType PartialType) PartialType {
 	}
 }
 
-func (gc SelectCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
+func (gc SelectCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
 	for fieldName, fieldType := range inputType.Fields {
 		if fieldName == string(gc) {
-			go RunI(fieldType, input.Struct[fieldName], output, quit)
+			go RunI(fieldType, inputGetter.Struct[fieldName], outputGetter)
 		} else {
-			_, sink := extra.MakeIOChans(fieldType, 0)
-			go RunI(fieldType, input.Struct[fieldName], sink, quit)
+			Sink.Run(fieldType, inputGetter.Struct[fieldName], OutputGetter{Struct: make(map[string]OutputGetter, 0)}, quit)
 		}
 	}
 }

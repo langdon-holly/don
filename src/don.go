@@ -17,8 +17,7 @@ func main() {
 		coms.Deselect("l"),
 		coms.SelectCom("l")})
 
-	input, outputs, quit := extra.Run(com, types.BoolType, 1)
-	output := outputs[0]
+	input, output, quit := extra.Run(com, types.BoolType)
 	defer close(quit)
 
 	types.WriteBool(input, true)

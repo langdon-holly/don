@@ -13,7 +13,7 @@ func (MergeCom) OutputType(inputType PartialType) (ret PartialType) {
 	return
 }
 
-func (MergeCom) Run(inputType DType, input Input, output Output, quit <-chan struct{}) {
+func (MergeCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
 	com := CompositeCom{
 		Coms: make([]CompositeComEntry, len(inputType.Fields)),
 		InputMap: SignalReaderIdTree{
@@ -28,5 +28,5 @@ func (MergeCom) Run(inputType DType, input Input, output Output, quit <-chan str
 		i++
 	}
 
-	com.Run(inputType, input, output, quit)
+	com.Run(inputType, inputGetter, outputGetter, quit)
 }
