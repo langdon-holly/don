@@ -70,6 +70,20 @@ func (ig InputGetter) GetInput(theType DType) (input Input) {
 	return
 }
 
+func (ig InputGetter) SendOutput(theType DType, output Output) {
+	switch theType.Tag {
+	case UnitTypeTag:
+		ig.Unit <- output.Unit
+	case RefTypeTag:
+		ig.Ref <- output.Ref
+	case StructTypeTag:
+		for fieldName, fieldType := range theType.Fields {
+			ig.Struct[fieldName].SendOutput(fieldType, output.Struct[fieldName])
+		}
+	}
+	return
+}
+
 func (og OutputGetter) GetOutput(theType DType) (output Output) {
 	switch theType.Tag {
 	case UnitTypeTag:
