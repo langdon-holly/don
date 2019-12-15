@@ -1,22 +1,35 @@
-Allowed special bytes:
-
 Byte	Status : Purpose
 ----	----------------
-space, tab, CR	  used : separator
-LF, |	  used : statement separator
+space, tab, CR	  used : tight separator
+LF, |	  used : loose separator
 `	unused
 ~	unused
+!	unused
 @	unused
 #	unused : shebang
 $	unused
-(	  used : start block
-)	  used : end block
-[	unused
-]	unused
-{	  used : start identifier
-}	  used : end identifier
-\	  used : byte escape
+%	unused
+^	unused
+&	unused
+*	unused
+(	  used : start
+)	  used : end
+_	unused
+-	unused
+=	unused
++	unused
+[	  used : start unspecial
+]	  used : end unspecial
+{	unused
+}	unused
+\	  used : escape [, ], or \
 ;	  used : comment
 :	  used : macro, field (de)selection
+'	unused
 "	unused
-,	  used : continue statement
+,	unused
+<	unused
+.	unused
+>	unused
+/	unused
+?	unused
