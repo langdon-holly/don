@@ -2,16 +2,14 @@ package coms
 
 import . "don/core"
 
-type MapRefCom struct {
-	Com
-}
+type MapRefCom struct{ Com }
 
 func (mrc MapRefCom) OutputType(inputType PartialType) PartialType {
-	return MakeRefPartialType(mrc.Com.OutputType(*inputType.Referent))
+	return MakeRefPartialType(mrc.OutputType(*inputType.Referent))
 }
 
 func (mrc MapRefCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
-	outputType := MakeRefType(HolizePartialType(mrc.Com.OutputType(PartializeType(*inputType.Referent))))
+	outputType := MakeRefType(HolizePartialType(mrc.OutputType(PartializeType(*inputType.Referent))))
 	input := inputGetter.GetInput(inputType)
 	output := outputGetter.GetOutput(outputType)
 	var subquit chan struct{}
@@ -26,7 +24,7 @@ func (mrc MapRefCom) Run(inputType DType, inputGetter InputGetter, outputGetter 
 				subquit = make(chan struct{})
 
 				outputIGetter, outputOGetter := MakeIO(*outputType.Referent)
-				go mrc.Com.Run(*inputType.Referent, val.InputGetter, outputOGetter, subquit)
+				go mrc.Run(*inputType.Referent, val.InputGetter, outputOGetter, subquit)
 
 				output.WriteRef(Ref{P: true, InputGetter: outputIGetter})
 			} else {
