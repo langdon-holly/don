@@ -2,11 +2,9 @@ package types
 
 import . "don/core"
 
-var SyntaxType = MakeStructType(make(map[string]DType, 3))
+var SyntaxType = MakeStructType(make(map[string]DType, 6))
 
 func init() {
-	SyntaxType.Fields["block?"] = UnitType
-
 	_, syntaxen1Type := MakeLinkedListType(SyntaxType)
 	SyntaxType.Fields["block"], _ = MakeLinkedListType(syntaxen1Type) /* for block? */
 

@@ -7,8 +7,8 @@ type ConstRefCom struct {
 	Val          Ref
 }
 
-func (crc ConstRefCom) OutputType(inputType PartialType) PartialType {
-	return PartializeType(MakeRefType(crc.ReferentType))
+func (crc ConstRefCom) OutputType(inputType DType) DType {
+	return MakeRefType(crc.ReferentType)
 }
 
 func (crc ConstRefCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {

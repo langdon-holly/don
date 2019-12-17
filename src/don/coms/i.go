@@ -46,7 +46,7 @@ func RunI(theType DType, inputGetter InputGetter, outputGetter OutputGetter) {
 
 type ICom struct{}
 
-func (ICom) OutputType(inputType PartialType) PartialType { return inputType }
+func (ICom) OutputType(inputType DType) DType { return inputType }
 
 func (ICom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
 	RunI(inputType, inputGetter, outputGetter)

@@ -52,13 +52,13 @@ func runSplit(theType DType, inputGetter InputGetter, outputGetters []OutputGett
 
 type SplitCom []string
 
-func (sc SplitCom) OutputType(inputType PartialType) PartialType {
-	fields := make(map[string]PartialType, len(sc))
+func (sc SplitCom) OutputType(inputType DType) DType {
+	fields := make(map[string]DType, len(sc))
 	for _, fieldName := range sc {
 		fields[fieldName] = inputType
 	}
 
-	return PartialType{P: true, Tag: StructTypeTag, Fields: fields}
+	return MakeStructType(fields)
 }
 
 func (sc SplitCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {

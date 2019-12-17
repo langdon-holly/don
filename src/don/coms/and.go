@@ -7,7 +7,7 @@ import (
 
 type AndCom struct{}
 
-func (AndCom) OutputType(inputType PartialType) PartialType { return PartializeType(types.BoolType) }
+func (AndCom) OutputType(inputType DType) DType { return types.BoolType }
 
 func (AndCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
 	n := len(inputType.Fields)

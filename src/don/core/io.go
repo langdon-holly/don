@@ -2,10 +2,7 @@ package core
 
 type Unit struct{}
 
-type Ref struct {
-	P           bool
-	InputGetter /* for P */
-}
+type Ref struct{ InputGetter }
 
 type Input struct {
 	Unit   <-chan Unit

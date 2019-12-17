@@ -39,7 +39,7 @@ import . "don/core"
 //}
 
 func Run(com Com, inputType DType) (inputO Output, outputI Input, quit chan<- struct{}) {
-	outputType := HolizePartialType(com.OutputType(PartializeType(inputType)))
+	outputType := com.OutputType(inputType)
 
 	inputIGetter, inputOGetter := MakeIO(inputType)
 	outputIGetter, outputOGetter := MakeIO(outputType)

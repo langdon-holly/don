@@ -4,12 +4,12 @@ import . "don/core"
 
 type ChooseCom struct{}
 
-func (ChooseCom) OutputType(inputType PartialType) (ret PartialType) {
-	ret = PartialType{P: true, Tag: StructTypeTag}
+func (ChooseCom) OutputType(inputType DType) DType {
+	ret := MakeStructType(nil)
 	if inputType.P {
-		ret = MergePartialTypes(ret, inputType.Fields["choices"])
+		ret = MergeTypes(ret, inputType.Fields["choices"])
 	}
-	return
+	return ret
 }
 
 func listen(chosens chan<- string, fieldName string, choice <-chan Unit, quit <-chan struct{}) {

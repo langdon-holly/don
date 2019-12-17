@@ -4,8 +4,12 @@ import . "don/core"
 
 type DerefCom struct{}
 
-func (DerefCom) OutputType(inputType PartialType) PartialType {
-	return *inputType.Referent
+func (DerefCom) OutputType(inputType DType) DType {
+	if inputType.P {
+		return *inputType.Referent
+	} else {
+		return UnknownType
+	}
 }
 
 func (DerefCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
@@ -16,9 +20,7 @@ func (DerefCom) Run(inputType DType, inputGetter InputGetter, outputGetter Outpu
 	for {
 		select {
 		case val := <-input.Ref:
-			if val.P {
-				val.InputGetter.SendOutput(outputType, output)
-			}
+			val.SendOutput(outputType, output)
 		case <-quit:
 			return
 		}

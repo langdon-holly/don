@@ -4,13 +4,14 @@ import . "don/core"
 
 type MergeCom struct{}
 
-func (MergeCom) OutputType(inputType PartialType) (ret PartialType) {
+func (MergeCom) OutputType(inputType DType) DType {
+	ret := UnknownType
 	if inputType.P {
 		for _, subType := range inputType.Fields {
-			ret = MergePartialTypes(ret, subType)
+			ret = MergeTypes(ret, subType)
 		}
 	}
-	return
+	return ret
 }
 
 func (MergeCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
