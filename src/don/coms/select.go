@@ -4,17 +4,19 @@ import . "don/core"
 
 type SelectCom string
 
-func (gc SelectCom) OutputType(inputType DType) DType {
-	if inputType.P {
-		return inputType.Fields[string(gc)]
-	} else {
-		return UnknownType
+func (sc SelectCom) OutputType(inputType DType) DType {
+	if inputType.Lvl != NormalTypeLvl {
+		return inputType
 	}
+	if inputType.Tag != StructTypeTag {
+		return ImpossibleType
+	}
+	return inputType.Fields[string(sc)]
 }
 
-func (gc SelectCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
+func (sc SelectCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
 	for fieldName, fieldType := range inputType.Fields {
-		if fieldName == string(gc) {
+		if fieldName == string(sc) {
 			go RunI(fieldType, inputGetter.Struct[fieldName], outputGetter)
 		} else {
 			Sink.Run(fieldType, inputGetter.Struct[fieldName], OutputGetter{Struct: make(map[string]OutputGetter, 0)}, quit)

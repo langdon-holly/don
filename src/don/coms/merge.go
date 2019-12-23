@@ -5,11 +5,16 @@ import . "don/core"
 type MergeCom struct{}
 
 func (MergeCom) OutputType(inputType DType) DType {
+	if inputType.Lvl != NormalTypeLvl {
+		return inputType
+	}
+	if inputType.Tag != StructTypeTag {
+		return ImpossibleType
+	}
+
 	ret := UnknownType
-	if inputType.P {
-		for _, subType := range inputType.Fields {
-			ret = MergeTypes(ret, subType)
-		}
+	for _, subType := range inputType.Fields {
+		ret = MergeTypes(ret, subType)
 	}
 	return ret
 }

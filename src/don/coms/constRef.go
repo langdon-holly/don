@@ -8,6 +8,16 @@ type ConstRefCom struct {
 }
 
 func (crc ConstRefCom) OutputType(inputType DType) DType {
+	switch inputType.Lvl {
+	case UnknownTypeLvl:
+	case NormalTypeLvl:
+		if inputType.Tag != UnitTypeTag {
+			return ImpossibleType
+		}
+	case ImpossibleTypeLvl:
+		return ImpossibleType
+	}
+
 	return MakeRefType(crc.ReferentType)
 }
 

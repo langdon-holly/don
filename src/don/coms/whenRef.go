@@ -5,6 +5,16 @@ import . "don/core"
 type WhenRefCom struct{}
 
 func (WhenRefCom) OutputType(inputType DType) DType {
+	switch inputType.Lvl {
+	case UnknownTypeLvl:
+	case NormalTypeLvl:
+		if inputType.Tag != RefTypeTag {
+			return ImpossibleType
+		}
+	case ImpossibleTypeLvl:
+		return ImpossibleType
+	}
+
 	return UnitType
 }
 

@@ -6,8 +6,27 @@ type ChooseCom struct{}
 
 func (ChooseCom) OutputType(inputType DType) DType {
 	ret := MakeStructType(nil)
-	if inputType.P {
+	switch inputType.Lvl {
+	case UnknownTypeLvl:
+	case NormalTypeLvl:
+		if inputType.Tag != StructTypeTag {
+			return ImpossibleType
+		}
+
+		readyType := inputType.Fields["ready"]
+		switch readyType.Lvl {
+		case UnknownTypeLvl:
+		case NormalTypeLvl:
+			if readyType.Tag != UnitTypeTag {
+				return ImpossibleType
+			}
+		case ImpossibleTypeLvl:
+			return ImpossibleType
+		}
+
 		ret = MergeTypes(ret, inputType.Fields["choices"])
+	case ImpossibleTypeLvl:
+		return ImpossibleType
 	}
 	return ret
 }

@@ -33,17 +33,21 @@ type ReaderInputTypes struct {
 	External  DType
 }
 
-func sendTypeToReaders(pType DType, outputMap SignalReaderIdTree, readerInputTypes *ReaderInputTypes, waiters map[int]struct{}) {
+func sendTypeToReaders(theType DType, outputMap SignalReaderIdTree, readerInputTypes *ReaderInputTypes, waiters map[int]struct{}) {
 	if outputMap.ParentP {
-		if !pType.P {
-			return
-		}
-
-		for fieldName, innerOutputMap := range outputMap.Children {
-			sendTypeToReaders(pType.Fields[fieldName], innerOutputMap, readerInputTypes, waiters)
+		switch theType.Lvl {
+		case UnknownTypeLvl:
+		case NormalTypeLvl:
+			for fieldName, innerOutputMap := range outputMap.Children {
+				sendTypeToReaders(theType.Fields[fieldName], innerOutputMap, readerInputTypes, waiters)
+			}
+		case ImpossibleTypeLvl:
+			for _, innerOutputMap := range outputMap.Children {
+				sendTypeToReaders(ImpossibleType, innerOutputMap, readerInputTypes, waiters)
+			}
 		}
 	} else {
-		readerInputType := TypeAtPath(pType, outputMap.FieldPath)
+		readerInputType := TypeAtPath(theType, outputMap.FieldPath)
 		if outputMap.InternalP {
 			idx := outputMap.InternalIdx
 			oldInputType := readerInputTypes.Internals[idx]
@@ -66,29 +70,29 @@ func grabInt(ints map[int]struct{}) (int, bool) {
 	return 0, false
 }
 
-func (gc CompositeCom) InferTypes(inputPType DType) (out ReaderInputTypes) {
-	out.Internals = make([]DType, len(gc.Coms))
+func (cc CompositeCom) InferTypes(inputType DType) (out ReaderInputTypes) {
+	out.Internals = make([]DType, len(cc.Coms))
 
-	waiters := make(map[int]struct{}, len(gc.Coms))
-	for i := 0; i < len(gc.Coms); i++ {
+	waiters := make(map[int]struct{}, len(cc.Coms))
+	for i := 0; i < len(cc.Coms); i++ {
 		waiters[i] = struct{}{}
 	}
 
-	sendTypeToReaders(inputPType, gc.InputMap, &out, waiters)
+	sendTypeToReaders(inputType, cc.InputMap, &out, waiters)
 	for {
 		waiter, ok := grabInt(waiters)
 		if !ok {
 			break
 		}
-		entry := gc.Coms[waiter]
+		entry := cc.Coms[waiter]
 		sendTypeToReaders(entry.OutputType(out.Internals[waiter]), entry.OutputMap, &out, waiters)
 	}
 
 	return
 }
 
-func (gc CompositeCom) OutputType(inputType DType) DType {
-	return gc.InferTypes(inputType).External
+func (cc CompositeCom) OutputType(inputType DType) DType {
+	return cc.InferTypes(inputType).External
 }
 
 func putExternalInput(inputMap SignalReaderIdTree, inputGetter InputGetter, inputIGetters []InputGetter /* mutated */) {
@@ -130,22 +134,22 @@ func getInternalOutput(outputMap SignalReaderIdTree, inputOGetters []OutputGette
 	return
 }
 
-func (gc CompositeCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
-	inputTypes := gc.InferTypes(inputType)
+func (cc CompositeCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
+	inputTypes := cc.InferTypes(inputType)
 
-	inputIGetters := make([]InputGetter, len(gc.Coms))
-	inputOGetters := make([]OutputGetter, len(gc.Coms))
+	inputIGetters := make([]InputGetter, len(cc.Coms))
+	inputOGetters := make([]OutputGetter, len(cc.Coms))
 	for i, inputType := range inputTypes.Internals {
 		inputIGetters[i], inputOGetters[i] = MakeIO(inputType)
 	}
-	putExternalInput(gc.InputMap, inputGetter, inputIGetters)
+	putExternalInput(cc.InputMap, inputGetter, inputIGetters)
 
-	outputOGetters := make([]OutputGetter, len(gc.Coms))
-	for i, entry := range gc.Coms {
+	outputOGetters := make([]OutputGetter, len(cc.Coms))
+	for i, entry := range cc.Coms {
 		outputOGetters[i] = getInternalOutput(entry.OutputMap, inputOGetters, outputGetter)
 	}
 
-	for i, com := range gc.Coms {
+	for i, com := range cc.Coms {
 		go com.Run(inputTypes.Internals[i], inputIGetters[i], outputOGetters[i], quit)
 	}
 }

@@ -10,78 +10,90 @@ const (
 	StructTypeTag
 )
 
+type DTypeLvl int
+
+const (
+	UnknownTypeLvl = DTypeLvl(iota)
+	NormalTypeLvl
+	ImpossibleTypeLvl
+)
+
 type DType struct {
-	P        bool
-	Tag      DTypeTag         /* for P */
-	Referent *DType           /* for P && Tag == RefTypeTag */
-	Fields   map[string]DType /* for P && Tag == StructTypeTag */
+	Lvl      DTypeLvl
+	Tag      DTypeTag         /* for Lvl == NormalTypeLvl */
+	Referent *DType           /* for Lvl == NormalTypeLvl && Tag == RefTypeTag */
+	Fields   map[string]DType /* for Lvl == NormalTypeLvl && Tag == StructTypeTag */
 }
+
+// What TODO about partial struct types?
 
 // Get DType
 
 var UnknownType = DType{}
 
-var UnitType = DType{P: true, Tag: UnitTypeTag}
+var ImpossibleType = DType{Lvl: ImpossibleTypeLvl}
+
+var UnitType = DType{Lvl: NormalTypeLvl, Tag: UnitTypeTag}
 
 func MakeRefType(referentType DType) DType {
-	return DType{P: true, Tag: RefTypeTag, Referent: &referentType}
+	return DType{Lvl: NormalTypeLvl, Tag: RefTypeTag, Referent: &referentType}
 }
 
 func MakeStructType(fields map[string]DType) DType {
-	return DType{P: true, Tag: StructTypeTag, Fields: fields}
+	return DType{Lvl: NormalTypeLvl, Tag: StructTypeTag, Fields: fields}
 }
 
-func TypeAtPath(pType DType, fieldPath []string) DType {
+func TypeAtPath(theType DType, fieldPath []string) DType {
 	for i := len(fieldPath) - 1; i >= 0; i-- {
 		fields := make(map[string]DType, 1)
-		fields[fieldPath[i]] = pType
+		fields[fieldPath[i]] = theType
 
-		pType = DType{P: true, Tag: StructTypeTag, Fields: fields}
+		theType = MakeStructType(fields)
 	}
-	return pType
+	return theType
 }
 
 // Other
 
-func assumingEqual(pt0, pt1 DType, assumedEquals map[*DType]map[*DType]struct{}) bool {
-	if pt0.P != pt1.P {
+func assumingEqual(t0, t1 DType, assumedEquals map[*DType]map[*DType]struct{}) bool {
+	if t0.Lvl != t1.Lvl {
 		return false
 	}
-	if !pt0.P {
+	if t0.Lvl != NormalTypeLvl {
 		return true
 	}
 
-	if pt0.Tag != pt1.Tag {
+	if t0.Tag != t1.Tag {
 		return false
 	}
 
-	if pt0.Tag == RefTypeTag {
-		rights, ok := assumedEquals[pt0.Referent]
+	if t0.Tag == RefTypeTag {
+		rights, ok := assumedEquals[t0.Referent]
 		if !ok {
 			rights = make(map[*DType]struct{}, 1)
-			assumedEquals[pt0.Referent] = rights
+			assumedEquals[t0.Referent] = rights
 		}
 
-		_, ok = rights[pt1.Referent]
+		_, ok = rights[t1.Referent]
 		if ok {
 			/* assumed equal */
 			return true
 		} else {
 			/* assume they're equal */
-			rights[pt1.Referent] = struct{}{}
-			return assumingEqual(*pt0.Referent, *pt1.Referent, assumedEquals)
+			rights[t1.Referent] = struct{}{}
+			return assumingEqual(*t0.Referent, *t1.Referent, assumedEquals)
 		}
-	} else if pt0.Tag == StructTypeTag {
+	} else if t0.Tag == StructTypeTag {
 
-		if len(pt0.Fields) != len(pt1.Fields) {
+		if len(t0.Fields) != len(t1.Fields) {
 			return false
 		}
-		for fieldName, fieldPType0 := range pt0.Fields {
-			fieldPType1, exists := pt1.Fields[fieldName]
+		for fieldName, fieldType0 := range t0.Fields {
+			fieldType1, exists := t1.Fields[fieldName]
 			if !exists {
 				return false
 			}
-			if !fieldPType0.Equal(fieldPType1) {
+			if !fieldType0.Equal(fieldType1) {
 				return false
 			}
 		}
@@ -90,35 +102,67 @@ func assumingEqual(pt0, pt1 DType, assumedEquals map[*DType]map[*DType]struct{})
 	return true
 }
 
-func (pt0 DType) Equal(pt1 DType) bool {
-	return assumingEqual(pt0, pt1, make(map[*DType]map[*DType]struct{}))
+func (t0 DType) Equal(t1 DType) bool {
+	return assumingEqual(t0, t1, make(map[*DType]map[*DType]struct{}))
+}
+
+func recursiveMerge(t0, t1 DType, referentMerges map[*DType]map[*DType]*DType) DType {
+	if t0.Lvl == UnknownTypeLvl {
+		return t1
+	}
+	if t1.Lvl == UnknownTypeLvl {
+		return t0
+	}
+	if t0.Lvl == ImpossibleTypeLvl || t1.Lvl == ImpossibleTypeLvl {
+		return ImpossibleType
+	}
+
+	// t0.Lvl == t1.Lvl == NormalTypeLvl
+
+	if t0.Tag != t1.Tag {
+		return ImpossibleType
+	}
+	switch t0.Tag {
+	case UnitTypeTag:
+		return t0
+	case RefTypeTag:
+		merged := DType{Lvl: NormalTypeLvl, Tag: RefTypeTag}
+
+		rights, ok := referentMerges[t0.Referent]
+		if !ok {
+			rights = make(map[*DType]*DType, 1)
+			referentMerges[t0.Referent] = rights
+		}
+
+		if merge, inProgress := rights[t1.Referent]; inProgress {
+			merged.Referent = merge.Referent
+		} else {
+			merged.Referent = new(DType)
+			rights[t1.Referent] = merged.Referent
+			*merged.Referent = recursiveMerge(*t0.Referent, *t1.Referent, referentMerges)
+		}
+
+		return merged
+	case StructTypeTag:
+		if len(t0.Fields) != len(t1.Fields) {
+			return ImpossibleType
+		}
+
+		ret := DType{Lvl: NormalTypeLvl, Tag: StructTypeTag, Fields: make(map[string]DType, len(t0.Fields))}
+
+		for fieldName, t0FieldType := range t0.Fields {
+			t1FieldType, exists := t1.Fields[fieldName]
+			if !exists {
+				return ImpossibleType
+			}
+			ret.Fields[fieldName] = MergeTypes(t0FieldType, t1FieldType)
+		}
+		return ret
+	default:
+		panic("Unreachable")
+	}
 }
 
 func MergeTypes(t0, t1 DType) DType {
-	if !t0.P {
-		return t1
-	}
-	if !t1.P {
-		return t0
-	}
-	if t0.Tag != t1.Tag {
-		panic("Type mismatch in merge")
-	}
-	if t0.Tag != StructTypeTag {
-		return t0
-	}
-	if len(t0.Fields) != len(t1.Fields) {
-		panic("Struct types have different len(fields) in merge")
-	}
-
-	ret := DType{P: true, Tag: StructTypeTag, Fields: make(map[string]DType, len(t0.Fields))}
-
-	for fieldName, t0FieldPType := range t0.Fields {
-		t1FieldPType, exists := t1.Fields[fieldName]
-		if !exists {
-			panic("Field missing from type in merge")
-		}
-		ret.Fields[fieldName] = MergeTypes(t0FieldPType, t1FieldPType)
-	}
-	return ret
+	return recursiveMerge(t0, t1, make(map[*DType]map[*DType]*DType))
 }
