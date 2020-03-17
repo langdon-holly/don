@@ -17,9 +17,9 @@ func (sc SelectCom) OutputType(inputType DType) DType {
 func (sc SelectCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
 	for fieldName, fieldType := range inputType.Fields {
 		if fieldName == string(sc) {
-			go RunI(fieldType, inputGetter.Struct[fieldName], outputGetter)
+			go RunI(fieldType, inputGetter.Struct[fieldName], outputGetter, quit)
 		} else {
-			Sink.Run(fieldType, inputGetter.Struct[fieldName], OutputGetter{Struct: make(map[string]OutputGetter, 0)}, quit)
+			go Sink.Run(fieldType, inputGetter.Struct[fieldName], OutputGetter{Struct: make(map[string]OutputGetter, 0)}, quit)
 		}
 	}
 }

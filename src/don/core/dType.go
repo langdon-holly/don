@@ -2,20 +2,20 @@ package core
 
 // DType
 
-type DTypeTag int
-
-const (
-	UnitTypeTag = DTypeTag(iota)
-	RefTypeTag
-	StructTypeTag
-)
-
 type DTypeLvl int
 
 const (
 	UnknownTypeLvl = DTypeLvl(iota)
 	NormalTypeLvl
 	ImpossibleTypeLvl
+)
+
+type DTypeTag int
+
+const (
+	UnitTypeTag = DTypeTag(iota)
+	RefTypeTag
+	StructTypeTag
 )
 
 type DType struct {
@@ -144,18 +144,16 @@ func recursiveMerge(t0, t1 DType, referentMerges map[*DType]map[*DType]*DType) D
 
 		return merged
 	case StructTypeTag:
-		if len(t0.Fields) != len(t1.Fields) {
-			return ImpossibleType
-		}
-
-		ret := DType{Lvl: NormalTypeLvl, Tag: StructTypeTag, Fields: make(map[string]DType, len(t0.Fields))}
+		ret := DType{Lvl: NormalTypeLvl, Tag: StructTypeTag, Fields: make(map[string]DType)}
 
 		for fieldName, t0FieldType := range t0.Fields {
-			t1FieldType, exists := t1.Fields[fieldName]
-			if !exists {
-				return ImpossibleType
+			t1FieldType := t1.Fields[fieldName]
+			ret.Fields[fieldName] = recursiveMerge(t0FieldType, t1FieldType, referentMerges)
+		}
+		for fieldName, t1FieldType := range t1.Fields {
+			if _, exists := t0.Fields[fieldName]; !exists {
+				ret.Fields[fieldName] = t1FieldType
 			}
-			ret.Fields[fieldName] = MergeTypes(t0FieldType, t1FieldType)
 		}
 		return ret
 	default:

@@ -1,30 +1,25 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+)
 
 import (
-	"don/coms"
-	. "don/core"
 	"don/extra"
+	"don/syntax"
 	"don/types"
 )
 
 func main() {
-	com := coms.Pipe([]Com{
-		coms.ICom{},
-		coms.SplitCom([]string{"0", "1"}),
-		coms.ProdCom{},
-		coms.Deselect("l"),
-		coms.SelectCom("l")})
+	com := syntax.ParseTop(os.Stdin)[0][0].ToCom()
 
 	input, output, quit := extra.Run(com, types.BoolType)
 	defer close(quit)
 
 	types.WriteBool(input, true)
-	<-output.Struct["true"].Struct["true"].Unit
-	fmt.Println(":[true] :[true]")
+	fmt.Println(types.ReadBool(output))
 
 	types.WriteBool(input, false)
-	<-output.Struct["false"].Struct["false"].Unit
-	fmt.Println(":[false] :[false]")
+	fmt.Println(types.ReadBool(output))
 }
