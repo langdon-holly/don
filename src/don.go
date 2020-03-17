@@ -22,8 +22,6 @@ func main() {
 	input, output, quit := extra.Run(com, types.BoolType)
 	defer close(quit)
 
-	fmt.Println(types.ReadBool(output))
-
 	types.WriteBool(input, true)
 	fmt.Println(types.ReadBool(output))
 

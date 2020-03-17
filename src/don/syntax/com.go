@@ -25,6 +25,8 @@ func (s Syntax) ToCom() Com {
 		panic("Unknown macro")
 	case MacroSyntaxTag:
 		switch s.Name {
+		case "I":
+			return coms.ICom{}
 		case "init":
 			return coms.InitCom{}
 		}
