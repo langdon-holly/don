@@ -1,4 +1,13 @@
 (
-	[true]: [I] :[false]
-	[false]: :[true] [I]
+	(
+		[true]: :[true] :[true]
+		[false]: (
+			:[true] :[false]
+			:[false] :[true]
+			:[false] :[false]
+		)
+	) [prod](
+		:[a]
+		:[b]
+	)
 )

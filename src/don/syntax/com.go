@@ -1,5 +1,7 @@
 package syntax
 
+import "strconv"
+
 import (
 	"don/coms"
 	. "don/core"
@@ -12,7 +14,7 @@ func (s Syntax) ToCom() Com {
 		for i, line := range s.Children {
 			pipeComs := make([]Com, len(line))
 			for j, subS := range line {
-				pipeComs[len(pipeComs)-1-j] = subS.ToCom()
+				pipeComs[len(line)-1-j] = subS.ToCom()
 			}
 			pipes[i] = coms.Pipe(pipeComs)
 		}
@@ -21,6 +23,16 @@ func (s Syntax) ToCom() Com {
 		switch s.Name {
 		case "com":
 		case "prod":
+			pipes := make([]Com, len(s.Children))
+			for i, line := range s.Children {
+				pipeComs := make([]Com, len(line)+1)
+				for j, subS := range line {
+					pipeComs[len(line)-1-j] = subS.ToCom()
+				}
+				pipeComs[len(line)] = coms.Deselect(strconv.FormatInt(int64(i), 10))
+				pipes[i] = coms.Pipe(pipeComs)
+			}
+			return coms.Pipe([]Com{coms.SplitMerge(pipes), coms.ProdCom{}})
 		}
 		panic("Unknown macro")
 	case MacroSyntaxTag:

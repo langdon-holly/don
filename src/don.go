@@ -6,6 +6,7 @@ import (
 )
 
 import (
+	. "don/core"
 	"don/extra"
 	"don/syntax"
 	"don/types"
@@ -17,14 +18,29 @@ func main() {
 		panic(err)
 	}
 
+	inputTypeFields := make(map[string]DType, 2)
+	inputTypeFields["a"] = types.BoolType
+	inputTypeFields["b"] = types.BoolType
+	inputType := MakeStructType(inputTypeFields)
+
 	com := syntax.ParseTop(ifile)[0][0].ToCom()
 
-	input, output, quit := extra.Run(com, types.BoolType)
+	input, output, quit := extra.Run(com, inputType)
 	defer close(quit)
 
-	types.WriteBool(input, true)
+	types.WriteBool(input.Struct["a"], false)
+	types.WriteBool(input.Struct["b"], false)
 	fmt.Println(types.ReadBool(output))
 
-	types.WriteBool(input, false)
+	types.WriteBool(input.Struct["a"], false)
+	types.WriteBool(input.Struct["b"], true)
+	fmt.Println(types.ReadBool(output))
+
+	types.WriteBool(input.Struct["a"], true)
+	types.WriteBool(input.Struct["b"], false)
+	fmt.Println(types.ReadBool(output))
+
+	types.WriteBool(input.Struct["a"], true)
+	types.WriteBool(input.Struct["b"], true)
 	fmt.Println(types.ReadBool(output))
 }
