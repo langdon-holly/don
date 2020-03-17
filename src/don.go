@@ -2,38 +2,31 @@ package main
 
 import (
 	"fmt"
+	"os"
 )
 
 import (
-	"don/coms"
-	. "don/core"
 	"don/extra"
+	"don/syntax"
 	"don/types"
 )
 
 func main() {
-	inputTypeFields := make(map[string]DType, 2)
-	inputTypeFields["0"] = types.BoolType
-	inputTypeFields["1"] = types.BoolType
-	inputType := MakeStructType(inputTypeFields)
-	com := coms.And
+	ifile, err := os.Open("src/hello.don")
+	if err != nil {
+		panic(err)
+	}
 
-	input, output, quit := extra.Run(com, inputType)
+	com := syntax.ParseTop(ifile)[0][0].ToCom()
+
+	input, output, quit := extra.Run(com, types.BoolType)
 	defer close(quit)
 
-	types.WriteBool(input.Struct["0"], false)
-	types.WriteBool(input.Struct["1"], false)
 	fmt.Println(types.ReadBool(output))
 
-	types.WriteBool(input.Struct["0"], false)
-	types.WriteBool(input.Struct["1"], true)
+	types.WriteBool(input, true)
 	fmt.Println(types.ReadBool(output))
 
-	types.WriteBool(input.Struct["0"], true)
-	types.WriteBool(input.Struct["1"], false)
-	fmt.Println(types.ReadBool(output))
-
-	types.WriteBool(input.Struct["0"], true)
-	types.WriteBool(input.Struct["1"], true)
+	types.WriteBool(input, false)
 	fmt.Println(types.ReadBool(output))
 }
