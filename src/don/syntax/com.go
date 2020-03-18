@@ -22,6 +22,19 @@ func (s Syntax) ToCom() Com {
 	case MCallSyntaxTag:
 		switch s.Name {
 		case "com":
+			if len(s.Children) < 1 {
+				panic("Empty [com] body")
+			}
+
+			pipes := make([]Com, len(s.Children))
+			for i, line := range s.Children {
+				pipeComs := make([]Com, len(line))
+				for j, subS := range line {
+					pipeComs[len(line)-1-j] = subS.ToCom()
+				}
+				pipes[i] = coms.Pipe(pipeComs)
+			}
+			return coms.ComCom(pipes)
 		case "prod":
 			pipes := make([]Com, len(s.Children))
 			for i, line := range s.Children {

@@ -9,8 +9,19 @@ import (
 	. "don/core"
 	"don/extra"
 	"don/syntax"
-	"don/types"
+	//"don/types"
 )
+
+func printTrit(input Input) {
+	select {
+	case <-input.Struct["0"].Unit:
+		fmt.Println("0")
+	case <-input.Struct["1"].Unit:
+		fmt.Println("1")
+	case <-input.Struct["2"].Unit:
+		fmt.Println("2")
+	}
+}
 
 func main() {
 	ifile, err := os.Open("src/hello.don")
@@ -19,8 +30,8 @@ func main() {
 	}
 
 	inputTypeFields := make(map[string]DType, 2)
-	inputTypeFields["a"] = types.BoolType
-	inputTypeFields["b"] = types.BoolType
+	inputTypeFields["inc"] = UnitType
+	inputTypeFields["dec"] = UnitType
 	inputType := MakeStructType(inputTypeFields)
 
 	com := syntax.ParseTop(ifile)[0][0].ToCom()
@@ -28,19 +39,19 @@ func main() {
 	input, output, quit := extra.Run(com, inputType)
 	defer close(quit)
 
-	types.WriteBool(input.Struct["a"], false)
-	types.WriteBool(input.Struct["b"], false)
-	fmt.Println(types.ReadBool(output))
-
-	types.WriteBool(input.Struct["a"], false)
-	types.WriteBool(input.Struct["b"], true)
-	fmt.Println(types.ReadBool(output))
-
-	types.WriteBool(input.Struct["a"], true)
-	types.WriteBool(input.Struct["b"], false)
-	fmt.Println(types.ReadBool(output))
-
-	types.WriteBool(input.Struct["a"], true)
-	types.WriteBool(input.Struct["b"], true)
-	fmt.Println(types.ReadBool(output))
+	printTrit(output)
+	input.Struct["dec"].WriteUnit()
+	printTrit(output)
+	input.Struct["dec"].WriteUnit()
+	printTrit(output)
+	input.Struct["inc"].WriteUnit()
+	printTrit(output)
+	input.Struct["dec"].WriteUnit()
+	printTrit(output)
+	input.Struct["inc"].WriteUnit()
+	printTrit(output)
+	input.Struct["inc"].WriteUnit()
+	printTrit(output)
+	input.Struct["inc"].WriteUnit()
+	printTrit(output)
 }

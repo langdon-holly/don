@@ -9,6 +9,6 @@ func (InitCom) OutputType(inputType DType) DType {
 }
 
 func (InitCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
-	inputGetter.GetInput(inputType)
+	go Sink.Run(inputType, inputGetter, OutputGetter{}, quit)
 	outputGetter.GetOutput(UnitType).WriteUnit()
 }
