@@ -8,7 +8,6 @@ const (
 	MacroSyntaxTag
 	SelectSyntaxTag
 	DeselectSyntaxTag
-	IsolateSyntaxTag
 )
 
 type Syntax struct {

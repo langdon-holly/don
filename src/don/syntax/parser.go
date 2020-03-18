@@ -158,14 +158,7 @@ func parse(in *input) Syntax {
 		if b, _ := in.Next(); b != '[' {
 			panic("Syntax error")
 		}
-		name := parseName(in)
-		switch b, _ := in.Peek(); b {
-		case ':':
-			in.Next()
-			return Syntax{Tag: IsolateSyntaxTag, Name: name}
-		default:
-			return Syntax{Tag: SelectSyntaxTag, Name: name}
-		}
+		return Syntax{Tag: SelectSyntaxTag, Name: parseName(in)}
 	case '(':
 		return Syntax{Tag: BlockSyntaxTag, Children: parseChildren(in)}
 	}
