@@ -1,11 +1,11 @@
 Byte	Status : Purpose
 ----	----------------
 space, tab, CR	  used : tight separator
-LF, |	  used : loose separator
+LF	  used : loose separator
 `	unused
 ~	unused
 !	unused
-@	unused
+@	  used : array
 #	unused : shebang
 $	unused
 %	unused
@@ -20,11 +20,12 @@ _	unused
 +	unused
 [	  used : start unspecial
 ]	  used : end unspecial
-{	unused
-}	unused
+{	  used : start binder
+}	  used : end binder
 \	  used : escape [, ], or \
+|	unused : loose separator
 ;	  used : comment
-:	  used : macro, field (de)selection
+:	  used : field (de)selection
 '	unused
 "	unused
 ,	unused
