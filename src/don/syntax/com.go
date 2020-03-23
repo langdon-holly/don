@@ -7,14 +7,56 @@ import (
 	. "don/core"
 )
 
-func (s Syntax) ToCom() Com {
+type Context struct {
+	Bindings map[string]Com
+	Parent   *Context
+}
+
+// May mutate c and its ancestors
+func (c Context) Get(name string) (Com, bool) {
+	if com, bound := c.Bindings[name]; bound {
+		return com, true
+	}
+	if c.Parent != nil {
+		com, bound := c.Parent.Get(name)
+		if bound {
+			c.Bindings[name] = com
+		}
+		return com, bound
+	}
+	return nil, false
+}
+
+var DefContext = Context{Bindings: make(map[string]Com, 2)}
+
+func init() {
+	DefContext.Bindings["I"] = coms.ICom{}
+	DefContext.Bindings["init"] = coms.InitCom{}
+}
+
+func (s Syntax) ToCom(context Context) Com {
 	switch s.Tag {
+	case BindSyntaxTag:
+		if len(s.Children) < 1 || len(s.Children[0]) != 1 {
+			panic("Bind value syntax")
+		}
+		subcontext := Context{
+			Bindings: make(map[string]Com),
+			Parent:   &context}
+		for i := len(s.Children) - 1; i >= 1; i-- {
+			binding := s.Children[i]
+			if len(binding) != 2 || binding[0].Tag != MacroSyntaxTag {
+				panic("Bind binding syntax")
+			}
+			subcontext.Bindings[binding[0].Name] = binding[1].ToCom(context)
+		}
+		return s.Children[0][0].ToCom(subcontext)
 	case BlockSyntaxTag:
 		pipes := make([]Com, len(s.Children))
 		for i, line := range s.Children {
 			pipeComs := make([]Com, len(line))
 			for j, subS := range line {
-				pipeComs[len(line)-1-j] = subS.ToCom()
+				pipeComs[len(line)-1-j] = subS.ToCom(context)
 			}
 			pipes[i] = coms.Pipe(pipeComs)
 		}
@@ -30,7 +72,7 @@ func (s Syntax) ToCom() Com {
 			for i, line := range s.Children {
 				pipeComs := make([]Com, len(line))
 				for j, subS := range line {
-					pipeComs[len(line)-1-j] = subS.ToCom()
+					pipeComs[len(line)-1-j] = subS.ToCom(context)
 				}
 				pipes[i] = coms.Pipe(pipeComs)
 			}
@@ -40,7 +82,7 @@ func (s Syntax) ToCom() Com {
 			for i, line := range s.Children {
 				pipeComs := make([]Com, len(line)+1)
 				for j, subS := range line {
-					pipeComs[len(line)-1-j] = subS.ToCom()
+					pipeComs[len(line)-1-j] = subS.ToCom(context)
 				}
 				pipeComs[len(line)] = coms.Deselect(strconv.FormatInt(int64(i), 10))
 				pipes[i] = coms.Pipe(pipeComs)
@@ -49,13 +91,11 @@ func (s Syntax) ToCom() Com {
 		}
 		panic("Unknown macro")
 	case MacroSyntaxTag:
-		switch s.Name {
-		case "I":
-			return coms.ICom{}
-		case "init":
-			return coms.InitCom{}
+		val, bound := context.Get(s.Name)
+		if !bound {
+			panic("Unknown macro")
 		}
-		panic("Unknown macro")
+		return val
 	case SelectSyntaxTag:
 		return coms.SelectCom(s.Name)
 	case DeselectSyntaxTag:

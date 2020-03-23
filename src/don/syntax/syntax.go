@@ -3,7 +3,8 @@ package syntax
 type SyntaxTag int
 
 const (
-	BlockSyntaxTag = SyntaxTag(iota)
+	BindSyntaxTag = SyntaxTag(iota)
+	BlockSyntaxTag
 	MCallSyntaxTag
 	MacroSyntaxTag
 	SelectSyntaxTag
@@ -13,6 +14,6 @@ const (
 type Syntax struct {
 	Tag SyntaxTag
 
-	Name     string     /* for Tag != BlockSyntaxTag */
-	Children [][]Syntax /* for Tag == BlockSyntaxTag || Tag == MCallSyntaxTag*/
+	Name     string     /* for Tag != BindSyntaxTag && Tag != BlockSyntaxTag */
+	Children [][]Syntax /* for Tag == BindSyntaxTag || Tag == BlockSyntaxTag || Tag == MCallSyntaxTag*/
 }

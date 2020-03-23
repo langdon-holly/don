@@ -1,22 +1,124 @@
-[com](
-	:[state]
-	[state]: [0]: [init]
-	[state]: (
-		[0]: (
-			:[inc] :[2]
-			:[dec] :[1]
+{
+	{
+		[uint8 adder]
+
+		[uint8 adder] [com](
+			:[out]
+
+			(
+				[out]: [7]: :[0]
+				[out]: [8]: :[1]
+			) [full-adder] (
+				[a]: :[7] :[a]
+				[b]: :[7] :[b]
+				[carry]: :[carry 2^7]
+			)
+			(
+				[out]: [6]: :[0]
+				[carry 2^7]: :[1]
+			) [full-adder] (
+				[a]: :[6] :[a]
+				[b]: :[6] :[b]
+				[carry]: :[carry 2^6]
+			)
+			(
+				[out]: [5]: :[0]
+				[carry 2^6]: :[1]
+			) [full-adder] (
+				[a]: :[5] :[a]
+				[b]: :[5] :[b]
+				[carry]: :[carry 2^5]
+			)
+			(
+				[out]: [4]: :[0]
+				[carry 2^5]: :[1]
+			) [full-adder] (
+				[a]: :[4] :[a]
+				[b]: :[4] :[b]
+				[carry]: :[carry 2^4]
+			)
+			(
+				[out]: [3]: :[0]
+				[carry 2^4]: :[1]
+			) [full-adder] (
+				[a]: :[3] :[a]
+				[b]: :[3] :[b]
+				[carry]: :[carry 2^3]
+			)
+			(
+				[out]: [2]: :[0]
+				[carry 2^3]: :[1]
+			) [full-adder] (
+				[a]: :[2] :[a]
+				[b]: :[2] :[b]
+				[carry]: :[carry 2^2]
+			)
+			(
+				[out]: [1]: :[0]
+				[carry 2^2]: :[1]
+			) [full-adder] (
+				[a]: :[1] :[a]
+				[b]: :[1] :[b]
+				[carry]: :[carry 2^1]
+			)
+			(
+				[out]: [0]: :[0]
+				[carry 2^1]: :[1]
+			) [full-adder] (
+				[a]: :[0] :[a]
+				[b]: :[0] :[b]
+				[carry]: [0]: [prod](
+					(
+						:[0]
+						:[1]
+					) :[0] :[a]
+					(
+						:[0]
+						:[1]
+					) :[0] :[b]
+				)
+			)
+
+			[I]
 		)
-		[1]: (
-			:[inc] :[0]
-			:[dec] :[2]
+	}
+
+	[full-adder] [com](
+		(
+			[0]: :[0] :[(a+b)_0 + carry]
+			[1]: :[0] [half-adder] (
+				[a]: :[1] :[a+b]
+				[b]: :[1] :[(a+b)_0 + carry]
+			)
 		)
-		[2]: (
-			:[inc] :[1]
-			:[dec] :[0]
+		[(a+b)_0 + carry]: [half-adder] (
+			[a]: :[0] :[a+b]
+			[b]: :[carry]
 		)
-	) [prod](
-		:[state]
-		:[command]
+		[a+b]: [half-adder]
+		[I]
 	)
-	[command]:
+}
+
+[half-adder] (
+	(
+		(
+			[0]: [0]:
+			[1]: [0]:
+		) :[0] :[0]
+		(
+			[0]: [1]:
+			[1]: [0]:
+		) (
+			:[1] :[0]
+			:[0] :[1]
+		)
+		(
+			[0]: [0]:
+			[1]: [1]:
+		) :[1] :[1]
+	) [prod](
+		:[a]
+		:[b]
+	)
 )

@@ -42,7 +42,7 @@ func (in *input) Peek() (byte, bool) {
 	return in.NextByte, in.EOF
 }
 
-func parseTop(in *input) [][]Syntax {
+func parseTop(in *input) Syntax {
 	var lines [][]Syntax
 	var currentLine []Syntax
 	ready := true
@@ -54,7 +54,7 @@ func parseTop(in *input) [][]Syntax {
 			if len(currentLine) > 0 {
 				lines = append(lines, currentLine)
 			}
-			return lines
+			return Syntax{Tag: BindSyntaxTag, Children: lines}
 		}
 		switch b {
 		case ' ':
@@ -79,7 +79,7 @@ func parseTop(in *input) [][]Syntax {
 	}
 }
 
-func parseChildren(in *input) [][]Syntax {
+func parseBlockChildren(in *input) [][]Syntax {
 	var lines [][]Syntax
 	var currentLine []Syntax
 	ready := true
@@ -103,6 +103,45 @@ func parseChildren(in *input) [][]Syntax {
 			}
 			ready = true
 		case ')':
+			in.Next()
+			if len(currentLine) > 0 {
+				lines = append(lines, currentLine)
+			}
+			return lines
+		default:
+			if !ready {
+				panic("Syntax error")
+			}
+			currentLine = append(currentLine, parse(in))
+			ready = false
+		}
+	}
+}
+
+func parseBindChildren(in *input) [][]Syntax {
+	var lines [][]Syntax
+	var currentLine []Syntax
+	ready := true
+
+	for {
+		b, eof := in.Peek()
+		if eof {
+			panic("Syntax error")
+		}
+		switch b {
+		case ' ':
+			fallthrough
+		case '\t':
+			in.Next()
+			ready = true
+		case '\n':
+			in.Next()
+			if len(currentLine) > 0 {
+				lines = append(lines, currentLine)
+				currentLine = nil
+			}
+			ready = true
+		case '}':
 			in.Next()
 			if len(currentLine) > 0 {
 				lines = append(lines, currentLine)
@@ -150,7 +189,7 @@ func parse(in *input) Syntax {
 			return Syntax{Tag: DeselectSyntaxTag, Name: name}
 		case '(':
 			in.Next()
-			return Syntax{Tag: MCallSyntaxTag, Name: name, Children: parseChildren(in)}
+			return Syntax{Tag: MCallSyntaxTag, Name: name, Children: parseBlockChildren(in)}
 		default:
 			return Syntax{Tag: MacroSyntaxTag, Name: name}
 		}
@@ -160,12 +199,14 @@ func parse(in *input) Syntax {
 		}
 		return Syntax{Tag: SelectSyntaxTag, Name: parseName(in)}
 	case '(':
-		return Syntax{Tag: BlockSyntaxTag, Children: parseChildren(in)}
+		return Syntax{Tag: BlockSyntaxTag, Children: parseBlockChildren(in)}
+	case '{':
+		return Syntax{Tag: BindSyntaxTag, Children: parseBindChildren(in)}
 	}
 	panic("Syntax error")
 }
 
-func ParseTop(inReader io.Reader) [][]Syntax {
+func ParseTop(inReader io.Reader) Syntax {
 	in := input{Reader: inReader}
 	return parseTop(&in)
 }
