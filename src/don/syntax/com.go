@@ -32,6 +32,7 @@ var DefContext = Context{Bindings: make(map[string]Com, 2)}
 func init() {
 	DefContext.Bindings["I"] = coms.ICom{}
 	DefContext.Bindings["init"] = coms.InitCom{}
+	DefContext.Bindings["merge"] = coms.MergeCom{}
 	DefContext.Bindings["prod"] = coms.ProdCom{}
 }
 
