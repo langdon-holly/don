@@ -198,8 +198,30 @@ func parse(in *input) Syntax {
 			panic("Syntax error")
 		}
 		return Syntax{Tag: SelectSyntaxTag, Name: parseName(in)}
+	case '@':
+		if b, _ := in.Next(); b != '(' {
+			panic("Syntax error")
+		}
+
+		children := parseBlockChildren(in)
+
+		b, _ := in.Peek()
+		rightAt := b == '@'
+		if rightAt {
+			in.Next()
+		}
+
+		return Syntax{Tag: BlockSyntaxTag, LeftAt: true, RightAt: rightAt, Children: children}
 	case '(':
-		return Syntax{Tag: BlockSyntaxTag, Children: parseBlockChildren(in)}
+		children := parseBlockChildren(in)
+
+		b, _ := in.Peek()
+		rightAt := b == '@'
+		if rightAt {
+			in.Next()
+		}
+
+		return Syntax{Tag: BlockSyntaxTag, RightAt: rightAt, Children: children}
 	case '{':
 		return Syntax{Tag: BindSyntaxTag, Children: parseBindChildren(in)}
 	}

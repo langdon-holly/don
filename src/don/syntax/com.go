@@ -32,6 +32,7 @@ var DefContext = Context{Bindings: make(map[string]Com, 2)}
 func init() {
 	DefContext.Bindings["I"] = coms.ICom{}
 	DefContext.Bindings["init"] = coms.InitCom{}
+	DefContext.Bindings["prod"] = coms.ProdCom{}
 }
 
 func (s Syntax) ToCom(context Context) Com {
@@ -52,14 +53,29 @@ func (s Syntax) ToCom(context Context) Com {
 		}
 		return s.Children[0][0].ToCom(subcontext)
 	case BlockSyntaxTag:
+		var leftAt, rightAt int
+		if s.LeftAt {
+			leftAt = 1
+		}
+		if s.RightAt {
+			rightAt = 1
+		}
+
 		pipes := make([]Com, len(s.Children))
 		for i, line := range s.Children {
-			pipeComs := make([]Com, len(line))
+			pipeComs := make([]Com, len(line)+leftAt+rightAt)
+			if s.LeftAt {
+				pipeComs[rightAt+len(line)] = coms.Deselect(strconv.FormatInt(int64(i), 10))
+			}
 			for j, subS := range line {
-				pipeComs[len(line)-1-j] = subS.ToCom(context)
+				pipeComs[rightAt+len(line)-1-j] = subS.ToCom(context)
+			}
+			if s.RightAt {
+				pipeComs[0] = coms.SelectCom(strconv.FormatInt(int64(i), 10))
 			}
 			pipes[i] = coms.Pipe(pipeComs)
 		}
+
 		return coms.SplitMerge(pipes)
 	case MCallSyntaxTag:
 		switch s.Name {
@@ -77,17 +93,6 @@ func (s Syntax) ToCom(context Context) Com {
 				pipes[i] = coms.Pipe(pipeComs)
 			}
 			return coms.ComCom(pipes)
-		case "prod":
-			pipes := make([]Com, len(s.Children))
-			for i, line := range s.Children {
-				pipeComs := make([]Com, len(line)+1)
-				for j, subS := range line {
-					pipeComs[len(line)-1-j] = subS.ToCom(context)
-				}
-				pipeComs[len(line)] = coms.Deselect(strconv.FormatInt(int64(i), 10))
-				pipes[i] = coms.Pipe(pipeComs)
-			}
-			return coms.Pipe([]Com{coms.SplitMerge(pipes), coms.ProdCom{}})
 		}
 		panic("Unknown macro")
 	case MacroSyntaxTag:

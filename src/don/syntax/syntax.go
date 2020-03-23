@@ -14,6 +14,7 @@ const (
 type Syntax struct {
 	Tag SyntaxTag
 
-	Name     string     /* for Tag != BindSyntaxTag && Tag != BlockSyntaxTag */
-	Children [][]Syntax /* for Tag == BindSyntaxTag || Tag == BlockSyntaxTag || Tag == MCallSyntaxTag*/
+	Name            string     /* for Tag != BindSyntaxTag && Tag != BlockSyntaxTag */
+	LeftAt, RightAt bool       /* for Tag == BlockSyntaxTag */
+	Children        [][]Syntax /* for Tag == BindSyntaxTag || Tag == BlockSyntaxTag || Tag == MCallSyntaxTag*/
 }
