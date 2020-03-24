@@ -106,6 +106,8 @@ func (s Syntax) ToCom(context Context) Com {
 		return coms.SelectCom(s.Name)
 	case DeselectSyntaxTag:
 		return coms.Deselect(s.Name)
+	case IsolateSyntaxTag:
+		return coms.Pipe([]Com{coms.SelectCom(s.Name), coms.Deselect(s.Name)})
 	}
 	panic("Unreachable")
 }

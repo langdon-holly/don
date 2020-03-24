@@ -197,7 +197,16 @@ func parse(in *input) Syntax {
 		if b, _ := in.Next(); b != '[' {
 			panic("Syntax error")
 		}
-		return Syntax{Tag: SelectSyntaxTag, Name: parseName(in)}
+
+		name := parseName(in)
+
+		b, _ := in.Peek()
+		if b == ':' {
+			in.Next()
+			return Syntax{Tag: IsolateSyntaxTag, Name: name}
+		} else {
+			return Syntax{Tag: SelectSyntaxTag, Name: name}
+		}
 	case '@':
 		if b, _ := in.Next(); b != '(' {
 			panic("Syntax error")
