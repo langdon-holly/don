@@ -2,30 +2,26 @@ package coms
 
 import . "don/core"
 
-type ReaderId struct {
-	InternalP   bool
-	InternalIdx int /* for InternalP */
-}
+type SignalMap struct {
+	ParentP bool
 
-type SignalReaderId struct {
-	ReaderId
-	FieldPath []string
-}
+	// for ParentP
+	Children map[string]SignalMap
 
-type SignalReaderIdTree struct {
-	ParentP        bool
-	Children       map[string]SignalReaderIdTree /* for ParentP */
-	SignalReaderId                               /* for !ParentP */
+	// for !ParentP
+	ExternalP   bool
+	InternalIdx int /* for !ExternalP */
+	FieldPath   []string
 }
 
 type CompositeComEntry struct {
 	Com
-	OutputMap SignalReaderIdTree
+	OutputMap SignalMap
 }
 
 type CompositeCom struct {
 	Coms     []CompositeComEntry
-	InputMap SignalReaderIdTree
+	InputMap SignalMap
 }
 
 type ReaderInputTypes struct {
@@ -33,7 +29,7 @@ type ReaderInputTypes struct {
 	External  DType
 }
 
-func sendTypeToReaders(theType DType, outputMap SignalReaderIdTree, readerInputTypes *ReaderInputTypes, waiters map[int]struct{}) {
+func sendTypeToReaders(theType DType, outputMap SignalMap, readerInputTypes *ReaderInputTypes, waiters map[int]struct{}) {
 	if outputMap.ParentP {
 		switch theType.Lvl {
 		case UnknownTypeLvl:
@@ -48,7 +44,9 @@ func sendTypeToReaders(theType DType, outputMap SignalReaderIdTree, readerInputT
 		}
 	} else {
 		readerInputType := TypeAtPath(theType, outputMap.FieldPath)
-		if outputMap.InternalP {
+		if outputMap.ExternalP {
+			readerInputTypes.External = MergeTypes(readerInputTypes.External, readerInputType)
+		} else {
 			idx := outputMap.InternalIdx
 			oldInputType := readerInputTypes.Internals[idx]
 			newInputType := MergeTypes(oldInputType, readerInputType)
@@ -56,8 +54,6 @@ func sendTypeToReaders(theType DType, outputMap SignalReaderIdTree, readerInputT
 				readerInputTypes.Internals[idx] = newInputType
 				waiters[idx] = struct{}{}
 			}
-		} else {
-			readerInputTypes.External = MergeTypes(readerInputTypes.External, readerInputType)
 		}
 	}
 }
@@ -95,7 +91,7 @@ func (cc CompositeCom) OutputType(inputType DType) DType {
 	return cc.InferTypes(inputType).External
 }
 
-func putExternalInput(inputMap SignalReaderIdTree, inputGetter InputGetter, inputIGetters []InputGetter /* mutated */) {
+func putExternalInput(inputMap SignalMap, inputGetter InputGetter, inputIGetters []InputGetter /* mutated */) {
 	if inputMap.ParentP {
 		for fieldName, innerInputMap := range inputMap.Children {
 			putExternalInput(innerInputMap, inputGetter.Struct[fieldName], inputIGetters)
@@ -113,17 +109,17 @@ func putExternalInput(inputMap SignalReaderIdTree, inputGetter InputGetter, inpu
 	}
 }
 
-func getInternalOutput(outputMap SignalReaderIdTree, inputOGetters []OutputGetter, externalOutputGetter OutputGetter) (ret OutputGetter) {
+func getInternalOutput(outputMap SignalMap, inputOGetters []OutputGetter, externalOutputGetter OutputGetter) (ret OutputGetter) {
 	if outputMap.ParentP {
 		ret.Struct = make(map[string]OutputGetter, len(outputMap.Children))
 		for fieldName, innerOutputMap := range outputMap.Children {
 			ret.Struct[fieldName] = getInternalOutput(innerOutputMap, inputOGetters, externalOutputGetter)
 		}
 	} else {
-		if outputMap.InternalP {
-			ret = inputOGetters[outputMap.InternalIdx]
-		} else {
+		if outputMap.ExternalP {
 			ret = externalOutputGetter
+		} else {
+			ret = inputOGetters[outputMap.InternalIdx]
 		}
 
 		for _, fieldName := range outputMap.FieldPath {
