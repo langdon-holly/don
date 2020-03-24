@@ -39,20 +39,22 @@ func init() {
 func (s Syntax) ToCom(context Context) Com {
 	switch s.Tag {
 	case BindSyntaxTag:
-		if len(s.Children) < 1 || len(s.Children[0]) != 1 {
-			panic("Bind value syntax")
-		}
-		subcontext := Context{
-			Bindings: make(map[string]Com),
-			Parent:   &context}
-		for i := len(s.Children) - 1; i >= 1; i-- {
-			binding := s.Children[i]
+		if len(s.Children) < 2 {
+			if len(s.Children) < 1 || len(s.Children[0]) != 1 {
+				panic("Bind value syntax")
+			}
+			return s.Children[0][0].ToCom(context)
+		} else {
+			subcontext := Context{
+				Bindings: make(map[string]Com, 1),
+				Parent:   &context}
+			binding := s.Children[len(s.Children)-1]
 			if len(binding) != 2 || binding[0].Tag != MacroSyntaxTag {
 				panic("Bind binding syntax")
 			}
 			subcontext.Bindings[binding[0].Name] = binding[1].ToCom(context)
+			return Syntax{Tag: BindSyntaxTag, Children: s.Children[:len(s.Children)-1]}.ToCom(subcontext)
 		}
-		return s.Children[0][0].ToCom(subcontext)
 	case BlockSyntaxTag:
 		var leftAt, rightAt int
 		if s.LeftAt {
