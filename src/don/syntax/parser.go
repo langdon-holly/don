@@ -46,6 +46,7 @@ func parseTop(in *input) Syntax {
 	var lines [][]Syntax
 	var currentLine []Syntax
 	ready := true
+	comment := false
 
 	for {
 		b, eof := in.Peek()
@@ -69,11 +70,22 @@ func parseTop(in *input) Syntax {
 				currentLine = nil
 			}
 			ready = true
+		case ';':
+			in.Next()
+			if !ready {
+				panic("Syntax error")
+			}
+			comment = true
 		default:
 			if !ready {
 				panic("Syntax error")
 			}
-			currentLine = append(currentLine, parse(in))
+			elem := parse(in)
+			if comment {
+				comment = false
+			} else {
+				currentLine = append(currentLine, elem)
+			}
 			ready = false
 		}
 	}
@@ -83,6 +95,7 @@ func parseBlockChildren(in *input) [][]Syntax {
 	var lines [][]Syntax
 	var currentLine []Syntax
 	ready := true
+        comment := false
 
 	for {
 		b, eof := in.Peek()
@@ -102,6 +115,12 @@ func parseBlockChildren(in *input) [][]Syntax {
 				currentLine = nil
 			}
 			ready = true
+		case ';':
+			in.Next()
+			if !ready {
+				panic("Syntax error")
+			}
+			comment = true
 		case ')':
 			in.Next()
 			if len(currentLine) > 0 {
@@ -112,7 +131,12 @@ func parseBlockChildren(in *input) [][]Syntax {
 			if !ready {
 				panic("Syntax error")
 			}
-			currentLine = append(currentLine, parse(in))
+			elem := parse(in)
+			if comment {
+				comment = false
+			} else {
+				currentLine = append(currentLine, elem)
+			}
 			ready = false
 		}
 	}
@@ -122,6 +146,7 @@ func parseBindChildren(in *input) [][]Syntax {
 	var lines [][]Syntax
 	var currentLine []Syntax
 	ready := true
+        comment := false
 
 	for {
 		b, eof := in.Peek()
@@ -141,6 +166,12 @@ func parseBindChildren(in *input) [][]Syntax {
 				currentLine = nil
 			}
 			ready = true
+		case ';':
+			in.Next()
+			if !ready {
+				panic("Syntax error")
+			}
+			comment = true
 		case '}':
 			in.Next()
 			if len(currentLine) > 0 {
@@ -151,7 +182,12 @@ func parseBindChildren(in *input) [][]Syntax {
 			if !ready {
 				panic("Syntax error")
 			}
-			currentLine = append(currentLine, parse(in))
+			elem := parse(in)
+			if comment {
+				comment = false
+			} else {
+				currentLine = append(currentLine, elem)
+			}
 			ready = false
 		}
 	}
