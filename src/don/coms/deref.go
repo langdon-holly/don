@@ -4,14 +4,16 @@ import . "don/core"
 
 type DerefCom struct{}
 
-func (DerefCom) OutputType(inputType DType) DType {
-	if inputType.Lvl != NormalTypeLvl {
-		return inputType
+func (DerefCom) OutputType(inputType DType) (outputType DType, impossible bool) {
+	if inputType.Tag == UnknownTypeTag {
+		return
 	}
 	if inputType.Tag != RefTypeTag {
-		return ImpossibleType
+		impossible = true
+		return
 	}
-	return *inputType.Referent
+	outputType = *inputType.Referent
+	return
 }
 
 func (DerefCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {

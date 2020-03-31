@@ -52,13 +52,14 @@ func runSplit(theType DType, inputGetter InputGetter, outputGetters []OutputGett
 
 type SplitCom []string
 
-func (sc SplitCom) OutputType(inputType DType) DType {
+func (sc SplitCom) OutputType(inputType DType) (outputType DType, impossible bool) {
 	fields := make(map[string]DType, len(sc))
 	for _, fieldName := range sc {
 		fields[fieldName] = inputType
 	}
 
-	return MakeStructType(fields)
+	outputType = MakeStructType(fields)
+	return
 }
 
 func (sc SplitCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {

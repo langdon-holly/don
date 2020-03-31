@@ -7,26 +7,34 @@ import (
 
 type MapMaybeRefCom struct{ Com }
 
-func (mmrc MapMaybeRefCom) OutputType(inputType DType) DType {
-	if inputType.Lvl == NormalTypeLvl {
-		if inputType.Tag == StructTypeTag {
-			inputType = inputType.Fields["val"]
-			if inputType.Lvl == NormalTypeLvl {
-				if inputType.Tag == RefTypeTag {
-					inputType = *inputType.Referent
-				} else {
-					inputType = ImpossibleType
-				}
+func (mmrc MapMaybeRefCom) OutputType(inputType DType) (outputType DType, impossible bool) {
+	if inputType.Tag != UnknownTypeTag {
+		if inputType.Tag != StructTypeTag {
+			impossible = true
+			return
+		}
+
+		inputType = inputType.Fields["val"]
+		if inputType.Tag != UnknownTypeTag {
+			if inputType.Tag != RefTypeTag {
+				impossible = true
+				return
 			}
-		} else {
-			inputType = ImpossibleType
+
+			inputType = *inputType.Referent
 		}
 	}
-	return types.MakeMaybeType(MakeRefType(mmrc.Com.OutputType(inputType)))
+	var subOutputType DType
+	subOutputType, impossible = mmrc.Com.OutputType(inputType)
+	if !impossible {
+		outputType = types.MakeMaybeType(MakeRefType(subOutputType))
+	}
+	return
 }
 
 func (mmrc MapMaybeRefCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
-	outputType := types.MakeMaybeType(MakeRefType(mmrc.Com.OutputType(*inputType.Fields["val"].Referent)))
+	subOutputType, _ := mmrc.Com.OutputType(*inputType.Fields["val"].Referent)
+	outputType := types.MakeMaybeType(MakeRefType(subOutputType))
 
 	input := inputGetter.GetInput(inputType)
 	notpInput := input.Struct["not?"]

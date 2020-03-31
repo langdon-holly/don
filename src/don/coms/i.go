@@ -42,7 +42,7 @@ func PipeRef(outputChan chan<- Ref, inputChan <-chan Ref, quit <-chan struct{}) 
 	}
 }
 
-func (ICom) OutputType(inputType DType) DType { return inputType }
+func (ICom) OutputType(inputType DType) (outputType DType, impossible bool) { return inputType, false }
 
 func (ICom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
 	RunI(inputType, inputGetter, outputGetter, quit)

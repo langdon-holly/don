@@ -7,18 +7,13 @@ type ConstRefCom struct {
 	Val          Ref
 }
 
-func (crc ConstRefCom) OutputType(inputType DType) DType {
-	switch inputType.Lvl {
-	case UnknownTypeLvl:
-	case NormalTypeLvl:
-		if inputType.Tag != UnitTypeTag {
-			return ImpossibleType
-		}
-	case ImpossibleTypeLvl:
-		return ImpossibleType
+func (crc ConstRefCom) OutputType(inputType DType) (outputType DType, impossible bool) {
+	if inputType.Tag != UnknownTypeTag && inputType.Tag != UnitTypeTag {
+		impossible = true
+	} else {
+		outputType = MakeRefType(crc.ReferentType)
 	}
-
-	return MakeRefType(crc.ReferentType)
+	return
 }
 
 func (crc ConstRefCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {

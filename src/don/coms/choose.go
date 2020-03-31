@@ -4,31 +4,23 @@ import . "don/core"
 
 type ChooseCom struct{}
 
-func (ChooseCom) OutputType(inputType DType) DType {
-	ret := MakeStructType(nil)
-	switch inputType.Lvl {
-	case UnknownTypeLvl:
-	case NormalTypeLvl:
+func (ChooseCom) OutputType(inputType DType) (outputType DType, impossible bool) {
+	outputType = MakeStructType(nil)
+	if inputType.Tag != UnknownTypeTag {
 		if inputType.Tag != StructTypeTag {
-			return ImpossibleType
+			impossible = true
+			return
 		}
 
 		readyType := inputType.Fields["ready"]
-		switch readyType.Lvl {
-		case UnknownTypeLvl:
-		case NormalTypeLvl:
-			if readyType.Tag != UnitTypeTag {
-				return ImpossibleType
-			}
-		case ImpossibleTypeLvl:
-			return ImpossibleType
+		if readyType.Tag != UnknownTypeTag && readyType.Tag != UnitTypeTag {
+			impossible = true
+			return
 		}
 
-		ret = MergeTypes(ret, inputType.Fields["choices"])
-	case ImpossibleTypeLvl:
-		return ImpossibleType
+		outputType, impossible = MergeTypes(outputType, inputType.Fields["choices"])
 	}
-	return ret
+	return
 }
 
 func listen(chosens chan<- string, fieldName string, choice <-chan Unit, quit <-chan struct{}) {

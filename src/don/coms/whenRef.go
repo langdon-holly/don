@@ -4,18 +4,13 @@ import . "don/core"
 
 type WhenRefCom struct{}
 
-func (WhenRefCom) OutputType(inputType DType) DType {
-	switch inputType.Lvl {
-	case UnknownTypeLvl:
-	case NormalTypeLvl:
-		if inputType.Tag != RefTypeTag {
-			return ImpossibleType
-		}
-	case ImpossibleTypeLvl:
-		return ImpossibleType
+func (WhenRefCom) OutputType(inputType DType) (outputType DType, impossible bool) {
+	if inputType.Tag == UnknownTypeTag || inputType.Tag == RefTypeTag {
+		outputType = UnitType
+	} else {
+		impossible = true
 	}
-
-	return UnitType
+	return
 }
 
 func (WhenRefCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {

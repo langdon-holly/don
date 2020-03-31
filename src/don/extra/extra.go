@@ -38,8 +38,12 @@ import . "don/core"
 //	return
 //}
 
-func Run(com Com, inputType DType) (inputO Output, outputI Input, quit chan<- struct{}) {
-	outputType := com.OutputType(inputType)
+func Run(com Com, inputType DType) (inputO Output, outputI Input, quit chan<- struct{}, typeError bool) {
+	var outputType DType
+	outputType, typeError = com.OutputType(inputType)
+	if typeError {
+		return
+	}
 
 	inputIGetter, inputOGetter := MakeIO(inputType)
 	outputIGetter, outputOGetter := MakeIO(outputType)

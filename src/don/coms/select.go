@@ -4,14 +4,16 @@ import . "don/core"
 
 type SelectCom string
 
-func (sc SelectCom) OutputType(inputType DType) DType {
-	if inputType.Lvl != NormalTypeLvl {
-		return inputType
+func (sc SelectCom) OutputType(inputType DType) (outputType DType, impossible bool) {
+	if inputType.Tag == UnknownTypeTag {
+		return
 	}
-	if inputType.Tag != StructTypeTag {
-		return ImpossibleType
+	if inputType.Tag == StructTypeTag {
+		outputType = inputType.Fields[string(sc)]
+	} else {
+		impossible = true
 	}
-	return inputType.Fields[string(sc)]
+	return
 }
 
 func (sc SelectCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {

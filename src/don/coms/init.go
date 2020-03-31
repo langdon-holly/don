@@ -4,8 +4,8 @@ import . "don/core"
 
 type InitCom struct{}
 
-func (InitCom) OutputType(inputType DType) DType {
-	return UnitType
+func (InitCom) OutputType(inputType DType) (outputType DType, impossible bool) {
+	return UnitType, false
 }
 
 func (InitCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {

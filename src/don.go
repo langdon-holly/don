@@ -37,7 +37,7 @@ func main() {
 
 	com := syntax.ParseTop(ifile).ToCom(syntax.DefContext)
 
-	input, output, quit := extra.Run(com, inputType)
+	input, output, quit, _ := extra.Run(com, inputType)
 	defer close(quit)
 
 	types.WriteUint8(input.Struct["a"], 0)

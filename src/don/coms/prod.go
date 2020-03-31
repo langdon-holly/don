@@ -8,52 +8,43 @@ import (
 
 type ProdCom struct{}
 
-func (ProdCom) OutputType(inputType DType) DType {
-	switch inputType.Lvl {
-	case UnknownTypeLvl:
-		return UnknownType
-	case NormalTypeLvl:
-		if inputType.Tag != StructTypeTag {
-			return ImpossibleType
-		}
-
-		outputType := UnitType
-		for i := len(inputType.Fields) - 1; i >= 0; i-- {
-			fieldType, fieldExists := inputType.Fields[strconv.FormatInt(int64(i), 10)]
-			if !fieldExists {
-				return ImpossibleType
-			}
-
-			switch fieldType.Lvl {
-			case UnknownTypeLvl:
-				outputType = UnknownType
-			case NormalTypeLvl:
-				switch fieldType.Tag {
-				case UnitTypeTag:
-				case RefTypeTag:
-					return ImpossibleType
-				case StructTypeTag:
-					fields := make(map[string]DType, len(fieldType.Fields))
-					for fieldName, fieldType := range fieldType.Fields {
-						if fieldType.Lvl == ImpossibleTypeLvl ||
-							fieldType.Lvl == NormalTypeLvl && fieldType.Tag != UnitTypeTag {
-							return ImpossibleType
-						}
-						fields[fieldName] = outputType
-					}
-					outputType = MakeStructType(fields)
-				}
-			case ImpossibleTypeLvl:
-				return ImpossibleType
-			}
-		}
-		return outputType
-
-	case ImpossibleTypeLvl:
-		return ImpossibleType
+func (ProdCom) OutputType(inputType DType) (outputType DType, impossible bool) {
+	if inputType.Tag == UnknownTypeTag {
+		return
+	}
+	if inputType.Tag != StructTypeTag {
+		impossible = true
+		return
 	}
 
-	panic("Unreachable")
+	outputType = UnitType
+	for i := len(inputType.Fields) - 1; i >= 0; i-- {
+		fieldType, fieldExists := inputType.Fields[strconv.FormatInt(int64(i), 10)]
+		if !fieldExists {
+			impossible = true
+			return
+		}
+
+		switch fieldType.Tag {
+		case UnknownTypeTag:
+			outputType = UnknownType
+		case UnitTypeTag:
+		case RefTypeTag:
+			impossible = true
+			return
+		case StructTypeTag:
+			fields := make(map[string]DType, len(fieldType.Fields))
+			for fieldName, fieldType := range fieldType.Fields {
+				if fieldType.Tag != UnknownTypeTag && fieldType.Tag != UnitTypeTag {
+					impossible = true
+					return
+				}
+				fields[fieldName] = outputType
+			}
+			outputType = MakeStructType(fields)
+		}
+	}
+	return
 }
 
 func getFieldName(fieldChan chan<- string, fieldName string, unitChan <-chan Unit, quit <-chan struct{}) {
@@ -87,7 +78,8 @@ func (ProdCom) Run(inputType DType, inputGetter InputGetter, outputGetter Output
 		}
 	}
 
-	output := outputGetter.GetOutput(ProdCom{}.OutputType(inputType))
+	outputType, _ := ProdCom{}.OutputType(inputType)
+	output := outputGetter.GetOutput(outputType)
 
 	for {
 		for _, unitChan := range unitChans {

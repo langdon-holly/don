@@ -4,19 +4,22 @@ import . "don/core"
 
 type MergeCom struct{}
 
-func (MergeCom) OutputType(inputType DType) DType {
-	if inputType.Lvl != NormalTypeLvl {
-		return inputType
+func (MergeCom) OutputType(inputType DType) (outputType DType, impossible bool) {
+	if inputType.Tag == UnknownTypeTag {
+		return
 	}
 	if inputType.Tag != StructTypeTag {
-		return ImpossibleType
+		impossible = true
+		return
 	}
 
-	ret := UnknownType
 	for _, subType := range inputType.Fields {
-		ret = MergeTypes(ret, subType)
+		outputType, impossible = MergeTypes(outputType, subType)
+		if impossible {
+			return
+		}
 	}
-	return ret
+	return
 }
 
 func runMerge(inputTypes []DType, inputGetters []InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
