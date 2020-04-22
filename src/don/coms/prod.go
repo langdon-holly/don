@@ -29,9 +29,6 @@ func (ProdCom) OutputType(inputType DType) (outputType DType, impossible bool) {
 		case UnknownTypeTag:
 			outputType = UnknownType
 		case UnitTypeTag:
-		case RefTypeTag:
-			impossible = true
-			return
 		case StructTypeTag:
 			fields := make(map[string]DType, len(fieldType.Fields))
 			for fieldName, fieldType := range fieldType.Fields {

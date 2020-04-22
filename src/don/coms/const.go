@@ -4,7 +4,6 @@ import . "don/core"
 
 type ConstVal struct {
 	P         bool /* for !struct */
-	RefVal    Ref
 	StructVal map[string]ConstVal
 }
 
@@ -13,12 +12,6 @@ func Const(outputType DType, val ConstVal) Com {
 	case UnitTypeTag:
 		if val.P {
 			return ICom{}
-		} else {
-			return Sink
-		}
-	case RefTypeTag:
-		if val.P {
-			return ConstRefCom{ReferentType: *outputType.Referent, Val: val.RefVal}
 		} else {
 			return Sink
 		}

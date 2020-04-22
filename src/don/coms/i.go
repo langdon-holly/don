@@ -8,8 +8,6 @@ func RunI(theType DType, inputGetter InputGetter, outputGetter OutputGetter, qui
 		inputChan := inputGetter.GetInput(UnitType).Unit
 		outputChan := outputGetter.GetOutput(UnitType).Unit
 		go PipeUnit(outputChan, inputChan, quit)
-	case RefTypeTag:
-		inputGetter.Ref <- <-outputGetter.Ref
 	case StructTypeTag:
 		for fieldName, fieldType := range theType.Fields {
 			go RunI(fieldType, inputGetter.Struct[fieldName], outputGetter.Struct[fieldName], quit)
@@ -25,17 +23,6 @@ func PipeUnit(outputChan chan<- Unit, inputChan <-chan Unit, quit <-chan struct{
 		select {
 		case <-inputChan:
 			outputChan <- Unit{}
-		case <-quit:
-			return
-		}
-	}
-}
-
-func PipeRef(outputChan chan<- Ref, inputChan <-chan Ref, quit <-chan struct{}) {
-	for {
-		select {
-		case val := <-inputChan:
-			outputChan <- val
 		case <-quit:
 			return
 		}

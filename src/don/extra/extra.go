@@ -9,11 +9,6 @@ import . "don/core"
 //		theChan := make(chan Unit, 1)
 //		input.Unit = theChan
 //		output.Unit = theChan
-//	case RefTypeTag:
-//		output.Ref = make(chan<- Ref, 1)
-//		theChan := make(chan Ref, 1)
-//		input.Ref = theChan
-//		output.Ref = theChan
 //	case StructTypeTag:
 //		input.Struct = make(map[string]Input)
 //		output.Struct = make(map[string]Output)
@@ -28,13 +23,6 @@ import . "don/core"
 //	theChan := make(chan Unit, 1)
 //	input.Unit = theChan
 //	output.Unit = theChan
-//	return
-//}
-//
-//func MakeRefChan() (input Input, output Output) {
-//	theChan := make(chan Ref, 1)
-//	input.Ref = theChan
-//	output.Ref = theChan
 //	return
 //}
 

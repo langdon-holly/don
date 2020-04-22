@@ -21,23 +21,6 @@ func runSplit(theType DType, inputGetter InputGetter, outputGetters []OutputGett
 				return
 			}
 		}
-	case RefTypeTag:
-		input := inputGetter.GetInput(theType)
-		outputs := make([]Output, len(outputGetters))
-		for i, outputGetter := range outputGetters {
-			outputs[i] = outputGetter.GetOutput(theType)
-		}
-
-		for {
-			select {
-			case val := <-input.Ref:
-				for _, output := range outputs {
-					output.WriteRef(val)
-				}
-			case <-quit:
-				return
-			}
-		}
 	case StructTypeTag:
 		for fieldName, fieldType := range theType.Fields {
 			subOutputGetters := make([]OutputGetter, len(outputGetters))

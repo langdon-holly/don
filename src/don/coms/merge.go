@@ -57,14 +57,8 @@ func runMerge(inputTypes []DType, inputGetters []InputGetter, outputGetter Outpu
 
 	output := outputGetter.GetOutput(inputTypes[0])
 
-	if inputTypes[0].Tag == UnitTypeTag {
-		for _, input := range inputs {
-			go PipeUnit(output.Unit, input.Unit, quit)
-		}
-	} else { //inputTypes[0].Tag == RefTypeTag
-		for _, input := range inputs {
-			go PipeRef(output.Ref, input.Ref, quit)
-		}
+	for _, input := range inputs {
+		go PipeUnit(output.Unit, input.Unit, quit)
 	}
 
 	return
