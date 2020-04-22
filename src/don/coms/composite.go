@@ -108,7 +108,7 @@ func putExternalInput(inputMap SignalMap, inputGetter InputGetter, inputIGetters
 			for _, fieldName := range inputMap.FieldPath[:len(inputMap.FieldPath)-1] {
 				parentStruct = parentStruct[fieldName].Struct
 			}
-			parentStruct[inputMap.FieldPath[len(inputMap.FieldPath)]] = inputGetter
+			parentStruct[inputMap.FieldPath[len(inputMap.FieldPath)-1]] = inputGetter
 		}
 	}
 }
