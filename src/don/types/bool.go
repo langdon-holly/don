@@ -4,6 +4,11 @@ import . "don/core"
 
 var BoolType DType = MakeNStructType(2)
 
+func init() {
+	BoolType.Fields["T"] = UnitType
+	BoolType.Fields["F"] = UnitType
+}
+
 func WriteBool(output Output, val bool) {
 	if val {
 		output.Fields["T"].WriteUnit()
@@ -19,9 +24,4 @@ func ReadBool(input Input) bool {
 	case <-input.Fields["F"].Unit:
 		return false
 	}
-}
-
-func init() {
-	BoolType.Fields["T"] = UnitType
-	BoolType.Fields["F"] = UnitType
 }

@@ -30,7 +30,6 @@ func runMerge(inputs []Input, output Output) {
 		}
 		go runMerge(subInputs, subOutput)
 	}
-
 	for _, input := range inputs {
 		go PipeUnit(output.Unit, input.Unit)
 	}

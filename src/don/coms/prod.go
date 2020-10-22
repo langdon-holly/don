@@ -37,41 +37,6 @@ func strToNat(s string) (nat int, err bool) {
 	return
 }
 
-// TODO: No annihilation
-func subtypeTop(t0, t1 DType) (merged DType, bad []string) {
-	if t0.Tag == UnknownTypeTag {
-		merged = t1
-		return
-	}
-	if t1.Tag == UnknownTypeTag {
-		merged = t0
-		return
-	}
-
-	if t0.Tag != t1.Tag {
-		bad = []string{"Cannot be both unit and struct"}
-		return
-	}
-
-	if t0.Tag == UnitTypeTag {
-		merged = UnitType
-		return
-	}
-
-	// t0.Tag == t1.Tag == StructTypeTag
-	merged = t0
-	for fieldName := range t0.Fields {
-		if _, inT1 := t1.Fields[fieldName]; !inT1 {
-			bad = []string{"Different fields"}
-			return
-		}
-	}
-	if len(t0.Fields) < len(t1.Fields) {
-		bad = []string{"Different fields"}
-	}
-	return
-}
-
 func mergeTops(fields map[string]struct{}, depth int, typesPath *[]map[string]struct{}, terminal bool) (bad []string) {
 	if depth < len(*typesPath) {
 		already := (*typesPath)[depth]

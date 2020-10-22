@@ -18,8 +18,6 @@ func (InitCom) Types(inputType, outputType *DType) (bad []string, done bool) {
 	return
 }
 
-func (InitCom) Type() (in, out DType) { return MakeNStructType(0), UnitType }
-
 func (InitCom) Run(inputType, outputType DType, input Input, output Output) {
 	output.WriteUnit()
 }

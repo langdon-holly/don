@@ -67,12 +67,12 @@ func escapeDone(escaped bool) (bad []string) {
 	return
 }
 
-// // Discard or call Zero after bad != nil or Done is called
-// type parser interface {
-// 	Zero()                               /* assigns */
-// 	Next(e token) (bad []string)         /* mutates */
-// 	Done() (syntax Syntax, bad []string) /* mutates; syntax for bad != nil */
-// }
+// Used in spirit
+// Discard after bad != nil or Done is called
+type parser interface {
+	Next(e token) (bad []string)         /* mutates */
+	Done() (syntax Syntax, bad []string) /* mutates; syntax for bad != nil */
+}
 
 type name struct {
 	Namep, Preparsed        bool
@@ -83,7 +83,6 @@ type name struct {
 }
 
 // impl parser
-func (state *name) Zero() { *state = name{} }
 func (state *name) Next(e token) (bad []string) {
 	if state.Preparsed || state.Namep && e.Tag == syntaxTokenTag {
 		bad = []string{"Subelement in name"}
@@ -127,7 +126,6 @@ type macroCall struct {
 }
 
 // impl parser
-func (state *macroCall) Zero() { *state = macroCall{} }
 func (state *macroCall) Next(e token) (bad []string) {
 	if state.SubMacroCall != nil {
 		bad = state.SubMacroCall.Next(e)
@@ -166,7 +164,6 @@ type spaced struct {
 }
 
 // impl parser
-func (state *spaced) Zero() { *state = spaced{} }
 func (state *spaced) Next(e token) (bad []string) {
 	if !e.IsByte(space) {
 		state.Midfactor = true
@@ -178,7 +175,7 @@ func (state *spaced) Next(e token) (bad []string) {
 			return
 		}
 		state.Midfactor = false
-		state.Sub.Zero()
+		state.Sub = spaced{}.Sub
 		state.Children = append(state.Children, subS)
 	} else {
 		bad = []string{"Too much space"}
@@ -212,7 +209,6 @@ type list struct {
 }
 
 // impl parser
-func (state *list) Zero() { *state = list{} }
 func (state *list) Next(e token) (bad []string) {
 	if state.Passthrough {
 		if e.IsByte(lf) ||
@@ -248,7 +244,7 @@ func (state *list) Next(e token) (bad []string) {
 				state.Children = append(state.Children, subS)
 			}
 			state.Midline = false
-			state.Sub.Zero()
+			state.Sub = list{}.Sub
 		}
 		state.Commented = false
 	} else if e.IsByte(at) {
@@ -296,11 +292,10 @@ type parens struct {
 }
 
 // impl parser
-func (state *parens) Zero() { *state = parens{} }
 func (state *parens) Next(e token) (bad []string) {
 	if e.IsByte(leftParen) {
 		state.Subs = append(state.Subs, state.Sub)
-		state.Sub.Zero()
+		state.Sub = parens{}.Sub
 	} else if e.IsByte(rightParen) {
 		if len(state.Subs) == 0 {
 			bad = []string{"Not enough left-parens"}

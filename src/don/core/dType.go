@@ -262,17 +262,3 @@ func MergeType2As(t0, t1 *DType) (bad []string) {
 	*t1 = merged
 	return
 }
-
-func MergeTypeAs(types []*DType) (bad []string) {
-	var merged DType
-	for _, aType := range types {
-		merged, bad = MergeTypes(merged, *aType)
-		if bad != nil {
-			return
-		}
-	}
-	for i := range types {
-		*types[i] = merged
-	}
-	return
-}

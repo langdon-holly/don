@@ -15,21 +15,6 @@ func printUint9(input Input) {
 	fmt.Println(types.ReadUint9(input))
 }
 
-func printUint2(input Input) {
-	val := 0
-	select {
-	case <-input.Fields["0"].Fields["0"].Unit:
-	case <-input.Fields["0"].Fields["1"].Unit:
-		val = 1
-	}
-	select {
-	case <-input.Fields["1"].Fields["0"].Unit:
-	case <-input.Fields["1"].Fields["1"].Unit:
-		val += 2
-	}
-	fmt.Println(val)
-}
-
 func checkTypes(com Com, inputType, outputType *DType, hopefulInputType, hopefulOutputType DType) {
 	overdefined, notUnderdefined := com.Types(inputType, outputType)
 
