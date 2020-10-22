@@ -4,80 +4,97 @@ type Unit struct{}
 
 type Input struct {
 	Unit   <-chan Unit
-	Struct map[string]Input
+	Fields map[string]Input
 }
 
 type Output struct {
 	Unit   chan<- Unit
-	Struct map[string]Output
+	Fields map[string]Output
 }
 
-type InputGetter struct {
-	Unit   chan<- chan<- Unit
-	Struct map[string]InputGetter
-}
-
-type OutputGetter struct {
-	Unit   <-chan chan<- Unit
-	Struct map[string]OutputGetter
-}
-
-func MakeIO(theType DType) (inputGetter InputGetter, outputGetter OutputGetter) {
-	switch theType.Tag {
-	case UnitTypeTag:
-		theChan := make(chan chan<- Unit, 1)
-		inputGetter.Unit = theChan
-		outputGetter.Unit = theChan
-	case StructTypeTag:
-		inputGetter.Struct = make(map[string]InputGetter)
-		outputGetter.Struct = make(map[string]OutputGetter)
-		for fieldName, fieldType := range theType.Fields {
-			inputGetter.Struct[fieldName], outputGetter.Struct[fieldName] = MakeIO(fieldType)
-		}
-	}
-	return
-}
-
-func (ig InputGetter) GetInput(theType DType) (input Input) {
-	switch theType.Tag {
-	case UnitTypeTag:
+func MakeIO(theType DType) (input Input, output Output) {
+	if theType.Tag == UnitTypeTag {
 		theChan := make(chan Unit, 1)
-		ig.Unit <- chan<- Unit(theChan)
 		input.Unit = theChan
-	case StructTypeTag:
-		input.Struct = make(map[string]Input)
+		output.Unit = theChan
+	} else { /* theType.Tag == StructTypeTag */
+		input.Fields = make(map[string]Input)
+		output.Fields = make(map[string]Output)
 		for fieldName, fieldType := range theType.Fields {
-			input.Struct[fieldName] = ig.Struct[fieldName].GetInput(fieldType)
+			input.Fields[fieldName], output.Fields[fieldName] = MakeIO(fieldType)
 		}
 	}
 	return
 }
 
-func (ig InputGetter) SendOutput(theType DType, output Output) {
-	switch theType.Tag {
-	case UnitTypeTag:
-		ig.Unit <- output.Unit
-	case StructTypeTag:
-		for fieldName, fieldType := range theType.Fields {
-			ig.Struct[fieldName].SendOutput(fieldType, output.Struct[fieldName])
-		}
-	}
-	return
-}
-
-func (og OutputGetter) GetOutput(theType DType) (output Output) {
-	switch theType.Tag {
-	case UnitTypeTag:
-		output.Unit = <-og.Unit
-	case StructTypeTag:
-		output.Struct = make(map[string]Output)
-		for fieldName, fieldType := range theType.Fields {
-			output.Struct[fieldName] = og.Struct[fieldName].GetOutput(fieldType)
-		}
-	}
-	return
-}
+//type InputGetter struct {
+//	Unit   chan<- chan<- Unit
+//	Fields map[string]InputGetter
+//}
+//
+//type OutputGetter struct {
+//	Unit   <-chan chan<- Unit
+//	Fields map[string]OutputGetter
+//}
+//
+//func MakeIO(theType DType) (inputGetter InputGetter, outputGetter OutputGetter) {
+//	if theType.Tag == UnitTypeTag {
+//		theChan := make(chan chan<- Unit, 1)
+//		inputGetter.Unit = theChan
+//		outputGetter.Unit = theChan
+//	} else { /* theType.Tag == StructTypeTag */
+//
+//		inputGetter.Fields = make(map[string]InputGetter)
+//		outputGetter.Fields = make(map[string]OutputGetter)
+//		for fieldName, fieldType := range theType.Fields {
+//			inputGetter.Fields[fieldName], outputGetter.Fields[fieldName] = MakeIO(fieldType)
+//		}
+//	}
+//
+//	return
+//}
+//
+//func (ig InputGetter) GetInput() (input Input) {
+//	if ig.Unit != nil {
+//		theChan := make(chan Unit, 1)
+//		ig.Unit <- chan<- Unit(theChan)
+//		input.Unit = theChan
+//	}
+//
+//	input.Fields = make(map[string]Input, len(ig.Fields))
+//	for fieldName, subIg := range ig.Fields {
+//		input.Fields[fieldName] = subIg.GetInput()
+//	}
+//
+//	return
+//}
+//
+//func (ig InputGetter) SendOutput(output Output) {
+//	if ig.Unit != nil {
+//		ig.Unit <- output.Unit
+//	}
+//
+//	for fieldName, subIg := range ig.Fields {
+//		subIg.SendOutput(output.Fields[fieldName])
+//	}
+//	return
+//}
+//
+//func (og OutputGetter) GetOutput() (output Output) {
+//	if og.Unit != nil {
+//		output.Unit = <-og.Unit
+//	}
+//
+//	output.Fields = make(map[string]Output, len(og.Fields))
+//	for fieldName, subOg := range og.Fields {
+//		output.Fields[fieldName] = subOg.GetOutput()
+//	}
+//
+//	return
+//}
 
 func (o Output) WriteUnit() {
-	o.Unit <- Unit{}
+	if o.Unit != nil {
+		o.Unit <- Unit{}
+	}
 }

@@ -1,6 +1,6 @@
 package core
 
 type Com interface {
-	OutputType(inputType DType) (outputType DType, impossible bool)
-	Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{})
+	Types(inputType, outputType *DType) (bad []string, done bool)
+	Run(inputType, outputType DType, input Input, output Output)
 }

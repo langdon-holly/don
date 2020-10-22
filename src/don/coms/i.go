@@ -2,35 +2,39 @@ package coms
 
 import . "don/core"
 
-func RunI(theType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
-	switch theType.Tag {
-	case UnitTypeTag:
-		inputChan := inputGetter.GetInput(UnitType).Unit
-		outputChan := outputGetter.GetOutput(UnitType).Unit
-		go PipeUnit(outputChan, inputChan, quit)
-	case StructTypeTag:
-		for fieldName, fieldType := range theType.Fields {
-			go RunI(fieldType, inputGetter.Struct[fieldName], outputGetter.Struct[fieldName], quit)
+type ICom struct{}
+
+func PipeUnit(outputChan chan<- Unit, inputChan <-chan Unit) {
+	/*if outputChan == nil {
+		for {
+			<-inputChan
+		}
+	} else */{
+		for {
+			<-inputChan
+			outputChan <- Unit{}
 		}
 	}
+}
+
+func (ICom) Types(inputType, outputType *DType) (bad []string, done bool) {
+	bad = MergeType2As(inputType, outputType)
+	if bad != nil {
+		bad = append(bad, "in unmatching I types")
+		return
+	}
+	done = inputType.Minimal()
 	return
 }
 
-type ICom struct{}
-
-func PipeUnit(outputChan chan<- Unit, inputChan <-chan Unit, quit <-chan struct{}) {
-	for {
-		select {
-		case <-inputChan:
-			outputChan <- Unit{}
-		case <-quit:
-			return
-		}
+func (ICom) Run(inputType, outputType DType, input Input, output Output) {
+	if inputType.Tag == UnitTypeTag {
+		go PipeUnit(output.Unit, input.Unit)
 	}
-}
 
-func (ICom) OutputType(inputType DType) (outputType DType, impossible bool) { return inputType, false }
+	for fieldName, fieldType := range inputType.Fields {
+		go ICom{}.Run(fieldType, fieldType, input.Fields[fieldName], output.Fields[fieldName])
+	}
 
-func (ICom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
-	RunI(inputType, inputGetter, outputGetter, quit)
+	return
 }

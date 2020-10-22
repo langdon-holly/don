@@ -2,54 +2,50 @@ package coms
 
 import . "don/core"
 
-func runSplit(theType DType, inputGetter InputGetter, outputGetters []OutputGetter, quit <-chan struct{}) {
-	switch theType.Tag {
-	case UnitTypeTag:
-		input := inputGetter.GetInput(theType)
-		outputs := make([]Output, len(outputGetters))
-		for i, outputGetter := range outputGetters {
-			outputs[i] = outputGetter.GetOutput(theType)
-		}
+type SplitCom struct{}
 
-		for {
-			select {
-			case <-input.Unit:
-				for _, output := range outputs {
-					output.WriteUnit()
-				}
-			case <-quit:
-				return
-			}
-		}
-	case StructTypeTag:
-		for fieldName, fieldType := range theType.Fields {
-			subOutputGetters := make([]OutputGetter, len(outputGetters))
-			for i, outputGetter := range outputGetters {
-				subOutputGetters[i] = outputGetter.Struct[fieldName]
-			}
-
-			go runSplit(fieldType, inputGetter.Struct[fieldName], subOutputGetters, quit)
-		}
-	}
-}
-
-type SplitCom []string
-
-func (sc SplitCom) OutputType(inputType DType) (outputType DType, impossible bool) {
-	fields := make(map[string]DType, len(sc))
-	for _, fieldName := range sc {
-		fields[fieldName] = inputType
+func (SplitCom) Types(inputType, outputType *DType) (bad []string, done bool) {
+	if outputType.Tag == UnitTypeTag {
+		bad = []string{"Unit split input"}
+		return
 	}
 
-	outputType = MakeStructType(fields)
+	outputType.RemakeFields()
+	bad = FanTypes(outputType.Tag == StructTypeTag, outputType.Fields, inputType)
+	if bad != nil {
+		bad = append(bad, "in split")
+		return
+	}
+	done = outputType.Minimal()
 	return
 }
 
-func (sc SplitCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
-	outputGetters := make([]OutputGetter, len(sc))
-	for i, fieldName := range sc {
-		outputGetters[i] = outputGetter.Struct[fieldName]
+func runSplit(input Input, outputs []Output) {
+	for fieldName, subInput := range input.Fields {
+		var subOutputs []Output
+		for _, output := range outputs {
+			if subOutput, ok := output.Fields[fieldName]; ok {
+				subOutputs = append(subOutputs, subOutput)
+			}
+		}
+		go runSplit(subInput, subOutputs)
 	}
 
-	runSplit(inputType, inputGetter, outputGetters, quit)
+	for {
+		<-input.Unit
+		for _, output := range outputs {
+			output.WriteUnit()
+		}
+	}
+}
+
+func (sc SplitCom) Run(inputType, outputType DType, input Input, output Output) {
+	outputs := make([]Output, len(output.Fields))
+	i := 0
+	for _, subOutput := range output.Fields {
+		outputs[i] = subOutput
+		i++
+	}
+
+	runSplit(input, outputs)
 }

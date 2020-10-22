@@ -4,24 +4,22 @@ import . "don/core"
 
 type SelectCom string
 
-func (sc SelectCom) OutputType(inputType DType) (outputType DType, impossible bool) {
-	if inputType.Tag == UnknownTypeTag {
+func (sc SelectCom) Types(inputType, outputType *DType) (bad []string, done bool) {
+	done = true
+	*outputType, bad = MergeTypes(*outputType, inputType.Fields[string(sc)])
+	if bad != nil {
+		bad = append(bad, "in bad output type for select :"+string(sc))
 		return
 	}
-	if inputType.Tag == StructTypeTag {
-		outputType = inputType.Fields[string(sc)]
-	} else {
-		impossible = true
+	scInputType := MakeNStructType(1)
+	scInputType.Fields[string(sc)] = *outputType
+	*inputType, bad = MergeTypes(*inputType, scInputType)
+	if bad != nil {
+		bad = append(bad, "in bad input type for select :"+string(sc))
 	}
 	return
 }
 
-func (sc SelectCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
-	for fieldName, fieldType := range inputType.Fields {
-		if fieldName == string(sc) {
-			go RunI(fieldType, inputGetter.Struct[fieldName], outputGetter, quit)
-		} else {
-			go Sink.Run(fieldType, inputGetter.Struct[fieldName], OutputGetter{Struct: make(map[string]OutputGetter, 0)}, quit)
-		}
-	}
+func (sc SelectCom) Run(inputType, outputType DType, input Input, output Output) {
+	ICom{}.Run(inputType.Fields[string(sc)], outputType, input.Fields[string(sc)], output)
 }

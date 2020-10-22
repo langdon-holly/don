@@ -2,6 +2,8 @@ package syntax
 
 import "strconv"
 
+//import "fmt"
+
 import (
 	"don/coms"
 	. "don/core"
@@ -32,84 +34,89 @@ var DefContext = Context{Bindings: make(map[string]Com, 2)}
 func init() {
 	DefContext.Bindings["I"] = coms.ICom{}
 	DefContext.Bindings["init"] = coms.InitCom{}
+	DefContext.Bindings["split"] = coms.SplitCom{}
 	DefContext.Bindings["merge"] = coms.MergeCom{}
+	DefContext.Bindings["yet"] = coms.YetCom{}
+	DefContext.Bindings["and"] = coms.And
 	DefContext.Bindings["prod"] = coms.ProdCom{}
+	DefContext.Bindings["unit"] = coms.UnitCom{}
 }
 
 func (s Syntax) ToCom(context Context) Com {
 	switch s.Tag {
-	case BindSyntaxTag:
-		if len(s.Children) < 2 {
-			if len(s.Children) < 1 || len(s.Children[0]) != 1 {
-				panic("Bind value syntax")
-			}
-			return s.Children[0][0].ToCom(context)
-		} else {
-			subcontext := Context{
-				Bindings: make(map[string]Com, 1),
-				Parent:   &context}
-			binding := s.Children[len(s.Children)-1]
-			if len(binding) != 2 || binding[0].Tag != MacroSyntaxTag {
-				panic("Bind binding syntax")
-			}
-			subcontext.Bindings[binding[0].Name] = binding[1].ToCom(context)
-			return Syntax{Tag: BindSyntaxTag, Children: s.Children[:len(s.Children)-1]}.ToCom(subcontext)
-		}
-	case BlockSyntaxTag:
-		var leftAt, rightAt int
-		if s.LeftAt {
-			leftAt = 1
-		}
-		if s.RightAt {
-			rightAt = 1
-		}
-
-		pipes := make([]Com, len(s.Children))
+	//case BindSyntaxTag:
+	//	if len(s.Children) < 2 {
+	//		if len(s.Children) < 1 {
+	//			panic("Bind value syntax")
+	//		}
+	//		pipeComs := make([]Com, len(s.Children[0]))
+	//		for i, subS := range s.Children[0] {
+	//			pipeComs[len(s.Children[0])-1-i] = subS.ToCom(context)
+	//		}
+	//		return coms.PipeCom(pipeComs)
+	//	} else {
+	//		subcontext := Context{
+	//			Bindings: make(map[string]Com, 1),
+	//			Parent:   &context}
+	//		binding := s.Children[len(s.Children)-1]
+	//		if len(binding) != 2 || binding[0].Tag != MacroSyntaxTag {
+	//			panic("Bind binding syntax")
+	//		}
+	//		subcontext.Bindings[binding[0].Name] = binding[1].ToCom(context)
+	//		return Syntax{Tag: BindSyntaxTag, Children: s.Children[:len(s.Children)-1]}.ToCom(subcontext)
+	//	}
+	case ListSyntaxTag:
+		splitMergeComs := make([]Com, len(s.Children))
 		for i, line := range s.Children {
-			pipeComs := make([]Com, len(line)+leftAt+rightAt)
-			if s.LeftAt {
-				pipeComs[rightAt+len(line)] = coms.Deselect(strconv.FormatInt(int64(i), 10))
+			subCom := line.ToCom(context)
+			if s.LeftMarker {
+				subCom = coms.PipeCom([]Com{subCom, coms.DeselectCom(strconv.FormatInt(int64(i), 10))})
 			}
-			for j, subS := range line {
-				pipeComs[rightAt+len(line)-1-j] = subS.ToCom(context)
+			if s.RightMarker {
+				subCom = coms.PipeCom([]Com{coms.SelectCom(strconv.FormatInt(int64(i), 10)), subCom})
 			}
-			if s.RightAt {
-				pipeComs[0] = coms.SelectCom(strconv.FormatInt(int64(i), 10))
-			}
-			pipes[i] = coms.Pipe(pipeComs)
+			splitMergeComs[i] = subCom
 		}
-
-		return coms.SplitMerge(pipes)
+		return coms.SplitMergeCom(splitMergeComs)
+		//case MCallSyntaxTag:
+		//	switch s.Name {
+		//	case "rec":
+		//		return coms.RecCom{Inner: Syntax{Tag: BlockSyntaxTag, Children: s.Children}.ToCom(context)}
+		//	}
+		//	fmt.Println(s.Name)
+		//	panic("Unknown macro")
+	case SpacedSyntaxTag:
+		pipeComs := make([]Com, len(s.Children))
+		for i, subS := range s.Children {
+			pipeComs[len(s.Children)-1-i] = subS.ToCom(context)
+		}
+		return coms.PipeCom(pipeComs)
 	case MCallSyntaxTag:
-		switch s.Name {
-		case "com":
-			if len(s.Children) < 1 {
-				panic("Empty [com] body")
+		if s.LeftMarker && s.RightMarker {
+			return coms.PipeCom([]Com{coms.SelectCom(s.Name), s.Child.ToCom(context), coms.DeselectCom(s.Name)})
+		} else {
+			switch s.Name {
+			case "rec":
+				return coms.RecCom{Inner: s.Child.ToCom(context)}
 			}
-
-			pipes := make([]Com, len(s.Children))
-			for i, line := range s.Children {
-				pipeComs := make([]Com, len(line))
-				for j, subS := range line {
-					pipeComs[len(line)-1-j] = subS.ToCom(context)
-				}
-				pipes[i] = coms.Pipe(pipeComs)
-			}
-			return coms.ComCom(pipes)
-		}
-		panic("Unknown macro")
-	case MacroSyntaxTag:
-		val, bound := context.Get(s.Name)
-		if !bound {
 			panic("Unknown macro")
 		}
-		return val
-	case SelectSyntaxTag:
-		return coms.SelectCom(s.Name)
-	case DeselectSyntaxTag:
-		return coms.Deselect(s.Name)
-	case IsolateSyntaxTag:
-		return coms.Pipe([]Com{coms.SelectCom(s.Name), coms.Deselect(s.Name)})
+	case NameSyntaxTag:
+		if s.LeftMarker {
+			if s.RightMarker {
+				return coms.PipeCom([]Com{coms.SelectCom(s.Name), coms.DeselectCom(s.Name)})
+			} else {
+				return coms.SelectCom(s.Name)
+			}
+		} else if s.RightMarker {
+			return coms.DeselectCom(s.Name)
+		} else {
+			val, bound := context.Get(s.Name)
+			if !bound {
+				panic("Unknown macro: " + s.Name)
+			}
+			return val
+		}
 	}
 	panic("Unreachable")
 }

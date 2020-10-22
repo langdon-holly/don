@@ -2,10 +2,17 @@ package types
 
 import . "don/core"
 
-var BitTypeFields map[string]DType = make(map[string]DType, 2)
-var BitType DType = MakeStructType(BitTypeFields)
+var BitType DType = MakeNStructType(2)
 
 func init() {
-	BitTypeFields["0"] = UnitType
-	BitTypeFields["1"] = UnitType
+	BitType.Fields["0"] = UnitType
+	BitType.Fields["1"] = UnitType
+}
+
+func WriteBit(output Output, val int) {
+	if val == 0 {
+		output.Fields["0"].WriteUnit()
+	} else {
+		output.Fields["1"].WriteUnit()
+	}
 }

@@ -4,11 +4,22 @@ import . "don/core"
 
 type InitCom struct{}
 
-func (InitCom) OutputType(inputType DType) (outputType DType, impossible bool) {
-	return UnitType, false
+func (InitCom) Types(inputType, outputType *DType) (bad []string, done bool) {
+	done = true
+	*inputType, bad = MergeTypes(*inputType, MakeNStructType(0))
+	if bad != nil {
+		bad = append(bad, "in bad input type for init")
+		return
+	}
+	*outputType, bad = MergeTypes(*outputType, UnitType)
+	if bad != nil {
+		bad = append(bad, "in bad output type for init")
+	}
+	return
 }
 
-func (InitCom) Run(inputType DType, inputGetter InputGetter, outputGetter OutputGetter, quit <-chan struct{}) {
-	go Sink.Run(inputType, inputGetter, OutputGetter{}, quit)
-	outputGetter.GetOutput(UnitType).WriteUnit()
+func (InitCom) Type() (in, out DType) { return MakeNStructType(0), UnitType }
+
+func (InitCom) Run(inputType, outputType DType, input Input, output Output) {
+	output.WriteUnit()
 }

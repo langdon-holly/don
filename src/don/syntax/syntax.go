@@ -3,19 +3,17 @@ package syntax
 type SyntaxTag int
 
 const (
-	BindSyntaxTag = SyntaxTag(iota)
-	BlockSyntaxTag
+	ListSyntaxTag = SyntaxTag(iota)
+	SpacedSyntaxTag
 	MCallSyntaxTag
-	MacroSyntaxTag
-	SelectSyntaxTag
-	DeselectSyntaxTag
-        IsolateSyntaxTag
+	NameSyntaxTag
 )
 
 type Syntax struct {
 	Tag SyntaxTag
 
-	Name            string     /* for Tag != BindSyntaxTag && Tag != BlockSyntaxTag */
-	LeftAt, RightAt bool       /* for Tag == BlockSyntaxTag */
-	Children        [][]Syntax /* for Tag == BindSyntaxTag || Tag == BlockSyntaxTag || Tag == MCallSyntaxTag*/
+	Children                []Syntax /* for Tag == ListSyntaxTag || Tag == SpacedSyntaxTag */
+	LeftMarker, RightMarker bool     /* for Tag == ListSyntaxTag || Tag == NameSyntaxTag || Tag == MCallSyntaxTag */
+	Name                    string   /* for Tag == NameSyntaxTag || Tag == MCallSyntaxTag */
+	Child                   *Syntax  /* for Tag == MCallSyntaxTag */
 }

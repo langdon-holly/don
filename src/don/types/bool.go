@@ -2,27 +2,26 @@ package types
 
 import . "don/core"
 
-var BoolTypeFields map[string]DType = make(map[string]DType, 2)
-var BoolType DType = MakeStructType(BoolTypeFields)
+var BoolType DType = MakeNStructType(2)
 
 func WriteBool(output Output, val bool) {
 	if val {
-		output.Struct["true"].WriteUnit()
+		output.Fields["T"].WriteUnit()
 	} else {
-		output.Struct["false"].WriteUnit()
+		output.Fields["F"].WriteUnit()
 	}
 }
 
 func ReadBool(input Input) bool {
 	select {
-	case <-input.Struct["true"].Unit:
+	case <-input.Fields["T"].Unit:
 		return true
-	case <-input.Struct["false"].Unit:
+	case <-input.Fields["F"].Unit:
 		return false
 	}
 }
 
 func init() {
-	BoolTypeFields["true"] = UnitType
-	BoolTypeFields["false"] = UnitType
+	BoolType.Fields["T"] = UnitType
+	BoolType.Fields["F"] = UnitType
 }
