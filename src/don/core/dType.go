@@ -28,23 +28,6 @@ func MakeNStructType(nFields int) DType {
 	return DType{Tag: StructTypeTag, Fields: make(map[string]DType, nFields)}
 }
 
-//func (t DType) AtPath(fieldPath []string) DType {
-//	for _, fieldName := range fieldPath {
-//		t = t.Fields[fieldName]
-//	}
-//	return t
-//}
-
-//func TypeAtPath(theType DType, fieldPath []string) DType {
-//	for i := len(fieldPath) - 1; i >= 0; i-- {
-//		fields := make(map[string]DType, 1)
-//		fields[fieldPath[i]] = theType
-//
-//		theType = DType{Fields: fields}
-//	}
-//	return theType
-//}
-
 // Other
 
 func (theType *DType) RemakeFields() {

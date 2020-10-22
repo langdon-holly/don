@@ -2,8 +2,6 @@ package syntax
 
 import "strconv"
 
-//import "fmt"
-
 import (
 	"don/coms"
 	. "don/core"
@@ -44,27 +42,6 @@ func init() {
 
 func (s Syntax) ToCom(context Context) Com {
 	switch s.Tag {
-	//case BindSyntaxTag:
-	//	if len(s.Children) < 2 {
-	//		if len(s.Children) < 1 {
-	//			panic("Bind value syntax")
-	//		}
-	//		pipeComs := make([]Com, len(s.Children[0]))
-	//		for i, subS := range s.Children[0] {
-	//			pipeComs[len(s.Children[0])-1-i] = subS.ToCom(context)
-	//		}
-	//		return coms.PipeCom(pipeComs)
-	//	} else {
-	//		subcontext := Context{
-	//			Bindings: make(map[string]Com, 1),
-	//			Parent:   &context}
-	//		binding := s.Children[len(s.Children)-1]
-	//		if len(binding) != 2 || binding[0].Tag != MacroSyntaxTag {
-	//			panic("Bind binding syntax")
-	//		}
-	//		subcontext.Bindings[binding[0].Name] = binding[1].ToCom(context)
-	//		return Syntax{Tag: BindSyntaxTag, Children: s.Children[:len(s.Children)-1]}.ToCom(subcontext)
-	//	}
 	case ListSyntaxTag:
 		splitMergeComs := make([]Com, len(s.Children))
 		for i, line := range s.Children {

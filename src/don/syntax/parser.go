@@ -32,20 +32,6 @@ func readByte(r io.Reader) (b byte, ok bool) {
 	}
 }
 
-//func byteReaderIntoChan(c chan<- byte, r io.Reader) {
-//	var bs [1]byte
-//	for {
-//		n, err := r.Read(bs[:])
-//		if n == 1 {
-//			c <- bs[0]
-//		}
-//		if err != nil {
-//			close(c)
-//			return
-//		}
-//	}
-//}
-
 type tokenTag int
 
 const (
@@ -81,12 +67,12 @@ func escapeDone(escaped bool) (bad []string) {
 	return
 }
 
-//// Discard or call Zero after bad != nil or Done is called
-//type parser interface {
-//	Zero()                               /* assigns */
-//	Next(e token) (bad []string)         /* mutates */
-//	Done() (syntax Syntax, bad []string) /* mutates; syntax for bad != nil */
-//}
+// // Discard or call Zero after bad != nil or Done is called
+// type parser interface {
+// 	Zero()                               /* assigns */
+// 	Next(e token) (bad []string)         /* mutates */
+// 	Done() (syntax Syntax, bad []string) /* mutates; syntax for bad != nil */
+// }
 
 type name struct {
 	Namep, Preparsed        bool

@@ -5,15 +5,9 @@ import . "don/core"
 type ICom struct{}
 
 func PipeUnit(outputChan chan<- Unit, inputChan <-chan Unit) {
-	/*if outputChan == nil {
-		for {
-			<-inputChan
-		}
-	} else */{
-		for {
-			<-inputChan
-			outputChan <- Unit{}
-		}
+	for {
+		<-inputChan
+		outputChan <- Unit{}
 	}
 }
 
