@@ -59,23 +59,11 @@ func checkTypes(com Com, inputType, outputType *DType, hopefulInputType, hopeful
 }
 
 func main() {
-	//ifile, err := os.Open("src/hello.don")
-	//if err != nil {
-	//	panic(err)
-	//}
 	ifile := os.Stdin
 
 	hopefulInputType := MakeNStructType(2)
 	hopefulInputType.Fields["0"] = types.Uint8Type
 	hopefulInputType.Fields["1"] = types.Uint8Type
-
-	//hopefulInputType := MakeNStructType(2)
-	//hopefulInputType.Fields["0"] = types.BitType
-	//hopefulInputType.Fields["1"] = types.BitType
-
-	//hopefulOutputType := MakeNStructType(2)
-	//hopefulOutputType.Fields["0"] = types.BitType
-	//hopefulOutputType.Fields["1"] = types.BitType
 
 	hopefulOutputType := types.Uint9Type
 

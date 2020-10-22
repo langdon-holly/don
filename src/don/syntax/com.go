@@ -78,13 +78,6 @@ func (s Syntax) ToCom(context Context) Com {
 			splitMergeComs[i] = subCom
 		}
 		return coms.SplitMergeCom(splitMergeComs)
-		//case MCallSyntaxTag:
-		//	switch s.Name {
-		//	case "rec":
-		//		return coms.RecCom{Inner: Syntax{Tag: BlockSyntaxTag, Children: s.Children}.ToCom(context)}
-		//	}
-		//	fmt.Println(s.Name)
-		//	panic("Unknown macro")
 	case SpacedSyntaxTag:
 		pipeComs := make([]Com, len(s.Children))
 		for i, subS := range s.Children {
