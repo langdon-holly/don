@@ -39,10 +39,7 @@ func (theType *DType) RemakeFields() {
 }
 
 func (t0 DType) Equal(t1 DType) bool {
-	if t0.Tag != t1.Tag {
-		return false
-	}
-	if len(t0.Fields) != len(t1.Fields) {
+	if t0.Tag != t1.Tag || len(t0.Fields) != len(t1.Fields) {
 		return false
 	}
 	for fieldName, fieldType0 := range t0.Fields {
@@ -57,67 +54,52 @@ func (t0 DType) Equal(t1 DType) bool {
 func MergeTags(t0, t1 DTypeTag) (merged DTypeTag, bad []string) {
 	if t0 == UnknownTypeTag {
 		merged = t1
-		return
-	}
-	if t1 == UnknownTypeTag {
+	} else if t1 == UnknownTypeTag {
 		merged = t0
-		return
-	}
-
-	if t0 != t1 {
+	} else if t0 != t1 {
 		bad = []string{"Cannot be both unit and struct"}
-		return
+	} else {
+		merged = t0
 	}
-
-	merged = t0
 	return
 }
 
-func MergeTypes(t0, t1 DType) (merged DType, bad []string) {
-	merged.Tag, bad = MergeTags(t0.Tag, t1.Tag)
-	if bad != nil || merged.Tag != StructTypeTag {
-		return
-	}
-
-	if t0.Tag == UnknownTypeTag {
-		merged = t1
-		return
-	} else if t1.Tag == UnknownTypeTag {
-		merged = t0
-		return
-	}
-
-	merged.Fields = make(map[string]DType, len(t0.Fields))
-	for fieldName, fieldType0 := range t0.Fields {
-		fieldType1, inT1 := t1.Fields[fieldName]
-		if !inT1 {
+func (t0 *DType) Meets(t1 DType) (bad []string) {
+	var tag DTypeTag
+	if tag, bad = MergeTags(t0.Tag, t1.Tag); bad != nil || tag != StructTypeTag {
+		*t0 = DType{Tag: tag}
+	} else if t0.Tag == UnknownTypeTag {
+		*t0 = t1
+	} else if t1.Tag != UnknownTypeTag {
+		t0.RemakeFields()
+		for fieldName, fieldType0 := range t0.Fields {
+			fieldType1, inT1 := t1.Fields[fieldName]
+			if !inT1 {
+				bad = []string{"Different fields"}
+				return
+			} else if bad = fieldType0.Meets(fieldType1); bad != nil {
+				bad = append(bad, "in field "+fieldName)
+				return
+			}
+			t0.Fields[fieldName] = fieldType0
+		}
+		if len(t0.Fields) < len(t1.Fields) {
 			bad = []string{"Different fields"}
-			return
 		}
-		merged.Fields[fieldName], bad = MergeTypes(fieldType0, fieldType1)
-		if bad != nil {
-			bad = append(bad, "in field "+fieldName)
-			return
-		}
-	}
-	if len(t0.Fields) < len(t1.Fields) {
-		bad = []string{"Different fields"}
-		return
 	}
 	return
 }
 
 func (t DType) Minimal() bool {
-	if t.Tag == StructTypeTag {
-		for _, fieldType := range t.Fields {
-			if !fieldType.Minimal() {
-				return false
-			}
-		}
-		return true
-	} else {
+	if t.Tag != StructTypeTag {
 		return t.Tag == UnitTypeTag
 	}
+	for _, fieldType := range t.Fields {
+		if !fieldType.Minimal() {
+			return false
+		}
+	}
+	return true
 }
 
 func typeString(out *strings.Builder, t DType, indent []byte) {
@@ -150,8 +132,7 @@ func (t DType) String() string {
 func topFanTypes(many map[string]DType, one *DType) (bad []string) {
 	tag := one.Tag
 	for fieldName, fieldType := range many {
-		tag, bad = MergeTags(tag, fieldType.Tag)
-		if bad != nil {
+		if tag, bad = MergeTags(tag, fieldType.Tag); bad != nil {
 			bad = append(bad, "in fanning under top-level field "+fieldName)
 			return
 		}
@@ -166,17 +147,14 @@ func topFanTypes(many map[string]DType, one *DType) (bad []string) {
 }
 
 func allManyFanTypes(many map[string]DType, one *DType) (bad []string) {
-	bad = topFanTypes(many, one)
-	if bad != nil {
+	if bad = topFanTypes(many, one); bad != nil {
 		return
-	}
-
-	if len(many) == 0 {
-		*one, bad = MergeTypes(*one, MakeNStructType(0))
+	} else if len(many) == 0 {
+		bad = one.Meets(MakeNStructType(0))
 	}
 	if len(many) == 1 {
 		for fieldName, fieldType := range many {
-			*one, bad = MergeTypes(fieldType, *one)
+			bad = one.Meets(fieldType)
 			many[fieldName] = *one
 		}
 		return
@@ -228,8 +206,7 @@ func allManyFanTypes(many map[string]DType, one *DType) (bad []string) {
 		}
 		subOne := one.Fields[fieldName]
 
-		bad = allManyFanTypes(subMany, &subOne)
-		if bad != nil {
+		if bad = allManyFanTypes(subMany, &subOne); bad != nil {
 			bad = append(bad, "in fan field "+fieldName)
 			return
 		}
@@ -253,12 +230,7 @@ func FanTypes(allMany bool, many map[string]DType, one *DType) (bad []string) {
 }
 
 func MergeType2As(t0, t1 *DType) (bad []string) {
-	var merged DType
-	merged, bad = MergeTypes(*t0, *t1)
-	if bad != nil {
-		return
-	}
-	*t0 = merged
-	*t1 = merged
+	bad = t0.Meets(*t1)
+	*t1 = *t0
 	return
 }

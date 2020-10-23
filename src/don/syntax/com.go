@@ -16,8 +16,7 @@ type Context struct {
 func (c Context) Get(name string) (Com, bool) {
 	if com, bound := c.Bindings[name]; bound {
 		return com, true
-	}
-	if c.Parent != nil {
+	} else if c.Parent != nil {
 		com, bound := c.Parent.Get(name)
 		if bound {
 			c.Bindings[name] = com
@@ -80,13 +79,10 @@ func (s Syntax) ToCom(context Context) Com {
 			}
 		} else if s.RightMarker {
 			return coms.DeselectCom(s.Name)
-		} else {
-			val, bound := context.Get(s.Name)
-			if !bound {
-				panic("Unknown macro: " + s.Name)
-			}
+		} else if val, bound := context.Get(s.Name); bound {
 			return val
 		}
+		panic("Unknown macro: " + s.Name)
 	}
 	panic("Unreachable")
 }

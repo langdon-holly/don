@@ -15,16 +15,12 @@ func init() {
 }
 
 func (YetCom) Types(inputType, outputType *DType) (bad []string, done bool) {
-	done = true
-	*inputType, bad = MergeTypes(*inputType, YetComInputType)
-	if bad != nil {
+	if bad = inputType.Meets(YetComInputType); bad != nil {
 		bad = append(bad, "in yet input type")
-		return
-	}
-	*outputType, bad = MergeTypes(*outputType, types.BoolType)
-	if bad != nil {
+	} else if bad = outputType.Meets(types.BoolType); bad != nil {
 		bad = append(bad, "in yet output type")
 	}
+	done = true
 	return
 }
 

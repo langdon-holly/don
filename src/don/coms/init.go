@@ -5,16 +5,12 @@ import . "don/core"
 type InitCom struct{}
 
 func (InitCom) Types(inputType, outputType *DType) (bad []string, done bool) {
-	done = true
-	*inputType, bad = MergeTypes(*inputType, MakeNStructType(0))
-	if bad != nil {
+	if bad = inputType.Meets(MakeNStructType(0)); bad != nil {
 		bad = append(bad, "in bad input type for init")
-		return
-	}
-	*outputType, bad = MergeTypes(*outputType, UnitType)
-	if bad != nil {
+	} else if bad = outputType.Meets(UnitType); bad != nil {
 		bad = append(bad, "in bad output type for init")
 	}
+	done = true
 	return
 }
 

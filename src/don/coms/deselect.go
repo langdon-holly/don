@@ -7,15 +7,13 @@ type DeselectCom string
 func (dc DeselectCom) Types(inputType, outputType *DType) (bad []string, done bool) {
 	done = true
 
-	*inputType, bad = MergeTypes(*inputType, outputType.Fields[string(dc)])
-	if bad != nil {
+	if bad = inputType.Meets(outputType.Fields[string(dc)]); bad != nil {
 		bad = append(bad, "in bad input type for deselect "+string(dc)+":")
 		return
 	}
 	dcOutputType := MakeNStructType(1)
 	dcOutputType.Fields[string(dc)] = *inputType
-	*outputType, bad = MergeTypes(*outputType, dcOutputType)
-	if bad != nil {
+	if bad = outputType.Meets(dcOutputType); bad != nil {
 		bad = append(bad, "in bad output type for deselect "+string(dc)+":")
 	}
 	return

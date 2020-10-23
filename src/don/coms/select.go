@@ -6,15 +6,13 @@ type SelectCom string
 
 func (sc SelectCom) Types(inputType, outputType *DType) (bad []string, done bool) {
 	done = true
-	*outputType, bad = MergeTypes(*outputType, inputType.Fields[string(sc)])
-	if bad != nil {
+	if bad = outputType.Meets(inputType.Fields[string(sc)]); bad != nil {
 		bad = append(bad, "in bad output type for select :"+string(sc))
 		return
 	}
 	scInputType := MakeNStructType(1)
 	scInputType.Fields[string(sc)] = *outputType
-	*inputType, bad = MergeTypes(*inputType, scInputType)
-	if bad != nil {
+	if bad = inputType.Meets(scInputType); bad != nil {
 		bad = append(bad, "in bad input type for select :"+string(sc))
 	}
 	return

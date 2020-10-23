@@ -12,6 +12,7 @@ type Output struct {
 	Fields map[string]Output
 }
 
+// theType.Tag != UnknownTypeTag
 func MakeIO(theType DType) (input Input, output Output) {
 	if theType.Tag == UnitTypeTag {
 		theChan := make(chan Unit, 1)
@@ -27,8 +28,4 @@ func MakeIO(theType DType) (input Input, output Output) {
 	return
 }
 
-func (o Output) WriteUnit() {
-	if o.Unit != nil {
-		o.Unit <- Unit{}
-	}
-}
+func (o Output) WriteUnit() { o.Unit <- Unit{} }

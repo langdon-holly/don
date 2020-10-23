@@ -23,8 +23,7 @@ const (
 func readByte(r io.Reader) (b byte, ok bool) {
 	var bs [1]byte
 	for {
-		n, err := r.Read(bs[:])
-		if n == 1 {
+		if n, err := r.Read(bs[:]); n == 1 {
 			return bs[0], true
 		} else if err != nil {
 			return 0, false
@@ -136,9 +135,9 @@ func (state *macroCall) Next(e token) (bad []string) {
 		}
 		if bad != nil {
 			bad = append(bad, "in macro name")
-			return
+		} else {
+			state.SubMacroCall = new(macroCall)
 		}
-		state.SubMacroCall = new(macroCall)
 	} else {
 		bad = state.SubName.Next(e)
 	}
@@ -219,7 +218,6 @@ func (state *list) Next(e token) (bad []string) {
 		} else {
 			bad = state.Sub.Next(e)
 		}
-		return
 	} else if !state.InitLF {
 		if !state.LeftMarker && e.IsByte(at) {
 			state.LeftMarker = true
@@ -239,8 +237,7 @@ func (state *list) Next(e token) (bad []string) {
 			if subS, bad = state.Sub.Done(); bad != nil {
 				bad = append(bad, "at EOL in list")
 				return
-			}
-			if !state.Commented {
+			} else if !state.Commented {
 				state.Children = append(state.Children, subS)
 			}
 			state.Midline = false
@@ -257,16 +254,14 @@ func (state *list) Next(e token) (bad []string) {
 		if state.Midline {
 			bad = []string{"Unindenting tab"}
 		}
-	} else if e.IsByte(hash) {
-		if state.Midline {
-			bad = []string{"End-of-line comment"}
-		} else {
-			state.Midline = true
-			state.Commented = true
-		}
-	} else {
+	} else if !e.IsByte(hash) {
 		bad = state.Sub.Next(e)
 		state.Midline = true
+	} else if state.Midline {
+		bad = []string{"End-of-line comment"}
+	} else {
+		state.Midline = true
+		state.Commented = true
 	}
 	return
 }
@@ -293,23 +288,18 @@ type parens struct {
 
 // impl parser
 func (state *parens) Next(e token) (bad []string) {
+	var subS Syntax
 	if e.IsByte(leftParen) {
 		state.Subs = append(state.Subs, state.Sub)
 		state.Sub = parens{}.Sub
-	} else if e.IsByte(rightParen) {
-		if len(state.Subs) == 0 {
-			bad = []string{"Not enough left-parens"}
-			return
-		}
-		var subS Syntax
-		if subS, bad = state.Sub.Done(); bad != nil {
-			return
-		}
+	} else if !e.IsByte(rightParen) {
+		bad = state.Sub.Next(e)
+	} else if len(state.Subs) == 0 {
+		bad = []string{"Not enough left-parens"}
+	} else if subS, bad = state.Sub.Done(); bad == nil {
 		state.Sub = state.Subs[len(state.Subs)-1]
 		state.Subs = state.Subs[:len(state.Subs)-1]
 		bad = state.Sub.Next(token{Tag: syntaxTokenTag, Syntax: subS})
-	} else {
-		bad = state.Sub.Next(e)
 	}
 	return
 }

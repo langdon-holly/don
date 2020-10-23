@@ -18,8 +18,7 @@ func (pc PipeCom) pipeComTypes(inputType, outputType DType) (typeAts []DType, ba
 		if bad != nil {
 			bad = append(bad, "in pipe subcomputer "+strconv.FormatInt(int64(i), 10))
 			return
-		}
-		if !inputTypeBefore.Equal(typeAts[i]) && i > 0 {
+		} else if !inputTypeBefore.Equal(typeAts[i]) && i > 0 {
 			i -= 2
 		}
 	}

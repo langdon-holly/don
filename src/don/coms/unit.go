@@ -5,16 +5,12 @@ import . "don/core"
 type UnitCom struct{}
 
 func (UnitCom) Types(inputType, outputType *DType) (bad []string, done bool) {
-	done = true
-	*inputType, bad = MergeTypes(*inputType, UnitType)
-	if bad != nil {
+	if bad = inputType.Meets(UnitType); bad != nil {
 		bad = append(bad, "in nonunit unit input")
-		return
-	}
-	*outputType, bad = MergeTypes(*outputType, UnitType)
-	if bad != nil {
+	} else if bad = outputType.Meets(UnitType); bad != nil {
 		bad = append(bad, "in nonunit unit output")
 	}
+	done = true
 	return
 }
 

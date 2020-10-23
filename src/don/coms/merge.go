@@ -14,9 +14,9 @@ func (MergeCom) Types(inputType, outputType *DType) (bad []string, done bool) {
 	bad = FanTypes(inputType.Tag == StructTypeTag, inputType.Fields, outputType)
 	if bad != nil {
 		bad = append(bad, "in merge")
-		return
+	} else {
+		done = inputType.Minimal()
 	}
-	done = inputType.Minimal()
 	return
 }
 

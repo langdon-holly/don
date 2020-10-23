@@ -14,9 +14,9 @@ func (SplitCom) Types(inputType, outputType *DType) (bad []string, done bool) {
 	bad = FanTypes(outputType.Tag == StructTypeTag, outputType.Fields, inputType)
 	if bad != nil {
 		bad = append(bad, "in split")
-		return
+	} else {
+		done = outputType.Minimal()
 	}
-	done = outputType.Minimal()
 	return
 }
 

@@ -11,28 +11,22 @@ type ProdCom struct{}
 func strToNat(s string) (nat int, err bool) {
 	if s == "" {
 		err = true
-		return
-	}
-	if s[0] < 49 {
-		if s == "0" {
-			return 0, false
-		} else {
-			err = true
-			return
-		}
-	}
-	if s[0] >= 58 {
+	} else if s[0] >= 58 {
 		err = true
-		return
-	}
-	nat = int(s[0]) - 48
-	for digit := range s[1:] {
-		if digit < 48 || digit >= 58 {
-			err = true
-			return
+	} else if s[0] >= 49 {
+		nat = int(s[0]) - 48
+		for digit := range s[1:] {
+			if digit < 48 || digit >= 58 {
+				err = true
+				return
+			}
+			nat *= 10
+			nat += int(digit) - 48
 		}
-		nat *= 10
-		nat += int(digit) - 48
+	} else if s == "0" {
+		nat = 0
+	} else {
+		err = true
 	}
 	return
 }
@@ -48,54 +42,36 @@ func mergeTops(fields map[string]struct{}, depth int, typesPath *[]map[string]st
 		if len(fields) < len(already) {
 			bad = []string{"Different fields"}
 		}
-	} else {
-		if terminal {
-			bad = []string{"Cannot be both unit and struct"}
-			return
-		}
-
-		*typesPath = append(*typesPath, fields)
+	} else if *typesPath = append(*typesPath, fields); terminal {
+		bad = []string{"Cannot be both unit and struct"}
 	}
-
 	return
 }
 
 func terminatePath(depth int, typesPath []map[string]struct{}, terminal *bool) (bad []string) {
-	if depth < len(typesPath) {
+	if *terminal = true; depth < len(typesPath) {
 		bad = []string{"Cannot be both unit and struct"}
 	}
-	*terminal = true
 	return
 }
 
 func typePath(t DType, depth int, typesPath *[]map[string]struct{}, terminal *bool) (bad []string) {
-	if t.Tag == UnknownTypeTag {
-		return
-	}
 	if t.Tag == UnitTypeTag {
-		return terminatePath(depth, *typesPath, terminal)
-	}
-
-	// t.Tag == StructTypeTag
-
-	fields := make(map[string]struct{}, len(t.Fields))
-	for fieldName := range t.Fields {
-		fields[fieldName] = struct{}{}
-	}
-	bad = mergeTops(fields, depth, typesPath, *terminal)
-	if bad != nil {
-		return
-	}
-
-	if t.Tag == StructTypeTag {
-		for _, fieldType := range t.Fields {
-			bad = typePath(fieldType, depth+1, typesPath, terminal)
-			if bad != nil {
-				return
+		bad = terminatePath(depth, *typesPath, terminal)
+	} else if t.Tag == StructTypeTag {
+		fields := make(map[string]struct{}, len(t.Fields))
+		for fieldName := range t.Fields {
+			fields[fieldName] = struct{}{}
+		}
+		bad = mergeTops(fields, depth, typesPath, *terminal)
+		if bad == nil && t.Tag == StructTypeTag {
+			for _, fieldType := range t.Fields {
+				if bad = typePath(fieldType, depth+1, typesPath, terminal); bad != nil {
+					return
+				}
 			}
 		}
 	}
-
 	return
 }
 
@@ -117,8 +93,7 @@ func (ProdCom) Types(inputType, outputType *DType) (bad []string, done bool) {
 	if inputType.Tag == UnitTypeTag {
 		bad = []string{"Unit prod input"}
 		return
-	}
-	if inputType.Tag == UnknownTypeTag {
+	} else if inputType.Tag == UnknownTypeTag {
 		return
 	}
 
@@ -141,8 +116,7 @@ func (ProdCom) Types(inputType, outputType *DType) (bad []string, done bool) {
 
 	var outputPath []map[string]struct{}
 	terminalOutput := false
-	bad = typePath(*outputType, 0, &outputPath, &terminalOutput)
-	if bad != nil {
+	if bad = typePath(*outputType, 0, &outputPath, &terminalOutput); bad != nil {
 		bad = append(bad, "in bad prod output")
 		return
 	}
@@ -161,8 +135,7 @@ func (ProdCom) Types(inputType, outputType *DType) (bad []string, done bool) {
 	terminalInput := true
 	for j, inputPath := range inputPaths {
 		for i, inputLevel := range inputPath {
-			bad = mergeTops(inputLevel, idxInOutPath, &outputPath, terminalOutput)
-			if bad != nil {
+			if bad = mergeTops(inputLevel, idxInOutPath, &outputPath, terminalOutput); bad != nil {
 				bad = append(bad, "in prod matching output with input field "+indexStrings[i])
 				return
 			}
@@ -174,8 +147,7 @@ func (ProdCom) Types(inputType, outputType *DType) (bad []string, done bool) {
 		}
 	}
 	if terminalInput {
-		terminatePath(idxInOutPath, outputPath, &terminalOutput)
-		if bad != nil {
+		if terminatePath(idxInOutPath, outputPath, &terminalOutput); bad != nil {
 			bad = append(bad, "in prod matching output with input termination")
 			return
 		}
