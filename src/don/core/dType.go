@@ -105,21 +105,22 @@ func (t DType) Minimal() bool {
 func typeString(out *strings.Builder, t DType, indent []byte) {
 	switch t.Tag {
 	case UnknownTypeTag:
-		out.WriteRune('?')
+		out.WriteString("I")
 	case UnitTypeTag:
-		out.WriteRune('I')
+		out.WriteString("unit")
 	case StructTypeTag:
 		subIndent := append(indent, byte('\t'))
 		out.WriteString("(\n")
 		for fieldName, fieldType := range t.Fields {
 			out.Write(subIndent)
+			out.WriteString(":")
 			out.WriteString(fieldName)
-			out.WriteString(": ")
+			out.WriteString(":!")
 			typeString(out, fieldType, subIndent)
-			out.WriteRune('\n')
+			out.WriteString("\n")
 		}
 		out.Write(indent)
-		out.WriteRune(')')
+		out.WriteString(")")
 	}
 }
 func (t DType) String() string {
