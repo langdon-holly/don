@@ -148,6 +148,7 @@ func (state *macroCall) Done() (syntax Syntax, bad []string) {
 		syntax, bad = state.SubName.Done()
 	} else {
 		syntax = state.NameSyntax
+		syntax.Tag = MCallSyntaxTag
 		syntax.Child = new(Syntax)
 		if *syntax.Child, bad = state.SubMacroCall.Done(); bad != nil {
 			bad = append(bad, "in parameter to macro")

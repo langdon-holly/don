@@ -66,6 +66,8 @@ func (s Syntax) ToCom(context Context) Com {
 			switch s.Name {
 			case "rec":
 				return coms.RecCom{Inner: s.Child.ToCom(context)}
+			case "map":
+				return coms.MapCom{Com: s.Child.ToCom(context)}
 			}
 			panic("Unknown macro")
 		}
