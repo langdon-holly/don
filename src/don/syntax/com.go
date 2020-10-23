@@ -34,7 +34,6 @@ func init() {
 	DefContext.Bindings["split"] = coms.SplitCom{}
 	DefContext.Bindings["merge"] = coms.MergeCom{}
 	DefContext.Bindings["yet"] = coms.YetCom{}
-	DefContext.Bindings["and"] = coms.And
 	DefContext.Bindings["prod"] = coms.ProdCom{}
 	DefContext.Bindings["unit"] = coms.UnitCom{}
 }
