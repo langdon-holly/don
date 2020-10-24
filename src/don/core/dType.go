@@ -51,7 +51,7 @@ func (t0 DType) Equal(t1 DType) bool {
 	return true
 }
 
-func MergeTags(t0, t1 DTypeTag) (merged DTypeTag, bad []string) {
+func mergeTags(t0, t1 DTypeTag) (merged DTypeTag, bad []string) {
 	if t0 == UnknownTypeTag {
 		merged = t1
 	} else if t1 == UnknownTypeTag {
@@ -66,7 +66,7 @@ func MergeTags(t0, t1 DTypeTag) (merged DTypeTag, bad []string) {
 
 func (t0 *DType) Meets(t1 DType) (bad []string) {
 	var tag DTypeTag
-	if tag, bad = MergeTags(t0.Tag, t1.Tag); bad != nil || tag != StructTypeTag {
+	if tag, bad = mergeTags(t0.Tag, t1.Tag); bad != nil || tag != StructTypeTag {
 		*t0 = DType{Tag: tag}
 	} else if t0.Tag == UnknownTypeTag {
 		*t0 = t1
@@ -133,7 +133,7 @@ func (t DType) String() string {
 func topFanTypes(many map[string]DType, one *DType) (bad []string) {
 	tag := one.Tag
 	for fieldName, fieldType := range many {
-		if tag, bad = MergeTags(tag, fieldType.Tag); bad != nil {
+		if tag, bad = mergeTags(tag, fieldType.Tag); bad != nil {
 			bad = append(bad, "in fanning under top-level field "+fieldName)
 			return
 		}
@@ -148,76 +148,71 @@ func topFanTypes(many map[string]DType, one *DType) (bad []string) {
 }
 
 func allManyFanTypes(many map[string]DType, one *DType) (bad []string) {
-	if bad = topFanTypes(many, one); bad != nil {
-		return
-	} else if len(many) == 0 {
-		bad = one.Meets(MakeNStructType(0))
-	}
-	if len(many) == 1 {
+	if len(many) == 0 {
+		bad = []string{"Empty list"}
+	} else if len(many) == 1 {
 		for fieldName, fieldType := range many {
 			bad = one.Meets(fieldType)
 			many[fieldName] = *one
 		}
-		return
-	}
-
-	for _, fieldType := range many {
-		if fieldType.Tag != StructTypeTag {
-			return
-		}
-	}
-
-	manyFields := make(map[string]struct{})
-	for fieldName, fieldType := range many {
-		for subFieldName := range fieldType.Fields {
-			manyFields[subFieldName] = struct{}{}
-		}
-
-		fieldType.RemakeFields()
-		many[fieldName] = fieldType
-	}
-
-	if one.Tag == StructTypeTag {
-		for fieldName := range manyFields {
-			if _, inOne := one.Fields[fieldName]; !inOne {
-				bad = []string{"Field fans into nowhere: " + fieldName}
+	} else if bad = topFanTypes(many, one); bad == nil {
+		for _, fieldType := range many {
+			if fieldType.Tag != StructTypeTag {
 				return
 			}
 		}
-		if len(manyFields) < len(one.Fields) {
-			bad = []string{"Some field fans out to nowhere"}
-			return
-		}
-		one.RemakeFields()
-	} else {
-		*one = MakeNStructType(len(manyFields))
-		for fieldName := range manyFields {
-			one.Fields[fieldName] = UnknownType
-		}
-	}
 
-	// one.Tag == StructTypeTag
+		manyFields := make(map[string]struct{})
+		for fieldName, fieldType := range many {
+			for subFieldName := range fieldType.Fields {
+				manyFields[subFieldName] = struct{}{}
+			}
 
-	for fieldName := range one.Fields {
-		subMany := make(map[string]DType)
-		for manyFieldName, manyFieldType := range many {
-			if manyFieldFieldType, inManyField := manyFieldType.Fields[fieldName]; inManyField {
-				subMany[manyFieldName] = manyFieldFieldType
+			fieldType.RemakeFields()
+			many[fieldName] = fieldType
+		}
+
+		if one.Tag == StructTypeTag {
+			for fieldName := range manyFields {
+				if _, inOne := one.Fields[fieldName]; !inOne {
+					bad = []string{"Field fans into nowhere: " + fieldName}
+					return
+				}
+			}
+			if len(manyFields) < len(one.Fields) {
+				bad = []string{"Some field fans out to nowhere"}
+				return
+			}
+			one.RemakeFields()
+		} else {
+			*one = MakeNStructType(len(manyFields))
+			for fieldName := range manyFields {
+				one.Fields[fieldName] = UnknownType
 			}
 		}
-		subOne := one.Fields[fieldName]
 
-		if bad = allManyFanTypes(subMany, &subOne); bad != nil {
-			bad = append(bad, "in fan field "+fieldName)
-			return
-		}
+		// one.Tag == StructTypeTag
 
-		for subManyFieldName, subManyFieldType := range subMany {
-			many[subManyFieldName].Fields[fieldName] = subManyFieldType
+		for fieldName := range one.Fields {
+			subMany := make(map[string]DType)
+			for manyFieldName, manyFieldType := range many {
+				if manyFieldFieldType, inManyField := manyFieldType.Fields[fieldName]; inManyField {
+					subMany[manyFieldName] = manyFieldFieldType
+				}
+			}
+			subOne := one.Fields[fieldName]
+
+			if bad = allManyFanTypes(subMany, &subOne); bad != nil {
+				bad = append(bad, "in fan field "+fieldName)
+				return
+			}
+
+			for subManyFieldName, subManyFieldType := range subMany {
+				many[subManyFieldName].Fields[fieldName] = subManyFieldType
+			}
+			one.Fields[fieldName] = subOne
 		}
-		one.Fields[fieldName] = subOne
 	}
-
 	return
 }
 

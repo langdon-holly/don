@@ -11,8 +11,8 @@ import (
 	"don/types"
 )
 
-func printUint8(input Input) {
-	fmt.Println(types.ReadUint8(input))
+func printUint9(input Input) {
+	fmt.Println(types.ReadUint9(input))
 }
 
 func checkTypes(com Com, inputType, outputType *DType, hopefulInputType, hopefulOutputType DType) {
@@ -47,10 +47,10 @@ func main() {
 	ifile := os.Stdin
 
 	hopefulInputType := MakeNStructType(2)
-	hopefulInputType.Fields["a"] = types.Uint8Type
-	hopefulInputType.Fields["b"] = types.Uint8Type
+	hopefulInputType.Fields["0"] = types.Uint8Type
+	hopefulInputType.Fields["1"] = types.Uint8Type
 
-	hopefulOutputType := types.Uint8Type
+	hopefulOutputType := types.Uint9Type
 
 	com := syntax.ParseTop(ifile).ToCom(syntax.DefContext)
 
@@ -62,19 +62,19 @@ func main() {
 	output, outputW := MakeIO(outputType)
 	go com.Run(inputType, outputType, inputR, outputW)
 
-	types.WriteUint8(input.Fields["a"], 0)
-	types.WriteUint8(input.Fields["b"], 0)
-	printUint8(output)
+	types.WriteUint8(input.Fields["0"], 0)
+	types.WriteUint8(input.Fields["1"], 0)
+	printUint9(output)
 
-	types.WriteUint8(input.Fields["a"], 2)
-	types.WriteUint8(input.Fields["b"], 2)
-	printUint8(output)
+	types.WriteUint8(input.Fields["0"], 2)
+	types.WriteUint8(input.Fields["1"], 2)
+	printUint9(output)
 
-	types.WriteUint8(input.Fields["a"], 189)
-	types.WriteUint8(input.Fields["b"], 55)
-	printUint8(output)
+	types.WriteUint8(input.Fields["0"], 189)
+	types.WriteUint8(input.Fields["1"], 55)
+	printUint9(output)
 
-	types.WriteUint8(input.Fields["a"], 255)
-	types.WriteUint8(input.Fields["b"], 255)
-	printUint8(output)
+	types.WriteUint8(input.Fields["0"], 255)
+	types.WriteUint8(input.Fields["1"], 255)
+	printUint9(output)
 }
