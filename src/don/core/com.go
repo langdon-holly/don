@@ -1,6 +1,6 @@
 package core
 
 type Com interface {
-	Types(inputType, outputType *DType) (bad []string, done bool)
+	Types(inputType, outputType *DType) (done bool)
 	Run(inputType, outputType DType, input Input, output Output)
 }

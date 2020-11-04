@@ -4,20 +4,8 @@ import . "don/core"
 
 type MergeCom struct{}
 
-func (MergeCom) Types(inputType, outputType *DType) (bad []string, done bool) {
-	if inputType.Tag == UnitTypeTag {
-		bad = []string{"Unit input to merge"}
-		return
-	}
-
-	inputType.RemakeFields()
-	bad = FanTypes(inputType.Tag == StructTypeTag, inputType.Fields, outputType)
-	if bad != nil {
-		bad = append(bad, "in merge")
-	} else {
-		done = inputType.Minimal()
-	}
-	return
+func (MergeCom) Types(inputType, outputType *DType) (done bool) {
+	return FanTypes(inputType, outputType)
 }
 
 func runMerge(inputs []Input, output Output) {
@@ -31,7 +19,9 @@ func runMerge(inputs []Input, output Output) {
 		go runMerge(subInputs, subOutput)
 	}
 	for _, input := range inputs {
-		go PipeUnit(output.Unit, input.Unit)
+		if input.Unit != nil {
+			go PipeUnit(output.Unit, input.Unit)
+		}
 	}
 }
 
@@ -42,6 +32,5 @@ func (MergeCom) Run(inputType, outputType DType, input Input, output Output) {
 		inputs[i] = subInput
 		i++
 	}
-
 	runMerge(inputs, output)
 }

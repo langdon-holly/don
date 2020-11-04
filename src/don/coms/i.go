@@ -11,17 +11,14 @@ func PipeUnit(outputChan chan<- Unit, inputChan <-chan Unit) {
 	}
 }
 
-func (ICom) Types(inputType, outputType *DType) (bad []string, done bool) {
-	if bad = MergeType2As(inputType, outputType); bad != nil {
-		bad = append(bad, "in unmatching I types")
-	} else {
-		done = inputType.Minimal()
-	}
-	return
+func (ICom) Types(inputType, outputType *DType) (done bool) {
+	inputType.Meets(*outputType)
+	*outputType = *inputType
+	return inputType.Done()
 }
 
 func (ICom) Run(inputType, outputType DType, input Input, output Output) {
-	if inputType.Tag == UnitTypeTag {
+	if !inputType.NoUnit {
 		go PipeUnit(output.Unit, input.Unit)
 	}
 	for fieldName, fieldType := range inputType.Fields {

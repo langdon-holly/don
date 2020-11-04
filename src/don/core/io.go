@@ -12,18 +12,17 @@ type Output struct {
 	Fields map[string]Output
 }
 
-// theType.Tag != UnknownTypeTag
-func MakeIO(theType DType) (input Input, output Output) {
-	if theType.Tag == UnitTypeTag {
+// t.Positive
+func MakeIO(t DType) (input Input, output Output) {
+	if !t.NoUnit {
 		theChan := make(chan Unit, 1)
 		input.Unit = theChan
 		output.Unit = theChan
-	} else { /* theType.Tag == StructTypeTag */
-		input.Fields = make(map[string]Input)
-		output.Fields = make(map[string]Output)
-		for fieldName, fieldType := range theType.Fields {
-			input.Fields[fieldName], output.Fields[fieldName] = MakeIO(fieldType)
-		}
+	}
+	input.Fields = make(map[string]Input)
+	output.Fields = make(map[string]Output)
+	for fieldName, fieldType := range t.Fields {
+		input.Fields[fieldName], output.Fields[fieldName] = MakeIO(fieldType)
 	}
 	return
 }

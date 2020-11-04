@@ -4,98 +4,97 @@ import "strings"
 
 // DType
 
-type DTypeTag int
-
-const (
-	UnknownTypeTag DTypeTag = iota
-	UnitTypeTag
-	StructTypeTag
-)
-
 type DType struct {
-	Tag DTypeTag
-
-	// for Tag == StructTypeTag
-	Fields map[string]DType
+	NoUnit   bool
+	Positive bool
+	Fields   map[string]DType /* for Positive */
 }
 
 // Get DType
 
 var UnknownType DType
-var UnitType = DType{Tag: UnitTypeTag}
+var UnitType = DType{Positive: true}
+var StructType = DType{NoUnit: true}
+var NullType = DType{NoUnit: true, Positive: true}
 
 func MakeNStructType(nFields int) DType {
-	return DType{Tag: StructTypeTag, Fields: make(map[string]DType, nFields)}
+	return DType{NoUnit: true, Positive: true, Fields: make(map[string]DType, nFields)}
+}
+
+func (t DType) Get(fieldName string) DType {
+	if !t.Positive {
+		return UnknownType
+	} else if fieldType, ok := t.Fields[fieldName]; ok {
+		return fieldType
+	} else {
+		return NullType
+	}
 }
 
 // Other
 
-func (theType *DType) RemakeFields() {
-	fields := make(map[string]DType, len(theType.Fields))
-	for fieldName, fieldType := range theType.Fields {
+func (t *DType) RemakeFields() {
+	fields := make(map[string]DType, len(t.Fields))
+	for fieldName, fieldType := range t.Fields {
 		fields[fieldName] = fieldType
 	}
-	theType.Fields = fields
+	t.Fields = fields
 }
 
-func (t0 DType) Equal(t1 DType) bool {
-	if t0.Tag != t1.Tag || len(t0.Fields) != len(t1.Fields) {
+// Less Than or Equal
+func (t0 DType) LTE(t1 DType) bool {
+	if !t0.NoUnit && t1.NoUnit || !t0.Positive && t1.Positive {
 		return false
+	} else if !t1.Positive {
+		return true
 	}
 	for fieldName, fieldType0 := range t0.Fields {
-		fieldType1, exists := t1.Fields[fieldName]
-		if !exists || !fieldType0.Equal(fieldType1) {
+		if !fieldType0.LTE(t1.Get(fieldName)) {
 			return false
 		}
 	}
 	return true
 }
 
-func mergeTags(t0, t1 DTypeTag) (merged DTypeTag, bad []string) {
-	if t0 == UnknownTypeTag {
-		merged = t1
-	} else if t1 == UnknownTypeTag {
-		merged = t0
-	} else if t0 != t1 {
-		bad = []string{"Cannot be both unit and struct"}
-	} else {
-		merged = t0
-	}
-	return
-}
+func (t0 DType) Equal(t1 DType) bool { return t0.LTE(t1) && t1.LTE(t0) }
 
-func (t0 *DType) Meets(t1 DType) (bad []string) {
-	var tag DTypeTag
-	if tag, bad = mergeTags(t0.Tag, t1.Tag); bad != nil || tag != StructTypeTag {
-		*t0 = DType{Tag: tag}
-	} else if t0.Tag == UnknownTypeTag {
-		*t0 = t1
-	} else if t1.Tag != UnknownTypeTag {
+func (t0 *DType) Meets(t1 DType) {
+	t0.NoUnit = t0.NoUnit || t1.NoUnit
+	if !t0.Positive {
+		t0.Positive = t1.Positive
+		t0.Fields = t1.Fields
+	} else if t1.Positive {
 		t0.RemakeFields()
 		for fieldName, fieldType0 := range t0.Fields {
-			fieldType1, inT1 := t1.Fields[fieldName]
-			if !inT1 {
-				bad = []string{"Different fields"}
-				return
-			} else if bad = fieldType0.Meets(fieldType1); bad != nil {
-				bad = append(bad, "in field "+fieldName)
-				return
+			if fieldType0.Meets(t1.Get(fieldName)); fieldType0.LTE(NullType) {
+				delete(t0.Fields, fieldName)
+			} else {
+				t0.Fields[fieldName] = fieldType0
 			}
-			t0.Fields[fieldName] = fieldType0
-		}
-		if len(t0.Fields) < len(t1.Fields) {
-			bad = []string{"Different fields"}
 		}
 	}
 	return
 }
 
-func (t DType) Minimal() bool {
-	if t.Tag != StructTypeTag {
-		return t.Tag == UnitTypeTag
+func (t0 *DType) Joins(t1 DType) {
+	t0.NoUnit = t0.NoUnit && t1.NoUnit
+	if t0.Positive = t0.Positive && t1.Positive; t0.Positive {
+		t0.RemakeFields()
+		for fieldName, fieldType := range t1.Fields {
+			fieldType.Joins(t0.Get(fieldName))
+			t0.Fields[fieldName] = fieldType
+		}
+	} else if t0.Fields = nil; true {
+	}
+	return
+}
+
+func (t DType) Done() bool {
+	if !t.Positive {
+		return false
 	}
 	for _, fieldType := range t.Fields {
-		if !fieldType.Minimal() {
+		if !fieldType.Done() {
 			return false
 		}
 	}
@@ -103,14 +102,13 @@ func (t DType) Minimal() bool {
 }
 
 func typeString(out *strings.Builder, t DType, indent []byte) {
-	switch t.Tag {
-	case UnknownTypeTag:
-		out.WriteString("I")
-	case UnitTypeTag:
-		out.WriteString("unit")
-	case StructTypeTag:
-		subIndent := append(indent, byte('\t'))
-		out.WriteString("(\n")
+	subIndent := append(indent, byte('\t'))
+	out.WriteString("(\n")
+	if !t.NoUnit {
+		out.Write(subIndent)
+		out.WriteString("unit\n")
+	}
+	if t.Positive {
 		for fieldName, fieldType := range t.Fields {
 			out.Write(subIndent)
 			out.WriteString(":")
@@ -119,9 +117,12 @@ func typeString(out *strings.Builder, t DType, indent []byte) {
 			typeString(out, fieldType, subIndent)
 			out.WriteString("\n")
 		}
-		out.Write(indent)
-		out.WriteString(")")
+	} else {
+		out.Write(subIndent)
+		out.WriteString("struct\n")
 	}
+	out.Write(indent)
+	out.WriteString(")")
 }
 func (t DType) String() string {
 	var b strings.Builder
@@ -130,103 +131,19 @@ func (t DType) String() string {
 }
 
 // Mutates many
-func topFanTypes(many map[string]DType, one *DType) (bad []string) {
-	tag := one.Tag
-	for fieldName, fieldType := range many {
-		if tag, bad = mergeTags(tag, fieldType.Tag); bad != nil {
-			bad = append(bad, "in fanning under top-level field "+fieldName)
-			return
+func FanTypes(many, one *DType) (done bool) {
+	if one.LTE(NullType) {
+		*many = NullType
+	} else if many.Meets(StructType); many.Positive {
+		many.RemakeFields()
+
+		join := NullType
+		for fieldName, fieldType := range many.Fields {
+			fieldType.Meets(*one)
+			many.Fields[fieldName] = fieldType
+			join.Joins(fieldType)
 		}
+		*one = join
 	}
-	if tag == UnitTypeTag {
-		for fieldName := range many {
-			many[fieldName] = UnitType
-		}
-		*one = UnitType
-	}
-	return
-}
-
-func allManyFanTypes(many map[string]DType, one *DType) (bad []string) {
-	if len(many) == 0 {
-		bad = []string{"Empty list"}
-	} else if len(many) == 1 {
-		for fieldName, fieldType := range many {
-			bad = one.Meets(fieldType)
-			many[fieldName] = *one
-		}
-	} else if bad = topFanTypes(many, one); bad == nil {
-		for _, fieldType := range many {
-			if fieldType.Tag != StructTypeTag {
-				return
-			}
-		}
-
-		manyFields := make(map[string]struct{})
-		for fieldName, fieldType := range many {
-			for subFieldName := range fieldType.Fields {
-				manyFields[subFieldName] = struct{}{}
-			}
-
-			fieldType.RemakeFields()
-			many[fieldName] = fieldType
-		}
-
-		if one.Tag == StructTypeTag {
-			for fieldName := range manyFields {
-				if _, inOne := one.Fields[fieldName]; !inOne {
-					bad = []string{"Field fans into nowhere: " + fieldName}
-					return
-				}
-			}
-			if len(manyFields) < len(one.Fields) {
-				bad = []string{"Some field fans out to nowhere"}
-				return
-			}
-			one.RemakeFields()
-		} else {
-			*one = MakeNStructType(len(manyFields))
-			for fieldName := range manyFields {
-				one.Fields[fieldName] = UnknownType
-			}
-		}
-
-		// one.Tag == StructTypeTag
-
-		for fieldName := range one.Fields {
-			subMany := make(map[string]DType)
-			for manyFieldName, manyFieldType := range many {
-				if manyFieldFieldType, inManyField := manyFieldType.Fields[fieldName]; inManyField {
-					subMany[manyFieldName] = manyFieldFieldType
-				}
-			}
-			subOne := one.Fields[fieldName]
-
-			if bad = allManyFanTypes(subMany, &subOne); bad != nil {
-				bad = append(bad, "in fan field "+fieldName)
-				return
-			}
-
-			for subManyFieldName, subManyFieldType := range subMany {
-				many[subManyFieldName].Fields[fieldName] = subManyFieldType
-			}
-			one.Fields[fieldName] = subOne
-		}
-	}
-	return
-}
-
-// Mutates many
-func FanTypes(allMany bool, many map[string]DType, one *DType) (bad []string) {
-	if allMany {
-		return allManyFanTypes(many, one)
-	} else {
-		return topFanTypes(many, one)
-	}
-}
-
-func MergeType2As(t0, t1 *DType) (bad []string) {
-	bad = t0.Meets(*t1)
-	*t1 = *t0
-	return
+	return many.Done()
 }

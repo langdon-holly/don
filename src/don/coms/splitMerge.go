@@ -17,7 +17,7 @@ type splitMergeComSubComId struct {
 	Idx int /* for Tag == splitMergeComSubComIdInnerTag */
 }
 
-func (smc SplitMergeCom) types(inputType, outputType *DType) (bad []string, done bool, splitOutputType, mergeInputType DType) {
+func (smc SplitMergeCom) types(inputType, outputType *DType) (done bool, splitOutputType, mergeInputType DType) {
 	indexStrings := make([]string, len(smc))
 	splitOutputType, mergeInputType = MakeNStructType(len(smc)), MakeNStructType(len(smc))
 
@@ -47,11 +47,7 @@ func (smc SplitMergeCom) types(inputType, outputType *DType) (bad []string, done
 			innerInputTypeBefore := innerInputType
 			innerOutputTypeBefore := innerOutputType
 
-			bad, innerDones[typeNext.Idx] = smc[typeNext.Idx].Types(&innerInputType, &innerOutputType)
-			if bad != nil {
-				bad = append(bad, "in split-merge inner "+indexStrings[typeNext.Idx])
-				return
-			}
+			innerDones[typeNext.Idx] = smc[typeNext.Idx].Types(&innerInputType, &innerOutputType)
 			splitOutputType.Fields[indexStrings[typeNext.Idx]] = innerInputType
 			mergeInputType.Fields[indexStrings[typeNext.Idx]] = innerOutputType
 
@@ -63,13 +59,7 @@ func (smc SplitMergeCom) types(inputType, outputType *DType) (bad []string, done
 			}
 		case splitMergeComSubComIdSplitTag:
 			splitOutputTypeBefore := splitOutputType
-
-			bad, splitDone = SplitCom{}.Types(inputType, &splitOutputType)
-			if bad != nil {
-				bad = append(bad, "in split-merge split")
-				return
-			}
-
+			splitDone = SplitCom{}.Types(inputType, &splitOutputType)
 			for i := range smc {
 				if !splitOutputTypeBefore.Fields[indexStrings[i]].Equal(splitOutputType.Fields[indexStrings[i]]) {
 					toType[splitMergeComSubComId{Idx: i}] = struct{}{}
@@ -77,13 +67,7 @@ func (smc SplitMergeCom) types(inputType, outputType *DType) (bad []string, done
 			}
 		case splitMergeComSubComIdMergeTag:
 			mergeInputTypeBefore := mergeInputType
-
-			bad, mergeDone = MergeCom{}.Types(&mergeInputType, outputType)
-			if bad != nil {
-				bad = append(bad, "in split-merge merge")
-				return
-			}
-
+			mergeDone = MergeCom{}.Types(&mergeInputType, outputType)
 			for i := range smc {
 				if !mergeInputTypeBefore.Fields[indexStrings[i]].Equal(mergeInputType.Fields[indexStrings[i]]) {
 					toType[splitMergeComSubComId{Idx: i}] = struct{}{}
@@ -99,13 +83,13 @@ func (smc SplitMergeCom) types(inputType, outputType *DType) (bad []string, done
 	return
 }
 
-func (smc SplitMergeCom) Types(inputType, outputType *DType) (bad []string, done bool) {
-	bad, done, _, _ = smc.types(inputType, outputType)
+func (smc SplitMergeCom) Types(inputType, outputType *DType) (done bool) {
+	done, _, _ = smc.types(inputType, outputType)
 	return
 }
 
 func (smc SplitMergeCom) Run(inputType, outputType DType, input Input, output Output) {
-	_, _, splitOutputType, mergeInputType := smc.types(&inputType, &outputType)
+	_, splitOutputType, mergeInputType := smc.types(&inputType, &outputType)
 	splitOutput := Output{Fields: make(map[string]Output, len(smc))}
 	mergeInput := Input{Fields: make(map[string]Input, len(smc))}
 	for i := range smc {

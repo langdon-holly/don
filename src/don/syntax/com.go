@@ -36,6 +36,8 @@ func init() {
 	DefContext.Bindings["yet"] = coms.YetCom{}
 	DefContext.Bindings["prod"] = coms.ProdCom{}
 	DefContext.Bindings["unit"] = coms.UnitCom{}
+	DefContext.Bindings["struct"] = coms.StructCom{}
+	DefContext.Bindings["null"] = coms.NullCom{}
 }
 
 func (s Syntax) ToCom(context Context) Com {

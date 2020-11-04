@@ -1,23 +1,3 @@
-define(wait, :out rec!(
-	(
-		out: :T:
-		F?: :F
-	) yet (
-		_: :T :_
-		?: :T?
-	)
-	(
-		out: F: :T
-		T?: :F
-	) yet (
-		_: :F :_
-		?: :F?
-	)
-) (
-	T?: :for
-	:_:
-))
-
 define(half_adder, (
 	(@
 		0:
@@ -90,16 +70,18 @@ define(full_adder, (
 )
 
 (
+	:out
+	:8: :carry
+) (
 	(
-		7:
-		#carry to output:
-		8:
+		out: 7:
+		carry: 8:
 	@) full_adder (@
 		:7 :a
 		:7 :b
 		:7 :carry
 	)
-	:out
+	I
 ) (
 	(
 		out: 6:
@@ -109,9 +91,7 @@ define(full_adder, (
 		:6 :b
 		:6 :carry
 	)
-	:out:
-	:a:
-	:b:
+	I
 ) (
 	(
 		out: 5:
@@ -121,9 +101,7 @@ define(full_adder, (
 		:5 :b
 		:5 :carry
 	)
-	:out:
-	:a:
-	:b:
+	I
 ) (
 	(
 		out: 4:
@@ -133,9 +111,7 @@ define(full_adder, (
 		:4 :b
 		:4 :carry
 	)
-	:out:
-	:a:
-	:b:
+	I
 ) (
 	(
 		out: 3:
@@ -145,9 +121,7 @@ define(full_adder, (
 		:3 :b
 		:3 :carry
 	)
-	:out:
-	:a:
-	:b:
+	I
 ) (
 	(
 		out: 2:
@@ -157,9 +131,7 @@ define(full_adder, (
 		:2 :b
 		:2 :carry
 	)
-	:out:
-	:a:
-	:b:
+	I
 ) (
 	(
 		out: 1:
@@ -169,9 +141,7 @@ define(full_adder, (
 		:1 :b
 		:1 :carry
 	)
-	:out:
-	:a:
-	:b:
+	I
 ) (
 	(
 		out: 0:
@@ -180,8 +150,7 @@ define(full_adder, (
 		:0 :a
 		:0 :b
 	)
-	:a:
-	:b:
+	I
 ) (
 	a:
 	b:

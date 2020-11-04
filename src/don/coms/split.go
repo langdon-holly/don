@@ -4,20 +4,8 @@ import . "don/core"
 
 type SplitCom struct{}
 
-func (SplitCom) Types(inputType, outputType *DType) (bad []string, done bool) {
-	if outputType.Tag == UnitTypeTag {
-		bad = []string{"Unit split input"}
-		return
-	}
-
-	outputType.RemakeFields()
-	bad = FanTypes(outputType.Tag == StructTypeTag, outputType.Fields, inputType)
-	if bad != nil {
-		bad = append(bad, "in split")
-	} else {
-		done = outputType.Minimal()
-	}
-	return
+func (SplitCom) Types(inputType, outputType *DType) (done bool) {
+	return FanTypes(outputType, inputType)
 }
 
 func runSplit(input Input, outputs []Output) {
@@ -30,11 +18,18 @@ func runSplit(input Input, outputs []Output) {
 		}
 		go runSplit(subInput, subOutputs)
 	}
-
-	for {
-		<-input.Unit
+	if input.Unit != nil {
+		var unitChans []chan<- Unit
 		for _, output := range outputs {
-			output.WriteUnit()
+			if output.Unit != nil {
+				unitChans = append(unitChans, output.Unit)
+			}
+		}
+		for {
+			<-input.Unit
+			for _, unitChan := range unitChans {
+				unitChan <- Unit{}
+			}
 		}
 	}
 }
@@ -46,6 +41,5 @@ func (sc SplitCom) Run(inputType, outputType DType, input Input, output Output) 
 		outputs[i] = subOutput
 		i++
 	}
-
 	runSplit(input, outputs)
 }

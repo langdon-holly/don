@@ -4,65 +4,43 @@ import . "don/core"
 
 type MapCom struct{ Com }
 
-func (mc MapCom) Types(inputType, outputType *DType) (bad []string, done bool) {
-	done = true
-	if inputType.Tag == UnitTypeTag {
-		bad = []string{"Unit input to map"}
-	} else if outputType.Tag == UnitTypeTag {
-		bad = []string{"Unit output to map"}
-	} else if inputType.Tag != UnknownTypeTag {
-		if outputType.Tag == UnknownTypeTag {
-			inputType.RemakeFields()
-			*outputType = MakeNStructType(len(inputType.Fields))
-			for fieldName, inputFieldType := range inputType.Fields {
-				var outputFieldType DType
-				var subDone bool
-				bad, subDone = mc.Com.Types(&inputFieldType, &outputFieldType)
-				if bad != nil {
-					bad = append(bad, "in map field: "+fieldName)
-					return
-				}
-				inputType.Fields[fieldName] = inputFieldType
-				outputType.Fields[fieldName] = outputFieldType
-				done = done && subDone
-			}
-		} else {
-			inputType.RemakeFields()
+func (mc MapCom) Types(inputType, outputType *DType) (done bool) {
+	inputType.Meets(StructType)
+	outputType.Meets(StructType)
+	if inputType.Positive {
+		inputType.RemakeFields()
+		if outputType.Positive {
 			outputType.RemakeFields()
-			for fieldName, inputFieldType := range inputType.Fields {
-				outputFieldType, ok := outputType.Fields[fieldName]
-				if !ok {
-					bad = []string{"Fields differ in map"}
-					return
-				}
-				var subDone bool
-				bad, subDone = mc.Com.Types(&inputFieldType, &outputFieldType)
-				if bad != nil {
-					bad = append(bad, "in map field: "+fieldName)
-					return
-				}
-				inputType.Fields[fieldName] = inputFieldType
-				outputType.Fields[fieldName] = outputFieldType
-				done = done && subDone
-			}
-			if len(inputType.Fields) < len(outputType.Fields) {
-				bad = []string{"Fields differ in map"}
+		} else {
+			*outputType = MakeNStructType(len(inputType.Fields))
+			for fieldName := range inputType.Fields {
+				outputType.Fields[fieldName] = UnknownType
 			}
 		}
-	} else if outputType.Tag != UnknownTypeTag {
+	} else if outputType.Positive {
 		outputType.RemakeFields()
 		*inputType = MakeNStructType(len(outputType.Fields))
-		for fieldName, outputFieldType := range outputType.Fields {
-			var inputFieldType DType
-			var subDone bool
-			bad, subDone = mc.Com.Types(&inputFieldType, &outputFieldType)
-			if bad != nil {
-				bad = append(bad, "in map field: "+fieldName)
-				return
-			}
+		for fieldName := range outputType.Fields {
+			inputType.Fields[fieldName] = UnknownType
+		}
+	}
+	if inputType.Positive {
+		done = true
+		for fieldName, inputFieldType := range inputType.Fields {
+			outputFieldType := outputType.Get(fieldName)
+			done = done && mc.Com.Types(&inputFieldType, &outputFieldType)
+
 			inputType.Fields[fieldName] = inputFieldType
 			outputType.Fields[fieldName] = outputFieldType
-			done = done && subDone
+			if inputFieldType.LTE(NullType) {
+				delete(inputType.Fields, fieldName)
+				delete(outputType.Fields, fieldName)
+			}
+		}
+		for fieldName := range outputType.Fields {
+			if _, ok := inputType.Fields[fieldName]; !ok {
+				delete(outputType.Fields, fieldName)
+			}
 		}
 	}
 	return
