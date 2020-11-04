@@ -71,7 +71,7 @@ define(full_adder, (
 
 (
 	:out
-	:8: :carry
+	8: :8 :carry
 ) (
 	(
 		out: 7:

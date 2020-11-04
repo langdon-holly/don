@@ -111,7 +111,6 @@ func typeString(out *strings.Builder, t DType, indent []byte) {
 	if t.Positive {
 		for fieldName, fieldType := range t.Fields {
 			out.Write(subIndent)
-			out.WriteString(":")
 			out.WriteString(fieldName)
 			out.WriteString(":!")
 			typeString(out, fieldType, subIndent)
