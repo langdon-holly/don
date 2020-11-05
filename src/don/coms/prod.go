@@ -31,26 +31,26 @@ func strToNat(s string) (nat int, err bool) {
 	return
 }
 
-type pathTop struct {
+type pathLvl struct {
 	NoUnit bool
 	Fields map[string]struct{}
 }
 
-// len(Tops) > 0
+// len(Lvls) > 0
 // After end of path: NullTypes if Positive, UnknownTypes otherwise
 type path struct {
-	Tops          []pathTop
+	Lvls          []pathLvl
 	FinalPositive bool
 	Unknowns      bool
 }
 
-func nullPath() path { return path{Tops: []pathTop{{NoUnit: true}}, FinalPositive: true} }
+func nullPath() path { return path{Lvls: []pathLvl{{NoUnit: true}}, FinalPositive: true} }
 
-func (typesPath *path) MeetsTop(ps pathTop, psPositive bool, depth int) {
-	if depth < len(typesPath.Tops) {
-		already := typesPath.Tops[depth]
+func (typesPath *path) MeetsLvl(ps pathLvl, psPositive bool, depth int) {
+	if depth < len(typesPath.Lvls) {
+		already := typesPath.Lvls[depth]
 		already.NoUnit = already.NoUnit || ps.NoUnit
-		alreadyPositive := depth < len(typesPath.Tops)-1 || typesPath.FinalPositive
+		alreadyPositive := depth < len(typesPath.Lvls)-1 || typesPath.FinalPositive
 		if !psPositive {
 		} else if alreadyPositive {
 			for fieldName := range already.Fields {
@@ -64,17 +64,17 @@ func (typesPath *path) MeetsTop(ps pathTop, psPositive bool, depth int) {
 			}
 			typesPath.FinalPositive = true
 		}
-		typesPath.Tops[depth] = already
-	} else if depth == len(typesPath.Tops) && typesPath.FinalPositive && typesPath.Unknowns {
-		typesPath.Tops = append(typesPath.Tops, ps)
+		typesPath.Lvls[depth] = already
+	} else if depth == len(typesPath.Lvls) && typesPath.FinalPositive && typesPath.Unknowns {
+		typesPath.Lvls = append(typesPath.Lvls, ps)
 		typesPath.FinalPositive = psPositive
 	}
 }
-func (typesPath *path) JoinsTop(ps pathTop, psPositive bool, depth int) {
-	if depth < len(typesPath.Tops) {
-		already := typesPath.Tops[depth]
+func (typesPath *path) JoinsLvl(ps pathLvl, psPositive bool, depth int) {
+	if depth < len(typesPath.Lvls) {
+		already := typesPath.Lvls[depth]
 		already.NoUnit = already.NoUnit && ps.NoUnit
-		alreadyPositive := depth < len(typesPath.Tops)-1 || typesPath.FinalPositive
+		alreadyPositive := depth < len(typesPath.Lvls)-1 || typesPath.FinalPositive
 		if alreadyPositive && psPositive {
 			if already.Fields == nil {
 				already.Fields = make(map[string]struct{}, len(ps.Fields))
@@ -83,52 +83,52 @@ func (typesPath *path) JoinsTop(ps pathTop, psPositive bool, depth int) {
 				already.Fields[fieldName] = struct{}{}
 			}
 		} else if already.Fields = nil; true {
-			typesPath.Tops = typesPath.Tops[:depth+1]
+			typesPath.Lvls = typesPath.Lvls[:depth+1]
 			typesPath.FinalPositive = false
 			typesPath.Unknowns = true
 		}
-		typesPath.Tops[depth] = already
+		typesPath.Lvls[depth] = already
 	} else if typesPath.FinalPositive && !typesPath.Unknowns {
-		for len(typesPath.Tops) < depth {
-			typesPath.Tops = append(typesPath.Tops, pathTop{NoUnit: true})
+		for len(typesPath.Lvls) < depth {
+			typesPath.Lvls = append(typesPath.Lvls, pathLvl{NoUnit: true})
 		}
-		typesPath.Tops = append(typesPath.Tops, ps)
+		typesPath.Lvls = append(typesPath.Lvls, ps)
 		typesPath.FinalPositive = psPositive
 		typesPath.Unknowns = !psPositive
 	}
 }
 
 func typePath(t DType, depth int, typesPath *path) {
-	top := pathTop{NoUnit: t.NoUnit}
+	lvl := pathLvl{NoUnit: t.NoUnit}
 	if t.Positive {
-		top.Fields = make(map[string]struct{}, len(t.Fields))
+		lvl.Fields = make(map[string]struct{}, len(t.Fields))
 		for fieldName := range t.Fields {
-			top.Fields[fieldName] = struct{}{}
+			lvl.Fields[fieldName] = struct{}{}
 		}
-		typesPath.JoinsTop(top, true, depth)
+		typesPath.JoinsLvl(lvl, true, depth)
 		for _, fieldType := range t.Fields {
 			typePath(fieldType, depth+1, typesPath)
 		}
-	} else if typesPath.JoinsTop(top, false, depth); true {
+	} else if typesPath.JoinsLvl(lvl, false, depth); true {
 	}
 }
 
 func (typesPath path) Type() (t DType) {
-	i := len(typesPath.Tops) - 1
+	i := len(typesPath.Lvls) - 1
 	if !typesPath.FinalPositive {
-		t.NoUnit = typesPath.Tops[i].NoUnit
+		t.NoUnit = typesPath.Lvls[i].NoUnit
 		i--
 	} else if typesPath.Unknowns {
 		t = UnknownType
 	} else if t = NullType; true {
 	}
 	for ; i >= 0; i-- {
-		top := typesPath.Tops[i]
-		fields := make(map[string]DType, len(top.Fields))
-		for fieldName := range top.Fields {
+		lvl := typesPath.Lvls[i]
+		fields := make(map[string]DType, len(lvl.Fields))
+		for fieldName := range lvl.Fields {
 			fields[fieldName] = t
 		}
-		t = DType{NoUnit: top.NoUnit, Positive: true, Fields: fields}
+		t = DType{NoUnit: lvl.NoUnit, Positive: true, Fields: fields}
 	}
 	return
 }
@@ -168,27 +168,27 @@ func (ProdCom) Types(inputType, outputType *DType) (done bool) {
 
 	idxInOutPath := 0
 	for j, inputPath := range inputPaths {
-		for i, inputTop := range inputPath.Tops[:len(inputPath.Tops)-1] {
-			meetOutputTop := inputTop
+		for i, inputLvl := range inputPath.Lvls[:len(inputPath.Lvls)-1] {
+			meetOutputLvl := inputLvl
 			if i == 0 && j > 0 {
-				meetOutputTop.NoUnit = false
+				meetOutputLvl.NoUnit = false
 			}
-			outputPath.MeetsTop(meetOutputTop, true, idxInOutPath)
+			outputPath.MeetsLvl(meetOutputLvl, true, idxInOutPath)
 			idxInOutPath++
-			if !inputTop.NoUnit {
+			if !inputLvl.NoUnit {
 				goto AFTER_INPUT_ITER
 			}
 		}
-		if inputTop := inputPath.Tops[len(inputPath.Tops)-1]; inputTop.NoUnit {
-			outputPath.MeetsTop(inputTop, inputPath.FinalPositive, idxInOutPath)
+		if inputLvl := inputPath.Lvls[len(inputPath.Lvls)-1]; inputLvl.NoUnit {
+			outputPath.MeetsLvl(inputLvl, inputPath.FinalPositive, idxInOutPath)
 			goto AFTER_INPUT_ITER
-		} else if !inputPath.FinalPositive || len(inputTop.Fields) > 0 {
+		} else if !inputPath.FinalPositive || len(inputLvl.Fields) > 0 {
 			goto AFTER_INPUT_ITER
 		}
 	}
 	if len(inputPaths) > 0 {
-		outputPath.MeetsTop(pathTop{}, true, idxInOutPath)
-	} else if outputPath.MeetsTop(pathTop{NoUnit: true}, true, idxInOutPath); true {
+		outputPath.MeetsLvl(pathLvl{}, true, idxInOutPath)
+	} else if outputPath.MeetsLvl(pathLvl{NoUnit: true}, true, idxInOutPath); true {
 	}
 AFTER_INPUT_ITER:
 	for i, idxStr := range indexStrings {
