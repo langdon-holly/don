@@ -7,35 +7,31 @@ import (
 
 type YetCom struct{}
 
-var YetComInputType = MakeNStructType(2)
+var yetComInputType = MakeNStructType(2)
 
 func init() {
-	YetComInputType.Fields[""] = UnitType
-	YetComInputType.Fields["?"] = UnitType
+	yetComInputType.Fields[""] = UnitType
+	yetComInputType.Fields["?"] = UnitType
 }
 
 func (YetCom) Types(inputType, outputType *DType) (done bool) {
-	if inputType.LTE(NullType) {
-		*outputType = NullType
-	} else if outputType.LTE(NullType) {
+	inputType.Meets(yetComInputType)
+	outputType.Meets(types.BoolType)
+	if !yetComInputType.LTE(*inputType) || !types.BoolType.LTE(*outputType) {
 		*inputType = NullType
-	} else if inputType.Meets(YetComInputType); true {
-		outputType.Meets(types.BoolType)
+		*outputType = NullType
 	}
 	return true
 }
 
 func (YetCom) Run(inputType, outputType DType, input Input, output Output) {
+	if !yetComInputType.LTE(inputType) || !types.BoolType.LTE(outputType) {
+		return
+	}
 	itInput := input.Fields[""]
 	askInput := input.Fields["?"]
 	trueOutput := output.Fields["T"]
 	falseOutput := output.Fields["F"]
-	if itInput.Unit == nil ||
-		askInput.Unit == nil ||
-		trueOutput.Unit == nil ||
-		falseOutput.Unit == nil {
-		return
-	}
 	for {
 		<-askInput.Unit
 		select {
