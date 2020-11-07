@@ -1,6 +1,9 @@
 package core
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 // DType
 
@@ -89,16 +92,46 @@ func (t0 *DType) Joins(t1 DType) {
 	return
 }
 
-func (t DType) Done() bool {
+func (t DType) nonnullFields() Error {
 	if !t.Positive {
-		return false
+		return NewError("Negative fields")
 	}
-	for _, fieldType := range t.Fields {
-		if !fieldType.Done() {
-			return false
+	for fieldName, fieldType := range t.Fields {
+		if !fieldType.LTE(NullType) {
+			return NewError("Nonnull field " + fieldName)
 		}
 	}
-	return true
+	return nil
+}
+
+func (t0 *DType) disjointJoins(t1 DType) (underdefined Error) {
+	if !t0.NoUnit && !t1.NoUnit {
+		underdefined = NewError("Doubly-used unit")
+	}
+	t0.NoUnit = t0.NoUnit && t1.NoUnit
+	if t0.Positive = t0.Positive && t1.Positive; t0.Positive {
+		t0.RemakeFields()
+		for fieldName, fieldType := range t1.Fields {
+			underdefined.Ors(
+				fieldType.disjointJoins(t0.Get(fieldName)).InField(fieldName))
+			t0.Fields[fieldName] = fieldType
+		}
+	} else if underdefined.Ors(t0.nonnullFields()).Ors(t1.nonnullFields()); true {
+		t0.Fields = nil
+	}
+	return
+}
+
+func (t DType) Underdefined() Error {
+	if !t.Positive {
+		return NewError("Negative type")
+	}
+	for fieldName, fieldType := range t.Fields {
+		if subUnderdefined := fieldType.Underdefined(); subUnderdefined != nil {
+			return subUnderdefined.InField(fieldName)
+		}
+	}
+	return nil
 }
 
 func typeString(out *strings.Builder, t DType, indent []byte) {
@@ -129,8 +162,7 @@ func (t DType) String() string {
 	return b.String()
 }
 
-// Mutates many
-func FanTypes(many, one *DType) (done bool) {
+func FanAffineTypes(many, one *DType) Error {
 	if one.LTE(NullType) {
 		*many = NullType
 	} else if many.Meets(StructType); many.Positive {
@@ -144,5 +176,18 @@ func FanTypes(many, one *DType) (done bool) {
 		}
 		*one = join
 	}
-	return many.Done()
+	return many.Underdefined()
+}
+
+// Mutates many
+func FanLinearTypes(many []DType, one *DType) (underdefined Error) {
+	join := NullType
+	for i := range many {
+		many[i].Meets(*one)
+		underdefined.Ors(
+			join.disjointJoins(many[i])).Ors(
+			many[i].Underdefined().Context("in " + strconv.Itoa(i) + "'th of many"))
+	}
+	*one = join
+	return
 }

@@ -1,30 +1,30 @@
-define(half_adder, (
+define(half_adder, merge (@
 	(@
 		0:
 		0:
-	) :0 :0
+	@) split :0 :0
 	(@
 		1:
 		0:
-	) (
+	@) split merge (@
 		:1 :0
 		:0 :1
 	)
 	(@
 		0:
 		1:
-	) :1 :1
+	@) split :1 :1
 ) prod)
 
-define(full_adder, (
+define(full_adder, merge (@
 	(@
 		0:
 		0:
-	) :0 :0 :0
+	@) split :0 :0 :0
 	(@
 		1:
 		0:
-	) (
+	@) split merge (@
 		:1 :0 :0
 		:0 :1 :0
 		:0 :0 :1
@@ -32,7 +32,7 @@ define(full_adder, (
 	(@
 		0:
 		1:
-	) (
+	@) split merge (@
 		:1 :1 :0
 		:1 :0 :1
 		:0 :1 :1
@@ -40,7 +40,7 @@ define(full_adder, (
 	(@
 		1:
 		1:
-	) :1 :1 :1
+	@) split :1 :1 :1
 ) prod)
 
 #(

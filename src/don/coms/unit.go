@@ -4,11 +4,11 @@ import . "don/core"
 
 type UnitCom struct{}
 
-func (UnitCom) Types(inputType, outputType *DType) (done bool) {
+func (UnitCom) Types(inputType, outputType *DType) (underdefined Error) {
 	inputType.Meets(UnitType)
 	inputType.Meets(*outputType)
 	*outputType = *inputType
-	return true
+	return
 }
 
 func (UnitCom) Run(inputType, outputType DType, input Input, output Output) {

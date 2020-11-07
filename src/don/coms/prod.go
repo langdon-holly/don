@@ -133,12 +133,12 @@ func (typesPath path) Type() (t DType) {
 	return
 }
 
-func (ProdCom) Types(inputType, outputType *DType) (done bool) {
+func (ProdCom) Types(inputType, outputType *DType) (underdefined Error) {
 	if outputType.LTE(NullType) {
 		*inputType = NullType
-		return true
-	} else if inputType.Meets(StructType); !inputType.Positive {
 		return
+	} else if inputType.Meets(StructType); !inputType.Positive {
+		return NewError("Negative input to prod")
 	}
 	inputType.RemakeFields()
 
@@ -198,7 +198,7 @@ AFTER_INPUT_ITER:
 	}
 	outputType.Meets(outputPath.Type())
 
-	return inputType.Done()
+	return inputType.Underdefined().Context("in input to prod")
 }
 
 func getFieldPath(pathChan chan<- []string, fieldPath []string, unitChan <-chan Unit) {

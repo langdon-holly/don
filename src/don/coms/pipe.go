@@ -1,34 +1,33 @@
 package coms
 
+import "strconv"
+
 import . "don/core"
 
 /* Nonempty */
 type PipeCom []Com
 
-func (pc PipeCom) pipeComTypes(inputType, outputType DType) (typeAts []DType, done bool) {
+func (pc PipeCom) pipeComTypes(inputType, outputType DType) (typeAts []DType, underdefined Error) {
 	typeAts = make([]DType, len(pc)+1)
 	typeAts[0] = inputType
 	typeAts[len(pc)] = outputType
-	subDones := make([]bool, len(pc))
+	subUnderdefineds := make([]Error, len(pc))
 	for i := 0; i < len(pc); i++ { // Slightly inefficient?
 		inputTypeBefore := typeAts[i]
-		subDones[i] = pc[i].Types(&typeAts[i], &typeAts[i+1])
+		subUnderdefineds[i] = pc[i].Types(&typeAts[i], &typeAts[i+1])
 		if !inputTypeBefore.LTE(typeAts[i]) && i > 0 {
 			i -= 2
 		}
 	}
-
-	done = true
-	for _, subDone := range subDones {
-		done = done && subDone
+	for i, subUnderdefined := range subUnderdefineds {
+		underdefined.Ors(subUnderdefined.Context("in " + strconv.Itoa(i) + "'th computer in pipe"))
 	}
-
 	return
 }
 
-func (pc PipeCom) Types(inputType, outputType *DType) (done bool) {
+func (pc PipeCom) Types(inputType, outputType *DType) (underdefined Error) {
 	var typeAts []DType
-	typeAts, done = pc.pipeComTypes(*inputType, *outputType)
+	typeAts, underdefined = pc.pipeComTypes(*inputType, *outputType)
 	*inputType = typeAts[0]
 	*outputType = typeAts[len(pc)]
 	return

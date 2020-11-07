@@ -43,18 +43,19 @@ func init() {
 func (s Syntax) ToCom(context Context) Com {
 	switch s.Tag {
 	case ListSyntaxTag:
-		splitMergeComs := make([]Com, len(s.Children))
+		subComs := make([]Com, len(s.Children))
 		for i, line := range s.Children {
-			subCom := line.ToCom(context)
+			subComs[i] = line.ToCom(context)
 			if s.LeftMarker {
-				subCom = coms.PipeCom([]Com{subCom, coms.DeselectCom(strconv.FormatInt(int64(i), 10))})
+				indexStr := strconv.FormatInt(int64(i), 10)
+				subComs[i] = coms.PipeCom([]Com{subComs[i], coms.DeselectCom(indexStr)})
 			}
 			if s.RightMarker {
-				subCom = coms.PipeCom([]Com{coms.SelectCom(strconv.FormatInt(int64(i), 10)), subCom})
+				indexStr := strconv.FormatInt(int64(i), 10)
+				subComs[i] = coms.PipeCom([]Com{coms.SelectCom(indexStr), subComs[i]})
 			}
-			splitMergeComs[i] = subCom
 		}
-		return coms.SplitMergeCom(splitMergeComs)
+		return coms.ParCom(subComs)
 	case SpacedSyntaxTag:
 		pipeComs := make([]Com, len(s.Children))
 		for i, subS := range s.Children {

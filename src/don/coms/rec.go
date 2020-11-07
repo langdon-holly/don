@@ -10,14 +10,14 @@ func init() {
 	recComInOutType.Fields["rec"] = UnknownType
 }
 
-func (rc RecCom) types(inputType, outputType *DType) (done bool, innerInputType, innerOutputType, mergeInputType, splitOutputType DType) {
+func (rc RecCom) types(inputType, outputType *DType) (underdefined Error, innerInputType, innerOutputType, mergeInputType, splitOutputType DType) {
 	mergeInputType, splitOutputType = recComInOutType, recComInOutType
 	mergeInputType.RemakeFields()
 	mergeInputType.Fields["out"] = *inputType
 	splitOutputType.RemakeFields()
 	splitOutputType.Fields["out"] = *outputType
 
-	mergeDone, splitDone, innerDone := false, false, false
+	var mergeUnderdefined, splitUnderdefined, innerUnderdefined Error
 
 	toType := make(map[string]struct{}, 3)
 	toType["merge"] = struct{}{}
@@ -34,7 +34,7 @@ func (rc RecCom) types(inputType, outputType *DType) (done bool, innerInputType,
 			recTypeBefore := mergeInputType.Fields["rec"]
 			innerInputTypeBefore := innerInputType
 
-			mergeDone = MergeCom{}.Types(&mergeInputType, &innerInputType)
+			mergeUnderdefined = MergeCom{}.Types(&mergeInputType, &innerInputType)
 			splitOutputType.Fields["rec"] = mergeInputType.Fields["rec"]
 
 			if !recTypeBefore.LTE(mergeInputType.Fields["rec"]) {
@@ -47,7 +47,7 @@ func (rc RecCom) types(inputType, outputType *DType) (done bool, innerInputType,
 			recTypeBefore := splitOutputType.Fields["rec"]
 			innerOutputTypeBefore := innerOutputType
 
-			splitDone = SplitCom{}.Types(&innerOutputType, &splitOutputType)
+			splitUnderdefined = SplitCom{}.Types(&innerOutputType, &splitOutputType)
 			mergeInputType.Fields["rec"] = splitOutputType.Fields["rec"]
 
 			if !recTypeBefore.LTE(splitOutputType.Fields["rec"]) {
@@ -60,7 +60,7 @@ func (rc RecCom) types(inputType, outputType *DType) (done bool, innerInputType,
 			innerInputTypeBefore := innerInputType
 			innerOutputTypeBefore := innerOutputType
 
-			innerDone = rc.Inner.Types(&innerInputType, &innerOutputType)
+			innerUnderdefined = rc.Inner.Types(&innerInputType, &innerOutputType)
 
 			if !innerInputTypeBefore.LTE(innerInputType) {
 				toType["merge"] = struct{}{}
@@ -73,13 +73,16 @@ func (rc RecCom) types(inputType, outputType *DType) (done bool, innerInputType,
 
 	*inputType = mergeInputType.Fields["out"]
 	*outputType = splitOutputType.Fields["out"]
-	done = mergeDone && splitDone && innerDone
+	underdefined.Ors(
+		mergeUnderdefined.Context("in rec merge")).Ors(
+		splitUnderdefined.Context("in rec split")).Ors(
+		innerUnderdefined.Context("in rec inner"))
 	return
 }
 
 // Violates multiplicative annihilation!!
-func (rc RecCom) Types(inputType, outputType *DType) (done bool) {
-	done, _, _, _, _ = rc.types(inputType, outputType)
+func (rc RecCom) Types(inputType, outputType *DType) (underdefined Error) {
+	underdefined, _, _, _, _ = rc.types(inputType, outputType)
 	return
 }
 

@@ -4,8 +4,8 @@ import . "don/core"
 
 type SplitCom struct{}
 
-func (SplitCom) Types(inputType, outputType *DType) (done bool) {
-	return FanTypes(outputType, inputType)
+func (SplitCom) Types(inputType, outputType *DType) (underdefined Error) {
+	return FanAffineTypes(outputType, inputType).Context("in split")
 }
 
 func runSplit(input Input, outputs []Output) {

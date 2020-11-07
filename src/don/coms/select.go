@@ -4,12 +4,12 @@ import . "don/core"
 
 type SelectCom string
 
-func (sc SelectCom) Types(inputType, outputType *DType) (done bool) {
+func (sc SelectCom) Types(inputType, outputType *DType) (underdefined Error) {
 	outputType.Meets(inputType.Get(string(sc)))
 	scInputType := MakeNStructType(1)
 	scInputType.Fields[string(sc)] = *outputType
 	inputType.Meets(scInputType)
-	return outputType.Done()
+	return outputType.Underdefined().Context("in output from select field " + string(sc))
 }
 func (sc SelectCom) Run(inputType, outputType DType, input Input, output Output) {
 	if len(inputType.Fields) > 0 {

@@ -11,10 +11,10 @@ func PipeUnit(outputChan chan<- Unit, inputChan <-chan Unit) {
 	}
 }
 
-func (ICom) Types(inputType, outputType *DType) (done bool) {
+func (ICom) Types(inputType, outputType *DType) (underdefined Error) {
 	inputType.Meets(*outputType)
 	*outputType = *inputType
-	return inputType.Done()
+	return inputType.Underdefined().Context("in input to I")
 }
 
 func (ICom) Run(inputType, outputType DType, input Input, output Output) {

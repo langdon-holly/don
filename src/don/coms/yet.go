@@ -14,14 +14,14 @@ func init() {
 	yetComInputType.Fields["?"] = UnitType
 }
 
-func (YetCom) Types(inputType, outputType *DType) (done bool) {
+func (YetCom) Types(inputType, outputType *DType) (underdefined Error) {
 	inputType.Meets(yetComInputType)
 	outputType.Meets(types.BoolType)
 	if !yetComInputType.LTE(*inputType) || !types.BoolType.LTE(*outputType) {
 		*inputType = NullType
 		*outputType = NullType
 	}
-	return true
+	return
 }
 
 func (YetCom) Run(inputType, outputType DType, input Input, output Output) {

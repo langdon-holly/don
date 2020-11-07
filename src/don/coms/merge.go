@@ -4,8 +4,8 @@ import . "don/core"
 
 type MergeCom struct{}
 
-func (MergeCom) Types(inputType, outputType *DType) (done bool) {
-	return FanTypes(inputType, outputType)
+func (MergeCom) Types(inputType, outputType *DType) (underdefined Error) {
+	return FanAffineTypes(inputType, outputType).Context("in merge")
 }
 
 func runMerge(inputs []Input, output Output) {

@@ -4,7 +4,7 @@ import . "don/core"
 
 type MapCom struct{ Com }
 
-func (mc MapCom) Types(inputType, outputType *DType) (done bool) {
+func (mc MapCom) Types(inputType, outputType *DType) (underdefined Error) {
 	inputType.Meets(StructType)
 	outputType.Meets(StructType)
 	if inputType.Positive {
@@ -25,10 +25,9 @@ func (mc MapCom) Types(inputType, outputType *DType) (done bool) {
 		}
 	}
 	if inputType.Positive {
-		done = true
 		for fieldName, inputFieldType := range inputType.Fields {
 			outputFieldType := outputType.Get(fieldName)
-			done = done && mc.Com.Types(&inputFieldType, &outputFieldType)
+			underdefined.Ors(mc.Com.Types(&inputFieldType, &outputFieldType).Context("in mapping field " + fieldName))
 
 			inputType.Fields[fieldName] = inputFieldType
 			outputType.Fields[fieldName] = outputFieldType
@@ -42,6 +41,7 @@ func (mc MapCom) Types(inputType, outputType *DType) (done bool) {
 				delete(outputType.Fields, fieldName)
 			}
 		}
+	} else if underdefined = NewError("Negative fields in input to map"); true {
 	}
 	return
 }
@@ -53,5 +53,5 @@ func (mc MapCom) Run(inputType, outputType DType, input Input, output Output) {
 		pipes[i] = PipeCom([]Com{SelectCom(fieldName), mc.Com, DeselectCom(fieldName)})
 		i++
 	}
-	SplitMergeCom(pipes).Run(inputType, outputType, input, output)
+	ParCom(pipes).Run(inputType, outputType, input, output)
 }
