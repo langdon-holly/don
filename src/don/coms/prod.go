@@ -146,7 +146,7 @@ func (ProdCom) Types(inputType, outputType *DType) (underdefined Error) {
 	for fieldName := range inputType.Fields {
 		if idx, badNat := strToNat(fieldName); !badNat {
 			for idx >= len(indexStrings) {
-				idxStr := strconv.FormatInt(int64(len(indexStrings)), 10)
+				idxStr := strconv.Itoa(len(indexStrings))
 				if _, exists := inputType.Fields[idxStr]; exists {
 					indexStrings = append(indexStrings, idxStr)
 				} else if delete(inputType.Fields, fieldName); true {
@@ -231,7 +231,7 @@ func (ProdCom) Run(inputType, outputType DType, input Input, output Output) {
 		pathChan := make(chan []string)
 		pathChans = append(pathChans, pathChan)
 
-		fieldName := strconv.FormatInt(int64(i), 10)
+		fieldName := strconv.Itoa(i)
 		subInput := input.Fields[fieldName]
 		getFieldPaths(pathChan, nil, subInput)
 	}

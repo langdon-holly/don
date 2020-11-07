@@ -47,11 +47,11 @@ func (s Syntax) ToCom(context Context) Com {
 		for i, line := range s.Children {
 			subComs[i] = line.ToCom(context)
 			if s.LeftMarker {
-				indexStr := strconv.FormatInt(int64(i), 10)
+				indexStr := strconv.Itoa(i)
 				subComs[i] = coms.PipeCom([]Com{subComs[i], coms.DeselectCom(indexStr)})
 			}
 			if s.RightMarker {
-				indexStr := strconv.FormatInt(int64(i), 10)
+				indexStr := strconv.Itoa(i)
 				subComs[i] = coms.PipeCom([]Com{coms.SelectCom(indexStr), subComs[i]})
 			}
 		}
