@@ -41,17 +41,17 @@ func (pc ParCom) types(inputType, outputType *DType) (
 			innerOutputTypeBefore := innerOutputTypes[typeNext.Idx]
 			innerUnderdefineds[typeNext.Idx] = pc[typeNext.Idx].Types(
 				&innerInputTypes[typeNext.Idx], &innerOutputTypes[typeNext.Idx])
-			if !innerInputTypeBefore.Equal(innerInputTypes[typeNext.Idx]) {
+			if !innerInputTypeBefore.LTE(innerInputTypes[typeNext.Idx]) {
 				toType[parComSubComId{Tag: parComSubComIdFanOutTag}] = struct{}{}
 			}
-			if !innerOutputTypeBefore.Equal(innerOutputTypes[typeNext.Idx]) {
+			if !innerOutputTypeBefore.LTE(innerOutputTypes[typeNext.Idx]) {
 				toType[parComSubComId{Tag: parComSubComIdFanInTag}] = struct{}{}
 			}
 		case parComSubComIdFanOutTag:
 			innerInputTypesBefore := append([]DType{}, innerInputTypes...)
 			fanOutUnderdefined = FanLinearTypes(innerInputTypes, inputType)
 			for i := range pc {
-				if !innerInputTypesBefore[i].Equal(innerInputTypes[i]) {
+				if !innerInputTypesBefore[i].LTE(innerInputTypes[i]) {
 					toType[parComSubComId{Idx: i}] = struct{}{}
 				}
 			}
@@ -59,7 +59,7 @@ func (pc ParCom) types(inputType, outputType *DType) (
 			innerOutputTypesBefore := append([]DType{}, innerOutputTypes...)
 			fanInUnderdefined = FanLinearTypes(innerOutputTypes, outputType)
 			for i := range pc {
-				if !innerOutputTypesBefore[i].Equal(innerOutputTypes[i]) {
+				if !innerOutputTypesBefore[i].LTE(innerOutputTypes[i]) {
 					toType[parComSubComId{Idx: i}] = struct{}{}
 				}
 			}
