@@ -7,40 +7,26 @@ import (
 	. "don/core"
 )
 
-type Context struct {
-	Bindings map[string]Com
-	Parent   *Context
+func entry(fieldName string, inner Com) Com {
+	return coms.PipeCom([]Com{
+		coms.SelectCom(fieldName),
+		inner,
+		coms.DeselectCom(fieldName)})
 }
 
-// May mutate c and its ancestors
-func (c Context) Get(name string) (Com, bool) {
-	if com, bound := c.Bindings[name]; bound {
-		return com, true
-	} else if c.Parent != nil {
-		com, bound := c.Parent.Get(name)
-		if bound {
-			c.Bindings[name] = com
-		}
-		return com, bound
-	}
-	return nil, false
-}
+var DefContext = coms.ParCom([]Com{
+	entry("I", coms.ICom{}),
+	entry("init", coms.InitCom{}),
+	entry("split", coms.SplitCom{}),
+	entry("merge", coms.MergeCom{}),
+	entry("yet", coms.YetCom{}),
+	entry("prod", coms.ProdCom{}),
+	entry("unit", coms.UnitCom{}),
+	entry("struct", coms.StructCom{}),
+	entry("null", coms.NullCom{}),
+})
 
-var DefContext = Context{Bindings: make(map[string]Com, 2)}
-
-func init() {
-	DefContext.Bindings["I"] = coms.ICom{}
-	DefContext.Bindings["init"] = coms.InitCom{}
-	DefContext.Bindings["split"] = coms.SplitCom{}
-	DefContext.Bindings["merge"] = coms.MergeCom{}
-	DefContext.Bindings["yet"] = coms.YetCom{}
-	DefContext.Bindings["prod"] = coms.ProdCom{}
-	DefContext.Bindings["unit"] = coms.UnitCom{}
-	DefContext.Bindings["struct"] = coms.StructCom{}
-	DefContext.Bindings["null"] = coms.NullCom{}
-}
-
-func (s Syntax) ToCom(context Context) Com {
+func (s Syntax) ToCom(context Com) Com {
 	switch s.Tag {
 	case ListSyntaxTag:
 		subComs := make([]Com, len(s.Children))
@@ -89,9 +75,8 @@ func (s Syntax) ToCom(context Context) Com {
 			}
 		} else if s.RightMarker {
 			return coms.DeselectCom(s.Name)
-		} else if val, bound := context.Get(s.Name); bound {
-			return val
-		} else if panic("Unknown macro: " + s.Name); true {
+		} else {
+			return coms.PipeCom([]Com{coms.DeselectCom(s.Name), context, coms.SelectCom(s.Name)})
 		}
 	}
 	panic("Unreachable")
