@@ -16,7 +16,6 @@ func entry(fieldName string, inner Com) Com {
 
 var DefContext = coms.ParCom([]Com{
 	entry("I", coms.ICom{}),
-	entry("init", coms.InitCom{}),
 	entry("split", coms.SplitCom{}),
 	entry("merge", coms.MergeCom{}),
 	entry("yet", coms.YetCom{}),

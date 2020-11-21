@@ -29,10 +29,14 @@ type recInstance struct {
 func (ri *recInstance) InputType() *DType  { return &ri.inputType }
 func (ri *recInstance) OutputType() *DType { return &ri.outputType }
 
-// Violates multiplicative annihilation!!
 func (ri *recInstance) Types() {
-	ri.Merge.InputType().MeetsAtPath(ri.inputType, []string{"out"})
-	ri.Split.OutputType().MeetsAtPath(ri.outputType, []string{"out"})
+	if ri.inputType.LTE(NullType) || ri.outputType.LTE(NullType) {
+		ri.Merge.InputType().MeetsAtPath(NullType, []string{"out"})
+		ri.Split.OutputType().MeetsAtPath(NullType, []string{"out"})
+	} else {
+		ri.Merge.InputType().MeetsAtPath(ri.inputType, []string{"out"})
+		ri.Split.OutputType().MeetsAtPath(ri.outputType, []string{"out"})
+	}
 
 	toType := make(map[string]struct{}, 3)
 	toType["merge"] = struct{}{}
