@@ -10,5 +10,6 @@ type nullInstance struct{}
 
 func (nullInstance) InputType() *DType              { return NullPtr() }
 func (nullInstance) OutputType() *DType             { return NullPtr() }
-func (nullInstance) Types() (underdefined Error)    { return }
+func (nullInstance) Types()                         {}
+func (nullInstance) Underdefined() Error            { return nil }
 func (nullInstance) Run(input Input, output Output) {}

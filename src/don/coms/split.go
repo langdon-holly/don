@@ -6,13 +6,20 @@ type SplitCom struct{}
 
 func (SplitCom) Instantiate() ComInstance { return &splitInstance{} }
 
-type splitInstance struct{ inputType, outputType DType }
+type splitInstance struct {
+	inputType, outputType DType
+	underdefined          Error
+}
 
 func (si *splitInstance) InputType() *DType  { return &si.inputType }
 func (si *splitInstance) OutputType() *DType { return &si.outputType }
 
-func (si *splitInstance) Types() (underdefined Error) {
-	return FanAffineTypes(&si.outputType, &si.inputType).Context("in split")
+func (si *splitInstance) Types() {
+	si.underdefined = FanAffineTypes(&si.outputType, &si.inputType)
+}
+
+func (si splitInstance) Underdefined() Error {
+	return si.underdefined.Context("in split")
 }
 
 func runSplit(input Input, outputs []Output) {

@@ -16,7 +16,8 @@ func printUint9(input Input) {
 }
 
 func checkTypes(comI ComInstance, hopefulInputType, hopefulOutputType DType) {
-	if underdefined := comI.Types(); underdefined != nil {
+	comI.Types()
+	if underdefined := comI.Underdefined(); underdefined != nil {
 		fmt.Println(underdefined)
 		panic("Underdefined types")
 	} else if !comI.InputType().Equal(hopefulInputType) {

@@ -142,12 +142,12 @@ func (typesPath path) Type() (t DType) {
 	return
 }
 
-func (pi *prodInstance) Types() (underdefined Error) {
+func (pi *prodInstance) Types() {
 	if pi.outputType.LTE(NullType) {
 		pi.inputType = NullType
 		return
 	} else if !pi.inputType.Positive {
-		return NewError("Negative input to prod")
+		return
 	}
 	pi.inputType.RemakeFields()
 
@@ -206,7 +206,9 @@ AFTER_INPUT_ITER:
 		pi.inputType.Fields[idxStr] = inputFieldType
 	}
 	pi.outputType.Meets(outputPath.Type())
+}
 
+func (pi prodInstance) Underdefined() Error {
 	return pi.inputType.Underdefined().Context("in input to prod")
 }
 

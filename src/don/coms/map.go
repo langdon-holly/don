@@ -18,7 +18,7 @@ type mapInstance struct {
 func (mi *mapInstance) InputType() *DType  { return &mi.inputType }
 func (mi *mapInstance) OutputType() *DType { return &mi.outputType }
 
-func (mi *mapInstance) Types() (underdefined Error) {
+func (mi *mapInstance) Types() {
 	if !mi.ParP {
 		if mi.inputType.Positive {
 			pipes := make([]Com, len(mi.inputType.Fields))
@@ -43,12 +43,18 @@ func (mi *mapInstance) Types() (underdefined Error) {
 	if mi.ParP {
 		mi.Par.InputType().Meets(mi.inputType)
 		mi.Par.OutputType().Meets(mi.outputType)
-		underdefined = mi.Par.Types().Context("in map")
+		mi.Par.Types()
 		mi.inputType = *mi.Par.InputType()
 		mi.outputType = *mi.Par.OutputType()
-	} else if underdefined = NewError("Negative fields in input/output to map"); true {
 	}
-	return
+}
+
+func (mi mapInstance) Underdefined() Error {
+	if mi.ParP {
+		return mi.Par.Underdefined().Context("in map")
+	} else {
+		return NewError("Negative fields in input/output to map")
+	}
 }
 
 func (mi mapInstance) Run(input Input, output Output) {

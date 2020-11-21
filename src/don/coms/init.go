@@ -11,11 +11,13 @@ func (InitCom) Instantiate() ComInstance {
 
 type initInstance DType
 
-func (ii *initInstance) InputType() *DType  { return NullPtr() }
+func (ii initInstance) InputType() *DType   { return NullPtr() }
 func (ii *initInstance) OutputType() *DType { return (*DType)(ii) }
 
 // Violates multiplicative annihilation!!
-func (ii *initInstance) Types() (underdefined Error) { return }
+func (ii initInstance) Types() {}
+
+func (ii initInstance) Underdefined() Error { return nil }
 
 func (ii initInstance) Run(input Input, output Output) {
 	if !DType(ii).NoUnit {

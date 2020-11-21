@@ -25,13 +25,14 @@ type yetInstance struct{ inputType, outputType DType }
 func (yi *yetInstance) InputType() *DType  { return &yi.inputType }
 func (yi *yetInstance) OutputType() *DType { return &yi.outputType }
 
-func (yi *yetInstance) Types() (underdefined Error) {
+func (yi *yetInstance) Types() {
 	if !yetComInputType.LTE(yi.inputType) || !types.BoolType.LTE(yi.outputType) {
 		yi.inputType = NullType
 		yi.outputType = NullType
 	}
-	return
 }
+
+func (yi yetInstance) Underdefined() Error { return nil }
 
 func (yi yetInstance) Run(input Input, output Output) {
 	if !yetComInputType.LTE(yi.inputType) || !types.BoolType.LTE(yi.outputType) {

@@ -22,10 +22,9 @@ func (pi pipeInstance) OutputType() *DType {
 	return pi[len(pi)-1].OutputType()
 }
 
-func (pi pipeInstance) Types() (underdefined Error) {
-	subUnderdefineds := make([]Error, len(pi))
+func (pi pipeInstance) Types() {
 	for i := 0; i < len(pi); i++ { // Slightly inefficient?
-		subUnderdefineds[i] = pi[i].Types()
+		pi[i].Types()
 		if i < len(pi)-1 {
 			pi[i+1].InputType().Meets(*pi[i].OutputType())
 		}
@@ -34,8 +33,11 @@ func (pi pipeInstance) Types() (underdefined Error) {
 			i -= 2
 		}
 	}
-	for i, subUnderdefined := range subUnderdefineds {
-		underdefined.Ors(subUnderdefined.Context("in " + strconv.Itoa(i) + "'th computer in pipe"))
+}
+
+func (pi pipeInstance) Underdefined() (underdefined Error) {
+	for i, inner := range pi {
+		underdefined.Ors(inner.Underdefined().Context("in " + strconv.Itoa(i) + "'th computer in pipe"))
 	}
 	return
 }

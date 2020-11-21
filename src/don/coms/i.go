@@ -11,8 +11,10 @@ type iInstance DType
 func (ii *iInstance) InputType() *DType  { return (*DType)(ii) }
 func (ii *iInstance) OutputType() *DType { return (*DType)(ii) }
 
-func (ii *iInstance) Types() (underdefined Error) {
-	return DType(*ii).Underdefined().Context("in input to I")
+func (ii iInstance) Types() {}
+
+func (ii iInstance) Underdefined() Error {
+	return DType(ii).Underdefined().Context("in I")
 }
 
 func PipeUnit(outputChan chan<- Unit, inputChan <-chan Unit) {

@@ -6,13 +6,20 @@ type MergeCom struct{}
 
 func (MergeCom) Instantiate() ComInstance { return &mergeInstance{} }
 
-type mergeInstance struct{ inputType, outputType DType }
+type mergeInstance struct {
+	inputType, outputType DType
+	underdefined          Error
+}
 
 func (mi *mergeInstance) InputType() *DType  { return &mi.inputType }
 func (mi *mergeInstance) OutputType() *DType { return &mi.outputType }
 
-func (mi *mergeInstance) Types() (underdefined Error) {
-	return FanAffineTypes(&mi.inputType, &mi.outputType).Context("in merge")
+func (mi *mergeInstance) Types() {
+	mi.underdefined = FanAffineTypes(&mi.inputType, &mi.outputType)
+}
+
+func (mi mergeInstance) Underdefined() Error {
+	return mi.underdefined.Context("in merge")
 }
 
 func runMerge(inputs []Input, output Output) {

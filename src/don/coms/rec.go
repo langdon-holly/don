@@ -30,11 +30,9 @@ func (ri *recInstance) InputType() *DType  { return &ri.inputType }
 func (ri *recInstance) OutputType() *DType { return &ri.outputType }
 
 // Violates multiplicative annihilation!!
-func (ri *recInstance) Types() (underdefined Error) {
+func (ri *recInstance) Types() {
 	ri.Merge.InputType().MeetsAtPath(ri.inputType, []string{"out"})
 	ri.Split.OutputType().MeetsAtPath(ri.outputType, []string{"out"})
-
-	var mergeUnderdefined, splitUnderdefined, innerUnderdefined Error
 
 	toType := make(map[string]struct{}, 3)
 	toType["merge"] = struct{}{}
@@ -51,7 +49,7 @@ func (ri *recInstance) Types() (underdefined Error) {
 			recTypeBefore := (*ri.Merge.InputType()).Fields["rec"]
 			innerInputTypeBefore := *ri.Merge.OutputType()
 
-			mergeUnderdefined = ri.Merge.Types()
+			ri.Merge.Types()
 			(*ri.Split.OutputType()).Fields["rec"] = (*ri.Merge.InputType()).Fields["rec"]
 
 			if !recTypeBefore.LTE((*ri.Merge.InputType()).Fields["rec"]) {
@@ -66,7 +64,7 @@ func (ri *recInstance) Types() (underdefined Error) {
 			recTypeBefore := (*ri.Split.OutputType()).Fields["rec"]
 			innerOutputTypeBefore := *ri.Split.InputType()
 
-			splitUnderdefined = ri.Split.Types()
+			ri.Split.Types()
 			(*ri.Merge.InputType()).Fields["rec"] = (*ri.Split.OutputType()).Fields["rec"]
 
 			if !recTypeBefore.LTE((*ri.Split.OutputType()).Fields["rec"]) {
@@ -81,7 +79,7 @@ func (ri *recInstance) Types() (underdefined Error) {
 			innerInputTypeBefore := *ri.Inner.InputType()
 			innerOutputTypeBefore := *ri.Inner.OutputType()
 
-			innerUnderdefined = ri.Inner.Types()
+			ri.Inner.Types()
 
 			if !innerInputTypeBefore.LTE(*ri.Inner.InputType()) {
 				ri.Merge.OutputType().Meets(*ri.Inner.InputType())
@@ -96,10 +94,13 @@ func (ri *recInstance) Types() (underdefined Error) {
 
 	ri.inputType = (*ri.Merge.InputType()).Fields["out"]
 	ri.outputType = (*ri.Split.OutputType()).Fields["out"]
+}
+
+func (ri recInstance) Underdefined() (underdefined Error) {
 	underdefined.Ors(
-		mergeUnderdefined.Context("in rec merge")).Ors(
-		splitUnderdefined.Context("in rec split")).Ors(
-		innerUnderdefined.Context("in rec inner"))
+		ri.Merge.Underdefined().Context("in rec merge")).Ors(
+		ri.Split.Underdefined().Context("in rec split")).Ors(
+		ri.Inner.Underdefined().Context("in rec inner"))
 	return
 }
 

@@ -15,11 +15,13 @@ type selectInstance struct {
 
 func (si *selectInstance) InputType() *DType  { return &si.inputType }
 func (si *selectInstance) OutputType() *DType { return &si.outputType }
-func (si *selectInstance) Types() (underdefined Error) {
+func (si *selectInstance) Types() {
 	si.outputType.Meets(si.inputType.Get(si.FieldName))
 	siInputType := MakeNStructType(1)
 	siInputType.Fields[si.FieldName] = si.outputType
 	si.inputType.Meets(siInputType)
+}
+func (si selectInstance) Underdefined() Error {
 	return si.outputType.Underdefined().Context("in output from select field " + si.FieldName)
 }
 func (si selectInstance) Run(input Input, output Output) {

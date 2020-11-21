@@ -13,8 +13,9 @@ type structInstance DType
 
 func (si *structInstance) InputType() *DType  { return (*DType)(si) }
 func (si *structInstance) OutputType() *DType { return (*DType)(si) }
-func (si *structInstance) Types() (underdefined Error) {
-	return DType(*si).Underdefined().Context("in input to struct")
+func (si structInstance) Types()              {}
+func (si structInstance) Underdefined() Error {
+	return DType(si).Underdefined().Context("in struct")
 }
 func (si structInstance) Run(input Input, output Output) {
 	RunI(DType(si), input, output)

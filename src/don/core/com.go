@@ -5,8 +5,9 @@ type Com interface {
 }
 
 type ComInstance interface {
-	InputType() *DType           /* Modified by Types(); may alias OutputType() */
-	OutputType() *DType          /* Modified by Types(); may alias InputType() */
-	Types() (underdefined Error) /* Mutates */
+	InputType() *DType  /* Modified by Types(); may alias OutputType() */
+	OutputType() *DType /* Modified by Types(); may alias InputType() */
+	Types()             /* Mutates */
+	Underdefined() Error
 	Run(input Input, output Output)
 }

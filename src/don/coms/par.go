@@ -28,18 +28,16 @@ func (pc ParCom) Instantiate() ComInstance {
 }
 
 type parInstance struct {
-	Inners                []ComInstance
-	ToType                map[parComSubComId]struct{}
-	inputType, outputType DType
+	Inners                                []ComInstance
+	ToType                                map[parComSubComId]struct{}
+	inputType, outputType                 DType
+	FanOutUnderdefined, FanInUnderdefined Error
 }
 
 func (pi *parInstance) InputType() *DType  { return &pi.inputType }
 func (pi *parInstance) OutputType() *DType { return &pi.outputType }
 
-func (pi *parInstance) Types() (underdefined Error) {
-	var fanOutUnderdefined, fanInUnderdefined Error
-	innerUnderdefineds := make([]Error, len(pi.Inners))
-
+func (pi *parInstance) Types() {
 	pi.ToType[parComSubComId{Tag: parComSubComIdFanOutTag}] = struct{}{}
 	pi.ToType[parComSubComId{Tag: parComSubComIdFanInTag}] = struct{}{}
 	for len(pi.ToType) > 0 {
@@ -52,7 +50,7 @@ func (pi *parInstance) Types() (underdefined Error) {
 		case parComSubComIdInnerTag:
 			innerInputTypeBefore := *pi.Inners[typeNext.Idx].InputType()
 			innerOutputTypeBefore := *pi.Inners[typeNext.Idx].OutputType()
-			innerUnderdefineds[typeNext.Idx] = pi.Inners[typeNext.Idx].Types()
+			pi.Inners[typeNext.Idx].Types()
 			if !innerInputTypeBefore.LTE(*pi.Inners[typeNext.Idx].InputType()) {
 				pi.ToType[parComSubComId{Tag: parComSubComIdFanOutTag}] = struct{}{}
 			}
@@ -65,7 +63,7 @@ func (pi *parInstance) Types() (underdefined Error) {
 				innerInputTypes[i] = *inner.InputType()
 			}
 			innerInputTypesBefore := append([]DType{}, innerInputTypes...)
-			fanOutUnderdefined = FanLinearTypes(innerInputTypes, &pi.inputType)
+			pi.FanOutUnderdefined = FanLinearTypes(innerInputTypes, &pi.inputType)
 			for i, innerInputType := range innerInputTypes {
 				if !innerInputTypesBefore[i].LTE(innerInputType) {
 					*pi.Inners[i].InputType() = innerInputType
@@ -78,7 +76,7 @@ func (pi *parInstance) Types() (underdefined Error) {
 				innerOutputTypes[i] = *inner.OutputType()
 			}
 			innerOutputTypesBefore := append([]DType{}, innerOutputTypes...)
-			fanInUnderdefined = FanLinearTypes(innerOutputTypes, &pi.outputType)
+			pi.FanInUnderdefined = FanLinearTypes(innerOutputTypes, &pi.outputType)
 			for i, innerOutputType := range innerOutputTypes {
 				if !innerOutputTypesBefore[i].LTE(innerOutputType) {
 					*pi.Inners[i].OutputType() = innerOutputType
@@ -87,10 +85,13 @@ func (pi *parInstance) Types() (underdefined Error) {
 			}
 		}
 	}
+}
 
-	underdefined.Ors(fanOutUnderdefined.Context("in par fan-out")).Ors(fanInUnderdefined.Context("in par fan-in"))
-	for i, innerUnderdefined := range innerUnderdefineds {
-		underdefined.Ors(innerUnderdefined.Context("in " + strconv.Itoa(i) + "'th computer in par"))
+func (pi parInstance) Underdefined() (underdefined Error) {
+	underdefined.Ors(pi.FanOutUnderdefined.Context("in par fan-out"))
+	underdefined.Ors(pi.FanInUnderdefined.Context("in par fan-in"))
+	for i, inner := range pi.Inners {
+		underdefined.Ors(inner.Underdefined().Context("in " + strconv.Itoa(i) + "'th computer in par"))
 	}
 	return
 }
