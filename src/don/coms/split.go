@@ -4,8 +4,15 @@ import . "don/core"
 
 type SplitCom struct{}
 
-func (SplitCom) Types(inputType, outputType *DType) (underdefined Error) {
-	return FanAffineTypes(outputType, inputType).Context("in split")
+func (SplitCom) Instantiate() ComInstance { return &splitInstance{} }
+
+type splitInstance struct{ inputType, outputType DType }
+
+func (si *splitInstance) InputType() *DType  { return &si.inputType }
+func (si *splitInstance) OutputType() *DType { return &si.outputType }
+
+func (si *splitInstance) Types() (underdefined Error) {
+	return FanAffineTypes(&si.outputType, &si.inputType).Context("in split")
 }
 
 func runSplit(input Input, outputs []Output) {
@@ -34,7 +41,7 @@ func runSplit(input Input, outputs []Output) {
 	}
 }
 
-func (sc SplitCom) Run(inputType, outputType DType, input Input, output Output) {
+func (splitInstance) Run(input Input, output Output) {
 	outputs := make([]Output, len(output.Fields))
 	i := 0
 	for _, subOutput := range output.Fields {

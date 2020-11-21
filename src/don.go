@@ -15,17 +15,17 @@ func printUint9(input Input) {
 	fmt.Println(types.ReadUint9(input))
 }
 
-func checkTypes(com Com, inputType, outputType *DType, hopefulInputType, hopefulOutputType DType) {
-	if underdefined := com.Types(inputType, outputType); underdefined != nil {
+func checkTypes(comI ComInstance, hopefulInputType, hopefulOutputType DType) {
+	if underdefined := comI.Types(); underdefined != nil {
 		fmt.Println(underdefined)
 		panic("Underdefined types")
-	} else if !inputType.Equal(hopefulInputType) {
+	} else if !comI.InputType().Equal(hopefulInputType) {
 		fmt.Println("Input type:")
-		fmt.Println(*inputType)
+		fmt.Println(*comI.InputType())
 		panic("Bad input type")
-	} else if !outputType.Equal(hopefulOutputType) {
+	} else if !comI.OutputType().Equal(hopefulOutputType) {
 		fmt.Println("Output type:")
-		fmt.Println(*outputType)
+		fmt.Println(*comI.OutputType())
 		panic("Bad output type")
 	}
 }
@@ -39,15 +39,14 @@ func main() {
 
 	hopefulOutputType := types.Uint9Type
 
-	com := syntax.ParseTop(ifile).ToCom(syntax.DefContext)
+	comI := syntax.ParseTop(ifile).ToCom(syntax.DefContext).Instantiate()
+	comI.InputType().Meets(hopefulInputType)
 
-	var inputType, outputType DType
-	inputType = hopefulInputType
-	checkTypes(com, &inputType, &outputType, hopefulInputType, hopefulOutputType)
+	checkTypes(comI, hopefulInputType, hopefulOutputType)
 
-	inputR, input := MakeIO(inputType)
-	output, outputW := MakeIO(outputType)
-	go com.Run(inputType, outputType, inputR, outputW)
+	inputR, input := MakeIO(*comI.InputType())
+	output, outputW := MakeIO(*comI.OutputType())
+	go comI.Run(inputR, outputW)
 
 	types.WriteUint8(input.Fields["0"], 0)
 	types.WriteUint8(input.Fields["1"], 0)

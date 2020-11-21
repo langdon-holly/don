@@ -17,50 +17,72 @@ type parComSubComId struct {
 	Idx int /* for Tag == parComSubComIdInnerTag */
 }
 
-func (pc ParCom) types(inputType, outputType *DType) (
-	underdefined Error, innerInputTypes, innerOutputTypes []DType) {
-	var fanOutUnderdefined, fanInUnderdefined Error
-	innerUnderdefineds := make([]Error, len(pc))
-	innerInputTypes, innerOutputTypes = make([]DType, len(pc)), make([]DType, len(pc))
-
+func (pc ParCom) Instantiate() ComInstance {
+	inners := make([]ComInstance, len(pc))
 	toType := make(map[parComSubComId]struct{}, len(pc)+2)
-	toType[parComSubComId{Tag: parComSubComIdFanOutTag}] = struct{}{}
-	toType[parComSubComId{Tag: parComSubComIdFanInTag}] = struct{}{}
-	for i := range pc {
+	for i, subCom := range pc {
+		inners[i] = subCom.Instantiate()
 		toType[parComSubComId{Idx: i}] = struct{}{}
 	}
-	for len(toType) > 0 {
+	return &parInstance{Inners: inners, ToType: toType}
+}
+
+type parInstance struct {
+	Inners                []ComInstance
+	ToType                map[parComSubComId]struct{}
+	inputType, outputType DType
+}
+
+func (pi *parInstance) InputType() *DType  { return &pi.inputType }
+func (pi *parInstance) OutputType() *DType { return &pi.outputType }
+
+func (pi *parInstance) Types() (underdefined Error) {
+	var fanOutUnderdefined, fanInUnderdefined Error
+	innerUnderdefineds := make([]Error, len(pi.Inners))
+
+	pi.ToType[parComSubComId{Tag: parComSubComIdFanOutTag}] = struct{}{}
+	pi.ToType[parComSubComId{Tag: parComSubComIdFanInTag}] = struct{}{}
+	for len(pi.ToType) > 0 {
 		var typeNext parComSubComId
-		for typeNext = range toType {
-			delete(toType, typeNext)
+		for typeNext = range pi.ToType {
+			delete(pi.ToType, typeNext)
 			break
 		}
 		switch typeNext.Tag {
 		case parComSubComIdInnerTag:
-			innerInputTypeBefore := innerInputTypes[typeNext.Idx]
-			innerOutputTypeBefore := innerOutputTypes[typeNext.Idx]
-			innerUnderdefineds[typeNext.Idx] = pc[typeNext.Idx].Types(
-				&innerInputTypes[typeNext.Idx], &innerOutputTypes[typeNext.Idx])
-			if !innerInputTypeBefore.LTE(innerInputTypes[typeNext.Idx]) {
-				toType[parComSubComId{Tag: parComSubComIdFanOutTag}] = struct{}{}
+			innerInputTypeBefore := *pi.Inners[typeNext.Idx].InputType()
+			innerOutputTypeBefore := *pi.Inners[typeNext.Idx].OutputType()
+			innerUnderdefineds[typeNext.Idx] = pi.Inners[typeNext.Idx].Types()
+			if !innerInputTypeBefore.LTE(*pi.Inners[typeNext.Idx].InputType()) {
+				pi.ToType[parComSubComId{Tag: parComSubComIdFanOutTag}] = struct{}{}
 			}
-			if !innerOutputTypeBefore.LTE(innerOutputTypes[typeNext.Idx]) {
-				toType[parComSubComId{Tag: parComSubComIdFanInTag}] = struct{}{}
+			if !innerOutputTypeBefore.LTE(*pi.Inners[typeNext.Idx].OutputType()) {
+				pi.ToType[parComSubComId{Tag: parComSubComIdFanInTag}] = struct{}{}
 			}
 		case parComSubComIdFanOutTag:
+			innerInputTypes := make([]DType, len(pi.Inners))
+			for i, inner := range pi.Inners {
+				innerInputTypes[i] = *inner.InputType()
+			}
 			innerInputTypesBefore := append([]DType{}, innerInputTypes...)
-			fanOutUnderdefined = FanLinearTypes(innerInputTypes, inputType)
-			for i := range pc {
-				if !innerInputTypesBefore[i].LTE(innerInputTypes[i]) {
-					toType[parComSubComId{Idx: i}] = struct{}{}
+			fanOutUnderdefined = FanLinearTypes(innerInputTypes, &pi.inputType)
+			for i, innerInputType := range innerInputTypes {
+				if !innerInputTypesBefore[i].LTE(innerInputType) {
+					*pi.Inners[i].InputType() = innerInputType
+					pi.ToType[parComSubComId{Idx: i}] = struct{}{}
 				}
 			}
 		case parComSubComIdFanInTag:
+			innerOutputTypes := make([]DType, len(pi.Inners))
+			for i, inner := range pi.Inners {
+				innerOutputTypes[i] = *inner.OutputType()
+			}
 			innerOutputTypesBefore := append([]DType{}, innerOutputTypes...)
-			fanInUnderdefined = FanLinearTypes(innerOutputTypes, outputType)
-			for i := range pc {
-				if !innerOutputTypesBefore[i].LTE(innerOutputTypes[i]) {
-					toType[parComSubComId{Idx: i}] = struct{}{}
+			fanInUnderdefined = FanLinearTypes(innerOutputTypes, &pi.outputType)
+			for i, innerOutputType := range innerOutputTypes {
+				if !innerOutputTypesBefore[i].LTE(innerOutputType) {
+					*pi.Inners[i].OutputType() = innerOutputType
+					pi.ToType[parComSubComId{Idx: i}] = struct{}{}
 				}
 			}
 		}
@@ -70,11 +92,6 @@ func (pc ParCom) types(inputType, outputType *DType) (
 	for i, innerUnderdefined := range innerUnderdefineds {
 		underdefined.Ors(innerUnderdefined.Context("in " + strconv.Itoa(i) + "'th computer in par"))
 	}
-	return
-}
-
-func (pc ParCom) Types(inputType, outputType *DType) (underdefined Error) {
-	underdefined, _, _ = pc.types(inputType, outputType)
 	return
 }
 
@@ -102,11 +119,10 @@ func subOutput(output Output, outputType DType) (sub Output) {
 	return
 }
 
-func (pc ParCom) Run(inputType, outputType DType, input Input, output Output) {
-	_, innerInputTypes, innerOutputTypes := pc.types(&inputType, &outputType)
-	for i, inner := range pc {
-		innerInput := subInput(input, innerInputTypes[i])
-		innerOutput := subOutput(output, innerOutputTypes[i])
-		go inner.Run(innerInputTypes[i], innerOutputTypes[i], innerInput, innerOutput)
+func (pi parInstance) Run(input Input, output Output) {
+	for _, inner := range pi.Inners {
+		innerInput := subInput(input, *inner.InputType())
+		innerOutput := subOutput(output, *inner.OutputType())
+		go inner.Run(innerInput, innerOutput)
 	}
 }

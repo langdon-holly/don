@@ -4,15 +4,26 @@ import . "don/core"
 
 type DeselectCom string
 
-func (dc DeselectCom) Types(inputType, outputType *DType) (underdefined Error) {
-	inputType.Meets(outputType.Get(string(dc)))
-	dcOutputType := MakeNStructType(1)
-	dcOutputType.Fields[string(dc)] = *inputType
-	outputType.Meets(dcOutputType)
-	return inputType.Underdefined().Context("in input to deselect field " + string(dc))
+func (dc DeselectCom) Instantiate() ComInstance {
+	return &deselectInstance{FieldName: string(dc)}
 }
-func (dc DeselectCom) Run(inputType, outputType DType, input Input, output Output) {
-	if len(outputType.Fields) > 0 {
-		ICom{}.Run(inputType, outputType.Fields[string(dc)], input, output.Fields[string(dc)])
+
+type deselectInstance struct {
+	FieldName             string
+	inputType, outputType DType
+}
+
+func (di *deselectInstance) InputType() *DType  { return &di.inputType }
+func (di *deselectInstance) OutputType() *DType { return &di.outputType }
+func (di *deselectInstance) Types() (underdefined Error) {
+	di.inputType.Meets(di.outputType.Get(di.FieldName))
+	diOutputType := MakeNStructType(1)
+	diOutputType.Fields[di.FieldName] = di.inputType
+	di.outputType.Meets(diOutputType)
+	return di.inputType.Underdefined().Context("in input to deselect field " + di.FieldName)
+}
+func (di deselectInstance) Run(input Input, output Output) {
+	if len(di.outputType.Fields) > 0 {
+		RunI(di.inputType, input, output.Fields[di.FieldName])
 	}
 }

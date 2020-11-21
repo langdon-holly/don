@@ -14,18 +14,27 @@ func init() {
 	yetComInputType.Fields["?"] = UnitType
 }
 
-func (YetCom) Types(inputType, outputType *DType) (underdefined Error) {
-	inputType.Meets(yetComInputType)
-	outputType.Meets(types.BoolType)
-	if !yetComInputType.LTE(*inputType) || !types.BoolType.LTE(*outputType) {
-		*inputType = NullType
-		*outputType = NullType
+func (YetCom) Instantiate() ComInstance {
+	return &yetInstance{
+		inputType:  yetComInputType,
+		outputType: types.BoolType}
+}
+
+type yetInstance struct{ inputType, outputType DType }
+
+func (yi *yetInstance) InputType() *DType  { return &yi.inputType }
+func (yi *yetInstance) OutputType() *DType { return &yi.outputType }
+
+func (yi *yetInstance) Types() (underdefined Error) {
+	if !yetComInputType.LTE(yi.inputType) || !types.BoolType.LTE(yi.outputType) {
+		yi.inputType = NullType
+		yi.outputType = NullType
 	}
 	return
 }
 
-func (YetCom) Run(inputType, outputType DType, input Input, output Output) {
-	if !yetComInputType.LTE(inputType) || !types.BoolType.LTE(outputType) {
+func (yi yetInstance) Run(input Input, output Output) {
+	if !yetComInputType.LTE(yi.inputType) || !types.BoolType.LTE(yi.outputType) {
 		return
 	}
 	itInput := input.Fields[""]

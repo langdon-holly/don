@@ -4,15 +4,21 @@ import . "don/core"
 
 type InitCom struct{}
 
-// Violates multiplicative annihilation!!
-func (InitCom) Types(inputType, outputType *DType) (underdefined Error) {
-	inputType.Meets(NullType)
-	outputType.Meets(UnitType)
-	return
+func (InitCom) Instantiate() ComInstance {
+	ii := initInstance(UnitType)
+	return &ii
 }
 
-func (InitCom) Run(inputType, outputType DType, input Input, output Output) {
-	if !outputType.NoUnit {
+type initInstance DType
+
+func (ii *initInstance) InputType() *DType  { return NullPtr() }
+func (ii *initInstance) OutputType() *DType { return (*DType)(ii) }
+
+// Violates multiplicative annihilation!!
+func (ii *initInstance) Types() (underdefined Error) { return }
+
+func (ii initInstance) Run(input Input, output Output) {
+	if !DType(ii).NoUnit {
 		output.WriteUnit()
 	}
 }

@@ -4,15 +4,26 @@ import . "don/core"
 
 type SelectCom string
 
-func (sc SelectCom) Types(inputType, outputType *DType) (underdefined Error) {
-	outputType.Meets(inputType.Get(string(sc)))
-	scInputType := MakeNStructType(1)
-	scInputType.Fields[string(sc)] = *outputType
-	inputType.Meets(scInputType)
-	return outputType.Underdefined().Context("in output from select field " + string(sc))
+func (sc SelectCom) Instantiate() ComInstance {
+	return &selectInstance{FieldName: string(sc)}
 }
-func (sc SelectCom) Run(inputType, outputType DType, input Input, output Output) {
-	if len(inputType.Fields) > 0 {
-		ICom{}.Run(inputType.Fields[string(sc)], outputType, input.Fields[string(sc)], output)
+
+type selectInstance struct {
+	FieldName             string
+	inputType, outputType DType
+}
+
+func (si *selectInstance) InputType() *DType  { return &si.inputType }
+func (si *selectInstance) OutputType() *DType { return &si.outputType }
+func (si *selectInstance) Types() (underdefined Error) {
+	si.outputType.Meets(si.inputType.Get(si.FieldName))
+	siInputType := MakeNStructType(1)
+	siInputType.Fields[si.FieldName] = si.outputType
+	si.inputType.Meets(siInputType)
+	return si.outputType.Underdefined().Context("in output from select field " + si.FieldName)
+}
+func (si selectInstance) Run(input Input, output Output) {
+	if len(si.inputType.Fields) > 0 {
+		RunI(si.outputType, input.Fields[si.FieldName], output)
 	}
 }

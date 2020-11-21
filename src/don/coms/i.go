@@ -4,6 +4,17 @@ import . "don/core"
 
 type ICom struct{}
 
+func (ICom) Instantiate() ComInstance { return &iInstance{} }
+
+type iInstance DType
+
+func (ii *iInstance) InputType() *DType  { return (*DType)(ii) }
+func (ii *iInstance) OutputType() *DType { return (*DType)(ii) }
+
+func (ii *iInstance) Types() (underdefined Error) {
+	return DType(*ii).Underdefined().Context("in input to I")
+}
+
 func PipeUnit(outputChan chan<- Unit, inputChan <-chan Unit) {
 	for {
 		<-inputChan
@@ -11,18 +22,15 @@ func PipeUnit(outputChan chan<- Unit, inputChan <-chan Unit) {
 	}
 }
 
-func (ICom) Types(inputType, outputType *DType) (underdefined Error) {
-	inputType.Meets(*outputType)
-	*outputType = *inputType
-	return inputType.Underdefined().Context("in input to I")
-}
-
-func (ICom) Run(inputType, outputType DType, input Input, output Output) {
-	if !inputType.NoUnit {
+func RunI(theType DType, input Input, output Output) {
+	if !theType.NoUnit {
 		go PipeUnit(output.Unit, input.Unit)
 	}
-	for fieldName, fieldType := range inputType.Fields {
-		go ICom{}.Run(fieldType, fieldType, input.Fields[fieldName], output.Fields[fieldName])
+	for fieldName, fieldType := range theType.Fields {
+		go RunI(fieldType, input.Fields[fieldName], output.Fields[fieldName])
 	}
-	return
+}
+
+func (ii iInstance) Run(input Input, output Output) {
+	RunI(DType(ii), input, output)
 }

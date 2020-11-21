@@ -4,10 +4,11 @@ import . "don/core"
 
 type NullCom struct{}
 
-func (NullCom) Types(inputType, outputType *DType) (underdefined Error) {
-	inputType.Meets(NullType)
-	outputType.Meets(NullType)
-	return
-}
+func (NullCom) Instantiate() ComInstance { return nullInstance{} }
 
-func (NullCom) Run(inputType, outputType DType, input Input, output Output) {}
+type nullInstance struct{}
+
+func (nullInstance) InputType() *DType              { return NullPtr() }
+func (nullInstance) OutputType() *DType             { return NullPtr() }
+func (nullInstance) Types() (underdefined Error)    { return }
+func (nullInstance) Run(input Input, output Output) {}

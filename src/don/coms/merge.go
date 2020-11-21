@@ -4,8 +4,15 @@ import . "don/core"
 
 type MergeCom struct{}
 
-func (MergeCom) Types(inputType, outputType *DType) (underdefined Error) {
-	return FanAffineTypes(inputType, outputType).Context("in merge")
+func (MergeCom) Instantiate() ComInstance { return &mergeInstance{} }
+
+type mergeInstance struct{ inputType, outputType DType }
+
+func (mi *mergeInstance) InputType() *DType  { return &mi.inputType }
+func (mi *mergeInstance) OutputType() *DType { return &mi.outputType }
+
+func (mi *mergeInstance) Types() (underdefined Error) {
+	return FanAffineTypes(&mi.inputType, &mi.outputType).Context("in merge")
 }
 
 func runMerge(inputs []Input, output Output) {
@@ -25,8 +32,8 @@ func runMerge(inputs []Input, output Output) {
 	}
 }
 
-func (MergeCom) Run(inputType, outputType DType, input Input, output Output) {
-	inputs := make([]Input, len(inputType.Fields))
+func (mi mergeInstance) Run(input Input, output Output) {
+	inputs := make([]Input, len(mi.inputType.Fields))
 	i := 0
 	for _, subInput := range input.Fields {
 		inputs[i] = subInput

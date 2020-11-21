@@ -7,15 +7,30 @@ import . "don/core"
 /* Nonempty */
 type PipeCom []Com
 
-func (pc PipeCom) pipeComTypes(inputType, outputType DType) (typeAts []DType, underdefined Error) {
-	typeAts = make([]DType, len(pc)+1)
-	typeAts[0] = inputType
-	typeAts[len(pc)] = outputType
-	subUnderdefineds := make([]Error, len(pc))
-	for i := 0; i < len(pc); i++ { // Slightly inefficient?
-		inputTypeBefore := typeAts[i]
-		subUnderdefineds[i] = pc[i].Types(&typeAts[i], &typeAts[i+1])
-		if !inputTypeBefore.LTE(typeAts[i]) && i > 0 {
+func (pc PipeCom) Instantiate() ComInstance {
+	subComIs := make([]ComInstance, len(pc))
+	for i, subCom := range pc {
+		subComIs[i] = subCom.Instantiate()
+	}
+	return pipeInstance(subComIs)
+}
+
+type pipeInstance []ComInstance
+
+func (pi pipeInstance) InputType() *DType { return pi[0].InputType() }
+func (pi pipeInstance) OutputType() *DType {
+	return pi[len(pi)-1].OutputType()
+}
+
+func (pi pipeInstance) Types() (underdefined Error) {
+	subUnderdefineds := make([]Error, len(pi))
+	for i := 0; i < len(pi); i++ { // Slightly inefficient?
+		subUnderdefineds[i] = pi[i].Types()
+		if i < len(pi)-1 {
+			pi[i+1].InputType().Meets(*pi[i].OutputType())
+		}
+		if i > 0 && !pi[i-1].OutputType().LTE(*pi[i].InputType()) {
+			pi[i-1].OutputType().Meets(*pi[i].InputType())
 			i -= 2
 		}
 	}
@@ -25,22 +40,12 @@ func (pc PipeCom) pipeComTypes(inputType, outputType DType) (typeAts []DType, un
 	return
 }
 
-func (pc PipeCom) Types(inputType, outputType *DType) (underdefined Error) {
-	var typeAts []DType
-	typeAts, underdefined = pc.pipeComTypes(*inputType, *outputType)
-	*inputType = typeAts[0]
-	*outputType = typeAts[len(pc)]
-	return
-}
-
-func (pc PipeCom) Run(inputType, outputType DType, input Input, output Output) {
-	typeAts, _ := pc.pipeComTypes(inputType, outputType)
-
+func (pi pipeInstance) Run(input Input, output Output) {
 	currOutput := output
-	for i := len(pc) - 1; i > 0; i-- {
-		currInput, nextOutput := MakeIO(typeAts[i])
-		go pc[i].Run(typeAts[i], typeAts[i+1], currInput, currOutput)
+	for i := len(pi) - 1; i > 0; i-- {
+		currInput, nextOutput := MakeIO(*pi[i].InputType())
+		go pi[i].Run(currInput, currOutput)
 		currOutput = nextOutput
 	}
-	go pc[0].Run(typeAts[0], typeAts[1], input, currOutput)
+	go pi[0].Run(input, currOutput)
 }

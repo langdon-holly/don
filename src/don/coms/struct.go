@@ -4,13 +4,18 @@ import . "don/core"
 
 type StructCom struct{}
 
-func (StructCom) Types(inputType, outputType *DType) (underdefined Error) {
-	inputType.Meets(StructType)
-	inputType.Meets(*outputType)
-	*outputType = *inputType
-	return inputType.Underdefined().Context("in input to struct")
+func (StructCom) Instantiate() ComInstance {
+	si := structInstance(StructType)
+	return &si
 }
 
-func (StructCom) Run(inputType, outputType DType, input Input, output Output) {
-	ICom{}.Run(inputType, outputType, input, output)
+type structInstance DType
+
+func (si *structInstance) InputType() *DType  { return (*DType)(si) }
+func (si *structInstance) OutputType() *DType { return (*DType)(si) }
+func (si *structInstance) Types() (underdefined Error) {
+	return DType(*si).Underdefined().Context("in input to struct")
+}
+func (si structInstance) Run(input Input, output Output) {
+	RunI(DType(si), input, output)
 }

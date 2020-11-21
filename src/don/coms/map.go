@@ -4,54 +4,53 @@ import . "don/core"
 
 type MapCom struct{ Com }
 
-func (mc MapCom) Types(inputType, outputType *DType) (underdefined Error) {
-	inputType.Meets(StructType)
-	outputType.Meets(StructType)
-	if inputType.Positive {
-		inputType.RemakeFields()
-		if outputType.Positive {
-			outputType.RemakeFields()
-		} else {
-			*outputType = MakeNStructType(len(inputType.Fields))
-			for fieldName := range inputType.Fields {
-				outputType.Fields[fieldName] = UnknownType
+func (mc MapCom) Instantiate() ComInstance {
+	return &mapInstance{Com: mc.Com, inputType: StructType, outputType: StructType}
+}
+
+type mapInstance struct {
+	Com
+	inputType, outputType DType
+	ParP                  bool
+	Par                   ComInstance /* for ParP */
+}
+
+func (mi *mapInstance) InputType() *DType  { return &mi.inputType }
+func (mi *mapInstance) OutputType() *DType { return &mi.outputType }
+
+func (mi *mapInstance) Types() (underdefined Error) {
+	if !mi.ParP {
+		if mi.inputType.Positive {
+			pipes := make([]Com, len(mi.inputType.Fields))
+			i := 0
+			for fieldName, _ := range mi.inputType.Fields {
+				pipes[i] = PipeCom([]Com{SelectCom(fieldName), mi.Com, DeselectCom(fieldName)})
+				i++
 			}
-		}
-	} else if outputType.Positive {
-		outputType.RemakeFields()
-		*inputType = MakeNStructType(len(outputType.Fields))
-		for fieldName := range outputType.Fields {
-			inputType.Fields[fieldName] = UnknownType
+			mi.ParP = true
+			mi.Par = ParCom(pipes).Instantiate()
+		} else if mi.outputType.Positive {
+			pipes := make([]Com, len(mi.outputType.Fields))
+			i := 0
+			for fieldName, _ := range mi.outputType.Fields {
+				pipes[i] = PipeCom([]Com{SelectCom(fieldName), mi.Com, DeselectCom(fieldName)})
+				i++
+			}
+			mi.ParP = true
+			mi.Par = ParCom(pipes).Instantiate()
 		}
 	}
-	if inputType.Positive {
-		for fieldName, inputFieldType := range inputType.Fields {
-			outputFieldType := outputType.Get(fieldName)
-			underdefined.Ors(mc.Com.Types(&inputFieldType, &outputFieldType).Context("in mapping field " + fieldName))
-
-			inputType.Fields[fieldName] = inputFieldType
-			outputType.Fields[fieldName] = outputFieldType
-			if inputFieldType.LTE(NullType) {
-				delete(inputType.Fields, fieldName)
-				delete(outputType.Fields, fieldName)
-			}
-		}
-		for fieldName := range outputType.Fields {
-			if _, ok := inputType.Fields[fieldName]; !ok {
-				delete(outputType.Fields, fieldName)
-			}
-		}
-	} else if underdefined = NewError("Negative fields in input to map"); true {
+	if mi.ParP {
+		mi.Par.InputType().Meets(mi.inputType)
+		mi.Par.OutputType().Meets(mi.outputType)
+		underdefined = mi.Par.Types().Context("in map")
+		mi.inputType = *mi.Par.InputType()
+		mi.outputType = *mi.Par.OutputType()
+	} else if underdefined = NewError("Negative fields in input/output to map"); true {
 	}
 	return
 }
 
-func (mc MapCom) Run(inputType, outputType DType, input Input, output Output) {
-	pipes := make([]Com, len(inputType.Fields))
-	i := 0
-	for fieldName, _ := range inputType.Fields {
-		pipes[i] = PipeCom([]Com{SelectCom(fieldName), mc.Com, DeselectCom(fieldName)})
-		i++
-	}
-	ParCom(pipes).Run(inputType, outputType, input, output)
+func (mi mapInstance) Run(input Input, output Output) {
+	mi.Par.Run(input, output)
 }

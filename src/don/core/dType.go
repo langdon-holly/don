@@ -20,6 +20,8 @@ var UnitType = DType{Positive: true}
 var StructType = DType{NoUnit: true}
 var NullType = DType{NoUnit: true, Positive: true}
 
+func NullPtr() *DType { nt := NullType; return &nt }
+
 func MakeNStructType(nFields int) DType {
 	return DType{NoUnit: true, Positive: true, Fields: make(map[string]DType, nFields)}
 }
@@ -77,6 +79,18 @@ func (t0 *DType) Meets(t1 DType) {
 		}
 	}
 	return
+}
+
+func (t0 *DType) MeetsAtPath(t1 DType, fieldPath []string) {
+	if len(fieldPath) == 0 {
+		t0.Meets(t1)
+	} else if t0.Positive {
+		if fieldType, exists := t0.Fields[fieldPath[0]]; exists {
+			fieldType.MeetsAtPath(t1, fieldPath[1:])
+			t0.RemakeFields()
+			t0.Fields[fieldPath[0]] = fieldType
+		}
+	}
 }
 
 func (t0 *DType) Joins(t1 DType) {
