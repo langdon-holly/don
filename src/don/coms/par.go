@@ -96,7 +96,7 @@ func (pi parInstance) Underdefined() (underdefined Error) {
 	return
 }
 
-// inputType.Positive
+// inputType.Underdefined() == nil
 func subInput(input Input, inputType DType) (sub Input) {
 	if !inputType.NoUnit {
 		sub.Unit = input.Unit
@@ -108,7 +108,7 @@ func subInput(input Input, inputType DType) (sub Input) {
 	return
 }
 
-// outputType.Positive
+// outputType.Underdefined() == nil
 func subOutput(output Output, outputType DType) (sub Output) {
 	if !outputType.NoUnit {
 		sub.Unit = output.Unit

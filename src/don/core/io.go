@@ -12,7 +12,7 @@ type Output struct {
 	Fields map[string]Output
 }
 
-// t.Positive
+// t.Underdefined() == nil
 func MakeIO(t DType) (input Input, output Output) {
 	if !t.NoUnit {
 		theChan := make(chan Unit, 1)

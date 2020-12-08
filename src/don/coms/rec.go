@@ -29,13 +29,15 @@ type recInstance struct {
 func (ri *recInstance) InputType() *DType  { return &ri.inputType }
 func (ri *recInstance) OutputType() *DType { return &ri.outputType }
 
+var nullOut = NullType.At("out")
+
 func (ri *recInstance) Types() {
 	if ri.inputType.LTE(NullType) || ri.outputType.LTE(NullType) {
-		ri.Merge.InputType().MeetsAtPath(NullType, []string{"out"})
-		ri.Split.OutputType().MeetsAtPath(NullType, []string{"out"})
+		ri.Merge.InputType().Meets(nullOut)
+		ri.Split.OutputType().Meets(nullOut)
 	} else {
-		ri.Merge.InputType().MeetsAtPath(ri.inputType, []string{"out"})
-		ri.Split.OutputType().MeetsAtPath(ri.outputType, []string{"out"})
+		ri.Merge.InputType().Meets(ri.inputType.At("out"))
+		ri.Split.OutputType().Meets(ri.outputType.At("out"))
 	}
 
 	toType := make(map[string]struct{}, 3)
@@ -57,7 +59,7 @@ func (ri *recInstance) Types() {
 			(*ri.Split.OutputType()).Fields["rec"] = (*ri.Merge.InputType()).Fields["rec"]
 
 			if !recTypeBefore.LTE((*ri.Merge.InputType()).Fields["rec"]) {
-				ri.Split.OutputType().MeetsAtPath((*ri.Merge.InputType()).Fields["rec"], []string{"rec"})
+				ri.Split.OutputType().Meets((*ri.Merge.InputType()).Fields["rec"].At("rec"))
 				toType["split"] = struct{}{}
 			}
 			if !innerInputTypeBefore.LTE(*ri.Merge.OutputType()) {
@@ -72,7 +74,7 @@ func (ri *recInstance) Types() {
 			(*ri.Merge.InputType()).Fields["rec"] = (*ri.Split.OutputType()).Fields["rec"]
 
 			if !recTypeBefore.LTE((*ri.Split.OutputType()).Fields["rec"]) {
-				ri.Merge.InputType().MeetsAtPath((*ri.Split.OutputType()).Fields["rec"], []string{"rec"})
+				ri.Merge.InputType().Meets((*ri.Split.OutputType()).Fields["rec"].At("rec"))
 				toType["merge"] = struct{}{}
 			}
 			if !innerOutputTypeBefore.LTE(*ri.Split.InputType()) {
