@@ -15,7 +15,6 @@ const (
 	leftParen  byte = 40
 	rightParen byte = 41
 	colon      byte = 58
-	at         byte = 64
 	backslash  byte = 92
 	underscore byte = 95
 )
@@ -199,7 +198,6 @@ func (state *spaced) Done() (syntax Syntax, bad []string) {
 
 // Only Sub (and Passthrough) for Passthrough
 type list struct {
-	LeftMarker, RightMarker bool
 	InitLF                  bool
 	Passthrough             bool
 	Midline                 bool
@@ -212,7 +210,6 @@ type list struct {
 func (state *list) Next(e token) (bad []string) {
 	if state.Passthrough {
 		if e.IsByte(lf) ||
-			e.IsByte(at) ||
 			e.IsByte(tab) ||
 			e.IsByte(hash) {
 			bad = []string{"List-specific byte but no initial LF"}
@@ -220,18 +217,12 @@ func (state *list) Next(e token) (bad []string) {
 			bad = state.Sub.Next(e)
 		}
 	} else if !state.InitLF {
-		if !state.LeftMarker && e.IsByte(at) {
-			state.LeftMarker = true
-		} else if e.IsByte(lf) {
+		if e.IsByte(lf) {
 			state.InitLF = true
-		} else if state.LeftMarker {
-			bad = []string{"No LF after top at in list"}
 		} else {
 			state.Passthrough = true
 			bad = state.Next(e)
 		}
-	} else if state.RightMarker {
-		bad = []string{"Front-line at"}
 	} else if e.IsByte(lf) {
 		if state.Midline {
 			var subS Syntax
@@ -245,12 +236,6 @@ func (state *list) Next(e token) (bad []string) {
 			state.Sub = list{}.Sub
 		}
 		state.Commented = false
-	} else if e.IsByte(at) {
-		if state.Midline {
-			bad = []string{"Mid-line at"}
-		} else {
-			state.RightMarker = true
-		}
 	} else if e.IsByte(tab) {
 		if state.Midline {
 			bad = []string{"Unindenting tab"}
@@ -275,8 +260,6 @@ func (state *list) Done() (syntax Syntax, bad []string) {
 		bad = []string{"Mid-line end of list"}
 	} else {
 		syntax.Tag = ListSyntaxTag
-		syntax.LeftMarker = state.LeftMarker
-		syntax.RightMarker = state.RightMarker
 		syntax.Children = state.Children
 	}
 	return
@@ -339,5 +322,5 @@ func ParseTop(inReader io.Reader) Syntax {
 	doBad(escapeDone(escaped))
 	s, bad := parensParser.Done()
 	doBad(bad)
-	return s
+	return s.Children[0]
 }

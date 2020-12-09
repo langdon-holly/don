@@ -11,15 +11,15 @@ func (mc MapCom) Instantiate() ComInstance {
 type mapInstance struct {
 	Com
 	inputType, outputType DType
-	ParP                  bool
-	Par                   ComInstance /* for ParP */
+	InnerP                bool
+	Inner                 ComInstance /* for InnerP */
 }
 
 func (mi *mapInstance) InputType() *DType  { return &mi.inputType }
 func (mi *mapInstance) OutputType() *DType { return &mi.outputType }
 
 func (mi *mapInstance) Types() {
-	if !mi.ParP {
+	if !mi.InnerP {
 		if mi.inputType.Positive {
 			pipes := make([]Com, len(mi.inputType.Fields))
 			i := 0
@@ -27,8 +27,8 @@ func (mi *mapInstance) Types() {
 				pipes[i] = PipeCom([]Com{SelectCom(fieldName), mi.Com, DeselectCom(fieldName)})
 				i++
 			}
-			mi.ParP = true
-			mi.Par = ParCom(pipes).Instantiate()
+			mi.InnerP = true
+			mi.Inner = PipeCom([]Com{ScatterCom{}, ParCom(pipes), GatherCom{}}).Instantiate()
 		} else if mi.outputType.Positive {
 			pipes := make([]Com, len(mi.outputType.Fields))
 			i := 0
@@ -36,27 +36,27 @@ func (mi *mapInstance) Types() {
 				pipes[i] = PipeCom([]Com{SelectCom(fieldName), mi.Com, DeselectCom(fieldName)})
 				i++
 			}
-			mi.ParP = true
-			mi.Par = ParCom(pipes).Instantiate()
+			mi.InnerP = true
+			mi.Inner = PipeCom([]Com{ScatterCom{}, ParCom(pipes), GatherCom{}}).Instantiate()
 		}
 	}
-	if mi.ParP {
-		mi.Par.InputType().Meets(mi.inputType)
-		mi.Par.OutputType().Meets(mi.outputType)
-		mi.Par.Types()
-		mi.inputType = *mi.Par.InputType()
-		mi.outputType = *mi.Par.OutputType()
+	if mi.InnerP {
+		mi.Inner.InputType().Meets(mi.inputType)
+		mi.Inner.OutputType().Meets(mi.outputType)
+		mi.Inner.Types()
+		mi.inputType = *mi.Inner.InputType()
+		mi.outputType = *mi.Inner.OutputType()
 	}
 }
 
 func (mi mapInstance) Underdefined() Error {
-	if mi.ParP {
-		return mi.Par.Underdefined().Context("in map")
+	if mi.InnerP {
+		return mi.Inner.Underdefined().Context("in map")
 	} else {
 		return NewError("Negative fields in input/output to map")
 	}
 }
 
 func (mi mapInstance) Run(input Input, output Output) {
-	mi.Par.Run(input, output)
+	mi.Inner.Run(input, output)
 }

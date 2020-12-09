@@ -1,7 +1,5 @@
 package syntax
 
-import "strconv"
-
 import (
 	"don/coms"
 	. "don/core"
@@ -14,33 +12,27 @@ func entry(fieldName string, inner Com) Com {
 		coms.DeselectCom(fieldName)})
 }
 
-var DefContext = coms.ParCom([]Com{
+var DefContext = coms.PipeCom([]Com{coms.ScatterCom{}, coms.ParCom([]Com{
 	entry("I", coms.ICom{}),
-	entry("split", coms.SplitCom{}),
-	entry("merge", coms.MergeCom{}),
+	entry(">", coms.ScatterCom{}),
+	entry("<", coms.GatherCom{}),
+	entry("=>", coms.SplitCom{}),
+	entry("<-", coms.MergeCom{}),
 	entry("yet", coms.YetCom{}),
 	entry("prod", coms.ProdCom{}),
 	entry("unit", coms.UnitCom{}),
 	entry("struct", coms.StructCom{}),
 	entry("null", coms.NullCom{}),
-})
+}), coms.GatherCom{}})
 
 func (s Syntax) ToCom(context Com) Com {
 	switch s.Tag {
 	case ListSyntaxTag:
-		subComs := make([]Com, len(s.Children))
+		parComs := make([]Com, len(s.Children))
 		for i, line := range s.Children {
-			subComs[i] = line.ToCom(context)
-			if s.LeftMarker {
-				indexStr := strconv.Itoa(i)
-				subComs[i] = coms.PipeCom([]Com{subComs[i], coms.DeselectCom(indexStr)})
-			}
-			if s.RightMarker {
-				indexStr := strconv.Itoa(i)
-				subComs[i] = coms.PipeCom([]Com{coms.SelectCom(indexStr), subComs[i]})
-			}
+			parComs[i] = line.ToCom(context)
 		}
-		return coms.ParCom(subComs)
+		return coms.ParCom(parComs)
 	case SpacedSyntaxTag:
 		pipeComs := make([]Com, len(s.Children))
 		for i, subS := range s.Children {

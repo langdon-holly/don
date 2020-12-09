@@ -1,7 +1,6 @@
 package core
 
 import (
-	"strconv"
 	"strings"
 )
 
@@ -189,7 +188,6 @@ func FanAffineTypes(many, one *DType) Error {
 		*many = NullType
 	} else {
 		many.RemakeFields()
-
 		if many.Meets(StructType); many.Positive {
 			join := NullType
 			for fieldName, fieldType := range many.Fields {
@@ -205,22 +203,34 @@ func FanAffineTypes(many, one *DType) Error {
 			}
 		}
 	}
-	return many.Underdefined()
+	return many.Underdefined().Context("in many")
 }
 
-// Mutates many
-func FanLinearTypes(many []DType, one *DType) (underdefined Error) {
-	join := NullType
-	for i := range many {
-		many[i].Meets(*one)
-		meet := join
-		meet.Meets(many[i])
-		underdefined.Ors(
-			meet.Nonnull().Context(
-				"in meet with " + strconv.Itoa(i) + "'th of many (double use)")).Ors(
-			many[i].Underdefined().Context("in " + strconv.Itoa(i) + "'th of many"))
-		join.Joins(many[i])
+func FanLinearTypes(many, one *DType) (underdefined Error) {
+	if underdefined = FanAffineTypes(many, one); underdefined == nil {
+		joinSoFar := NullType
+		fieldsSoFar := make([]string, 0, len(many.Fields))
+		for fieldName, fieldType := range many.Fields {
+			meet := joinSoFar
+			meet.Meets(fieldType)
+			if meet.Nonnull() != nil {
+				for _, prevFieldName := range fieldsSoFar {
+					meet := many.Fields[prevFieldName]
+					meet.Meets(fieldType)
+					if nonnull := meet.Nonnull(); nonnull != nil {
+						underdefined = nonnull.Context(
+							"in meet of fields " +
+								prevFieldName +
+								" and " +
+								fieldName +
+								" in many (double use)")
+						return
+					}
+				}
+			}
+			joinSoFar.Joins(fieldType)
+			fieldsSoFar = append(fieldsSoFar, fieldName)
+		}
 	}
-	*one = join
 	return
 }
