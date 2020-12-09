@@ -7,7 +7,7 @@ import . "don/core"
 type ParCom []Com
 
 func (pc ParCom) Instantiate() ComInstance {
-	inners := make([]ComInstance, len(pc))
+	inners := make(map[int]ComInstance, len(pc))
 	ioType := MakeNStructType(len(pc))
 	for i, subCom := range pc {
 		inners[i] = subCom.Instantiate()
@@ -17,22 +17,35 @@ func (pc ParCom) Instantiate() ComInstance {
 }
 
 type parInstance struct {
-	Inners                []ComInstance
+	Inners                map[int]ComInstance
 	inputType, outputType DType
+	Typesed               bool
 }
 
 func (pi *parInstance) InputType() *DType  { return &pi.inputType }
 func (pi *parInstance) OutputType() *DType { return &pi.outputType }
 
 func (pi *parInstance) Types() {
-	for i := range pi.Inners {
+	for i, inner := range pi.Inners {
 		idxStr := strconv.Itoa(i)
-		pi.Inners[i].InputType().Meets(pi.inputType.Get(idxStr))
-		pi.Inners[i].OutputType().Meets(pi.outputType.Get(idxStr))
-		pi.Inners[i].Types()
-		pi.inputType.Meets(pi.Inners[i].InputType().At(idxStr))
-		pi.outputType.Meets(pi.Inners[i].OutputType().At(idxStr))
+		newInputType := pi.inputType.Get(idxStr)
+		newOutputType := pi.outputType.Get(idxStr)
+		if !pi.Typesed ||
+			!inner.InputType().LTE(newInputType) ||
+			!inner.OutputType().LTE(newOutputType) {
+			inner.InputType().Meets(newInputType)
+			inner.OutputType().Meets(newOutputType)
+			inner.Types()
+			pi.inputType.Meets(inner.InputType().At(idxStr))
+			pi.outputType.Meets(inner.OutputType().At(idxStr))
+			if inner.InputType().LTE(NullType) {
+				delete(pi.Inners, i)
+			} else {
+				pi.Inners[i] = inner
+			}
+		}
 	}
+	pi.Typesed = true
 }
 
 func (pi parInstance) Underdefined() (underdefined Error) {
