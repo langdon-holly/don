@@ -8,35 +8,57 @@ import . "don/core"
 type PipeCom []Com
 
 func (pc PipeCom) Instantiate() ComInstance {
-	subComIs := make([]ComInstance, len(pc))
+	inners := make([]ComInstance, len(pc))
+	toType := make(map[int]struct{}, len(pc))
 	for i, subCom := range pc {
-		subComIs[i] = subCom.Instantiate()
+		inners[i] = subCom.Instantiate()
+		toType[i] = struct{}{}
 	}
-	return pipeInstance(subComIs)
+	return &pipeInstance{Inners: inners, ToType: toType}
 }
 
-type pipeInstance []ComInstance
-
-func (pi pipeInstance) InputType() *DType { return pi[0].InputType() }
-func (pi pipeInstance) OutputType() *DType {
-	return pi[len(pi)-1].OutputType()
+type pipeInstance struct {
+	Inners                []ComInstance
+	inputType, outputType DType
+	ToType                map[int]struct{}
 }
 
-func (pi pipeInstance) Types() {
-	for i := 0; i < len(pi); i++ { // Slightly inefficient?
-		pi[i].Types()
-		if i < len(pi)-1 {
-			pi[i+1].InputType().Meets(*pi[i].OutputType())
+func (pi *pipeInstance) InputType() *DType  { return &pi.inputType }
+func (pi *pipeInstance) OutputType() *DType { return &pi.outputType }
+
+func (pi *pipeInstance) Types() {
+	if !pi.Inners[0].InputType().LTE(pi.inputType) {
+		pi.Inners[0].InputType().Meets(pi.inputType)
+		pi.ToType[0] = struct{}{}
+	}
+	lastIdx := len(pi.Inners) - 1
+	if !pi.Inners[lastIdx].OutputType().LTE(pi.outputType) {
+		pi.Inners[lastIdx].OutputType().Meets(pi.outputType)
+		pi.ToType[lastIdx] = struct{}{}
+	}
+	for i := 0; len(pi.ToType) > 0; {
+		for i = range pi.ToType {
+			break
 		}
-		if i > 0 && !pi[i-1].OutputType().LTE(*pi[i].InputType()) {
-			pi[i-1].OutputType().Meets(*pi[i].InputType())
-			i -= 2
+		delete(pi.ToType, i)
+
+		pi.Inners[i].Types()
+
+		if i < lastIdx && !pi.Inners[i+1].InputType().LTE(*pi.Inners[i].OutputType()) {
+			pi.Inners[i+1].InputType().Meets(*pi.Inners[i].OutputType())
+			pi.ToType[i+1] = struct{}{}
+		}
+		if i > 0 && !pi.Inners[i-1].OutputType().LTE(*pi.Inners[i].InputType()) {
+			pi.Inners[i-1].OutputType().Meets(*pi.Inners[i].InputType())
+			pi.ToType[i-1] = struct{}{}
 		}
 	}
+	pi.inputType = *pi.Inners[0].InputType()
+	pi.outputType = *pi.Inners[lastIdx].OutputType()
 }
 
 func (pi pipeInstance) Underdefined() (underdefined Error) {
-	for i, inner := range pi {
+	for i, inner := range pi.Inners {
 		underdefined.Ors(inner.Underdefined().Context("in " + strconv.Itoa(i) + "'th computer in pipe"))
 	}
 	return
@@ -44,10 +66,10 @@ func (pi pipeInstance) Underdefined() (underdefined Error) {
 
 func (pi pipeInstance) Run(input Input, output Output) {
 	currOutput := output
-	for i := len(pi) - 1; i > 0; i-- {
-		currInput, nextOutput := MakeIO(*pi[i].InputType())
-		go pi[i].Run(currInput, currOutput)
+	for i := len(pi.Inners) - 1; i > 0; i-- {
+		currInput, nextOutput := MakeIO(*pi.Inners[i].InputType())
+		go pi.Inners[i].Run(currInput, currOutput)
 		currOutput = nextOutput
 	}
-	go pi[0].Run(input, currOutput)
+	go pi.Inners[0].Run(input, currOutput)
 }
