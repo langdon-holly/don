@@ -9,43 +9,51 @@ func (mc MapCom) Instantiate() ComInstance {
 }
 
 type mapInstance struct {
+	InnerP bool
+
+	// for !InnerP
 	Com
 	inputType, outputType DType
-	InnerP                bool
-	Inner                 ComInstance /* for InnerP */
+
+	// for InnerP
+	Inner ComInstance
 }
 
-func (mi *mapInstance) InputType() *DType  { return &mi.inputType }
-func (mi *mapInstance) OutputType() *DType { return &mi.outputType }
+func (mi *mapInstance) InputType() *DType {
+	if mi.InnerP {
+		return mi.Inner.InputType()
+	} else {
+		return &mi.inputType
+	}
+}
+func (mi *mapInstance) OutputType() *DType {
+	if mi.InnerP {
+		return mi.Inner.OutputType()
+	} else {
+		return &mi.outputType
+	}
+}
 
 func (mi *mapInstance) Types() {
-	if !mi.InnerP {
+	if !mi.InnerP && mi.inputType.Positive || mi.outputType.Positive {
+		fieldNames := mi.outputType.Fields
 		if mi.inputType.Positive {
-			pipes := make([]Com, len(mi.inputType.Fields))
-			i := 0
-			for fieldName, _ := range mi.inputType.Fields {
-				pipes[i] = PipeCom([]Com{SelectCom(fieldName), mi.Com, DeselectCom(fieldName)})
-				i++
-			}
-			mi.InnerP = true
-			mi.Inner = PipeCom([]Com{ScatterCom{}, ParCom(pipes), GatherCom{}}).Instantiate()
-		} else if mi.outputType.Positive {
-			pipes := make([]Com, len(mi.outputType.Fields))
-			i := 0
-			for fieldName, _ := range mi.outputType.Fields {
-				pipes[i] = PipeCom([]Com{SelectCom(fieldName), mi.Com, DeselectCom(fieldName)})
-				i++
-			}
-			mi.InnerP = true
-			mi.Inner = PipeCom([]Com{ScatterCom{}, ParCom(pipes), GatherCom{}}).Instantiate()
+			fieldNames = mi.inputType.Fields
 		}
+		pipes := make([]Com, len(fieldNames))
+		i := 0
+		for fieldName := range fieldNames {
+			pipes[i] = PipeCom([]Com{SelectCom(fieldName), mi.Com, DeselectCom(fieldName)})
+			i++
+		}
+		inner := PipeCom(
+			[]Com{ScatterCom{}, ParCom(pipes), GatherCom{}}).Instantiate()
+		inner.InputType().Meets(mi.inputType)
+		inner.OutputType().Meets(mi.outputType)
+		*mi = mapInstance{InnerP: true, Inner: inner}
 	}
 	if mi.InnerP {
-		mi.Inner.InputType().Meets(mi.inputType)
-		mi.Inner.OutputType().Meets(mi.outputType)
 		mi.Inner.Types()
-		mi.inputType = *mi.Inner.InputType()
-		mi.outputType = *mi.Inner.OutputType()
 	}
 }
 
