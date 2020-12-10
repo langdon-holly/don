@@ -13,37 +13,37 @@ func init() {
 
 func (rc RecCom) Instantiate() ComInstance {
 	ri := recInstance{
-		Merge:  MergeCom{}.Instantiate(),
-		Split:  SplitCom{}.Instantiate(),
-		Inner:  rc.Inner.Instantiate(),
-		ToType: make(map[string]struct{}, 3)}
-	ri.Merge.InputType().Meets(recComInOutType)
-	ri.Split.OutputType().Meets(recComInOutType)
-	ri.ToType["merge"] = struct{}{}
-	ri.ToType["split"] = struct{}{}
+		Gather:  GatherCom{}.Instantiate(),
+		Scatter: ScatterCom{}.Instantiate(),
+		Inner:   rc.Inner.Instantiate(),
+		ToType:  make(map[string]struct{}, 3)}
+	ri.Gather.InputType().Meets(recComInOutType)
+	ri.Scatter.OutputType().Meets(recComInOutType)
+	ri.ToType["gather"] = struct{}{}
+	ri.ToType["scatter"] = struct{}{}
 	ri.ToType["inner"] = struct{}{}
 	return &ri
 }
 
-func (rc RecCom) Inverse() Com { panic("Unimplemented") }
+func (rc RecCom) Inverse() Com { return RecCom{Inner: rc.Inner.Inverse()} }
 
 type recInstance struct {
-	Merge, Split, Inner   ComInstance
-	inputType, outputType DType
-	ToType                map[string]struct{}
+	Gather, Scatter, Inner ComInstance
+	inputType, outputType  DType
+	ToType                 map[string]struct{}
 }
 
 func (ri *recInstance) InputType() *DType  { return &ri.inputType }
 func (ri *recInstance) OutputType() *DType { return &ri.outputType }
 
 func (ri *recInstance) Types() {
-	if !ri.Merge.InputType().LTE(ri.inputType.At("out")) {
-		ri.Merge.InputType().Meets(ri.inputType.At("out"))
-		ri.ToType["merge"] = struct{}{}
+	if !ri.Gather.InputType().LTE(ri.inputType.At("out")) {
+		ri.Gather.InputType().Meets(ri.inputType.At("out"))
+		ri.ToType["gather"] = struct{}{}
 	}
-	if !ri.Split.OutputType().LTE(ri.outputType.At("out")) {
-		ri.Split.OutputType().Meets(ri.outputType.At("out"))
-		ri.ToType["split"] = struct{}{}
+	if !ri.Scatter.OutputType().LTE(ri.outputType.At("out")) {
+		ri.Scatter.OutputType().Meets(ri.outputType.At("out"))
+		ri.ToType["scatter"] = struct{}{}
 	}
 
 	for typeNext := ""; len(ri.ToType) > 0; {
@@ -51,34 +51,34 @@ func (ri *recInstance) Types() {
 			break
 		}
 		switch delete(ri.ToType, typeNext); typeNext {
-		case "merge":
-			recTypeBefore := (*ri.Merge.InputType()).Fields["rec"]
-			innerInputTypeBefore := *ri.Merge.OutputType()
+		case "gather":
+			recTypeBefore := (*ri.Gather.InputType()).Fields["rec"]
+			innerInputTypeBefore := *ri.Gather.OutputType()
 
-			ri.Merge.Types()
-			(*ri.Split.OutputType()).Fields["rec"] = (*ri.Merge.InputType()).Fields["rec"]
+			ri.Gather.Types()
+			(*ri.Scatter.OutputType()).Fields["rec"] = (*ri.Gather.InputType()).Fields["rec"]
 
-			if !recTypeBefore.LTE((*ri.Merge.InputType()).Fields["rec"]) {
-				ri.Split.OutputType().Meets((*ri.Merge.InputType()).Fields["rec"].At("rec"))
-				ri.ToType["split"] = struct{}{}
+			if !recTypeBefore.LTE((*ri.Gather.InputType()).Fields["rec"]) {
+				ri.Scatter.OutputType().Meets((*ri.Gather.InputType()).Fields["rec"].At("rec"))
+				ri.ToType["scatter"] = struct{}{}
 			}
-			if !innerInputTypeBefore.LTE(*ri.Merge.OutputType()) {
-				ri.Inner.InputType().Meets(*ri.Merge.OutputType())
+			if !innerInputTypeBefore.LTE(*ri.Gather.OutputType()) {
+				ri.Inner.InputType().Meets(*ri.Gather.OutputType())
 				ri.ToType["inner"] = struct{}{}
 			}
-		case "split":
-			recTypeBefore := (*ri.Split.OutputType()).Fields["rec"]
-			innerOutputTypeBefore := *ri.Split.InputType()
+		case "scatter":
+			recTypeBefore := (*ri.Scatter.OutputType()).Fields["rec"]
+			innerOutputTypeBefore := *ri.Scatter.InputType()
 
-			ri.Split.Types()
-			(*ri.Merge.InputType()).Fields["rec"] = (*ri.Split.OutputType()).Fields["rec"]
+			ri.Scatter.Types()
+			(*ri.Gather.InputType()).Fields["rec"] = (*ri.Scatter.OutputType()).Fields["rec"]
 
-			if !recTypeBefore.LTE((*ri.Split.OutputType()).Fields["rec"]) {
-				ri.Merge.InputType().Meets((*ri.Split.OutputType()).Fields["rec"].At("rec"))
-				ri.ToType["merge"] = struct{}{}
+			if !recTypeBefore.LTE((*ri.Scatter.OutputType()).Fields["rec"]) {
+				ri.Gather.InputType().Meets((*ri.Scatter.OutputType()).Fields["rec"].At("rec"))
+				ri.ToType["gather"] = struct{}{}
 			}
-			if !innerOutputTypeBefore.LTE(*ri.Split.InputType()) {
-				ri.Inner.OutputType().Meets(*ri.Split.InputType())
+			if !innerOutputTypeBefore.LTE(*ri.Scatter.InputType()) {
+				ri.Inner.OutputType().Meets(*ri.Scatter.InputType())
 				ri.ToType["inner"] = struct{}{}
 			}
 		case "inner":
@@ -88,51 +88,51 @@ func (ri *recInstance) Types() {
 			ri.Inner.Types()
 
 			if !innerInputTypeBefore.LTE(*ri.Inner.InputType()) {
-				ri.Merge.OutputType().Meets(*ri.Inner.InputType())
-				ri.ToType["merge"] = struct{}{}
+				ri.Gather.OutputType().Meets(*ri.Inner.InputType())
+				ri.ToType["gather"] = struct{}{}
 			}
 			if !innerOutputTypeBefore.LTE(*ri.Inner.OutputType()) {
-				ri.Split.InputType().Meets(*ri.Inner.OutputType())
-				ri.ToType["split"] = struct{}{}
+				ri.Scatter.InputType().Meets(*ri.Inner.OutputType())
+				ri.ToType["scatter"] = struct{}{}
 			}
 		}
 	}
 
-	ri.inputType = (*ri.Merge.InputType()).Fields["out"]
-	ri.outputType = (*ri.Split.OutputType()).Fields["out"]
+	ri.inputType = (*ri.Gather.InputType()).Fields["out"]
+	ri.outputType = (*ri.Scatter.OutputType()).Fields["out"]
 
 	if ri.inputType.LTE(NullType) || ri.outputType.LTE(NullType) {
 		ri.inputType = NullType
 		ri.outputType = NullType
-		ri.Merge.InputType().Meets(NullType)
-		ri.Split.InputType().Meets(NullType)
+		ri.Gather.InputType().Meets(NullType)
+		ri.Scatter.InputType().Meets(NullType)
 		ri.Inner.InputType().Meets(NullType)
-		ri.Merge.Types()
-		ri.Split.Types()
+		ri.Gather.Types()
+		ri.Scatter.Types()
 		ri.Inner.Types()
 	}
 }
 
 func (ri recInstance) Underdefined() (underdefined Error) {
 	underdefined.Ors(
-		ri.Merge.Underdefined().Context("in rec merge")).Ors(
-		ri.Split.Underdefined().Context("in rec split")).Ors(
+		ri.Gather.Underdefined().Context("in rec gather")).Ors(
+		ri.Scatter.Underdefined().Context("in rec scatter")).Ors(
 		ri.Inner.Underdefined().Context("in rec inner"))
 	return
 }
 
 func (ri recInstance) Run(input Input, output Output) {
-	innerInput, mergeOutput := MakeIO(*ri.Merge.OutputType())
-	splitInput, innerOutput := MakeIO(*ri.Split.InputType())
-	recInput, recOutput := MakeIO((*ri.Merge.InputType()).Fields["rec"])
-	splitOutput := Output{Fields: make(map[string]Output, 2)}
-	splitOutput.Fields["rec"] = recOutput
-	splitOutput.Fields["out"] = output
-	mergeInput := Input{Fields: make(map[string]Input, 2)}
-	mergeInput.Fields["out"] = input
-	mergeInput.Fields["rec"] = recInput
+	innerInput, gatherOutput := MakeIO(*ri.Gather.OutputType())
+	scatterInput, innerOutput := MakeIO(*ri.Scatter.InputType())
+	recInput, recOutput := MakeIO((*ri.Gather.InputType()).Fields["rec"])
+	scatterOutput := Output{Fields: make(map[string]Output, 2)}
+	scatterOutput.Fields["rec"] = recOutput
+	scatterOutput.Fields["out"] = output
+	gatherInput := Input{Fields: make(map[string]Input, 2)}
+	gatherInput.Fields["out"] = input
+	gatherInput.Fields["rec"] = recInput
 
 	go ri.Inner.Run(innerInput, innerOutput)
-	go ri.Merge.Run(mergeInput, mergeOutput)
-	go ri.Split.Run(splitInput, splitOutput)
+	go ri.Gather.Run(gatherInput, gatherOutput)
+	go ri.Scatter.Run(scatterInput, scatterOutput)
 }
