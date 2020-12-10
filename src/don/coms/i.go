@@ -2,10 +2,10 @@ package coms
 
 import . "don/core"
 
-type ICom struct{}
+type ICom DType
 
-func (ICom) Instantiate() ComInstance { return &iInstance{} }
-func (ICom) Inverse() Com             { return ICom{} }
+func (ic ICom) Instantiate() ComInstance { ii := iInstance(ic); return &ii }
+func (ic ICom) Inverse() Com             { return ic }
 
 type iInstance DType
 

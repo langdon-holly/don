@@ -13,15 +13,15 @@ func entry(fieldName string, inner Com) Com {
 }
 
 var DefContext = coms.PipeCom([]Com{coms.ScatterCom{}, coms.ParCom([]Com{
-	entry("I", coms.ICom{}),
+	entry("I", coms.ICom(UnknownType)),
 	entry(">", coms.ScatterCom{}),
 	entry("<", coms.GatherCom{}),
 	entry("=>", coms.SplitCom{}),
 	entry("<-", coms.MergeCom{}),
 	entry("yet", coms.YetCom{}),
 	entry("prod", coms.ProdCom{}),
-	entry("unit", coms.UnitCom{}),
-	entry("struct", coms.StructCom{}),
+	entry("unit", coms.ICom(UnitType)),
+	entry("struct", coms.ICom(StructType)),
 	entry("null", coms.NullCom{}),
 }), coms.GatherCom{}})
 
