@@ -5,6 +5,7 @@ import . "don/core"
 type GatherCom struct{}
 
 func (GatherCom) Instantiate() ComInstance { return &gatherInstance{} }
+func (GatherCom) Inverse() Com             { return ScatterCom{} }
 
 type gatherInstance struct {
 	inputType, outputType DType

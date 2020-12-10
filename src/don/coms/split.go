@@ -5,6 +5,7 @@ import . "don/core"
 type SplitCom struct{}
 
 func (SplitCom) Instantiate() ComInstance { return &splitInstance{} }
+func (SplitCom) Inverse() Com             { return JoinCom{} }
 
 type splitInstance struct {
 	inputType, outputType DType

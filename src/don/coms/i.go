@@ -5,6 +5,7 @@ import . "don/core"
 type ICom struct{}
 
 func (ICom) Instantiate() ComInstance { return &iInstance{} }
+func (ICom) Inverse() Com             { return ICom{} }
 
 type iInstance DType
 

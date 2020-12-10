@@ -17,6 +17,14 @@ func (pc PipeCom) Instantiate() ComInstance {
 	return &pipeInstance{Inners: inners, ToType: toType}
 }
 
+func (pc PipeCom) Inverse() Com {
+	subInverses := make([]Com, len(pc))
+	for i, subCom := range pc {
+		subInverses[len(pc)-1-i] = subCom.Inverse()
+	}
+	return PipeCom(subInverses)
+}
+
 type pipeInstance struct {
 	Inners                []ComInstance
 	inputType, outputType DType

@@ -5,6 +5,7 @@ import . "don/core"
 type MergeCom struct{}
 
 func (MergeCom) Instantiate() ComInstance { return &mergeInstance{} }
+func (MergeCom) Inverse() Com             { return ChooseCom{} }
 
 type mergeInstance struct {
 	inputType, outputType DType

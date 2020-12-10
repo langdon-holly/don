@@ -25,6 +25,8 @@ func (rc RecCom) Instantiate() ComInstance {
 	return &ri
 }
 
+func (rc RecCom) Inverse() Com { panic("Unimplemented") }
+
 type recInstance struct {
 	Merge, Split, Inner   ComInstance
 	inputType, outputType DType

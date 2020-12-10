@@ -9,6 +9,8 @@ func (UnitCom) Instantiate() ComInstance {
 	return &ui
 }
 
+func (UnitCom) Inverse() Com { return UnitCom{} }
+
 type unitInstance DType
 
 func (ui *unitInstance) InputType() *DType  { return (*DType)(ui) }

@@ -20,6 +20,8 @@ func (YetCom) Instantiate() ComInstance {
 		outputType: types.BoolType}
 }
 
+func (YetCom) Inverse() Com { panic("Unimplemented") }
+
 type yetInstance struct{ inputType, outputType DType }
 
 func (yi *yetInstance) InputType() *DType  { return &yi.inputType }

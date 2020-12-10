@@ -8,6 +8,8 @@ func (dc DeselectCom) Instantiate() ComInstance {
 	return &deselectInstance{FieldName: string(dc)}
 }
 
+func (dc DeselectCom) Inverse() Com { return SelectCom(string(dc)) }
+
 type deselectInstance struct {
 	FieldName             string
 	inputType, outputType DType

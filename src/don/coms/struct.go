@@ -9,6 +9,8 @@ func (StructCom) Instantiate() ComInstance {
 	return &si
 }
 
+func (StructCom) Inverse() Com { return StructCom{} }
+
 type structInstance DType
 
 func (si *structInstance) InputType() *DType  { return (*DType)(si) }

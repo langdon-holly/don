@@ -12,6 +12,8 @@ func (ProdCom) Instantiate() ComInstance {
 	return &prodInstance{inputType: StructType}
 }
 
+func (ProdCom) Inverse() Com { panic("Unimplemented") }
+
 type prodInstance struct{ inputType, outputType DType }
 
 func (pi *prodInstance) InputType() *DType  { return &pi.inputType }

@@ -5,6 +5,7 @@ import . "don/core"
 type NullCom struct{}
 
 func (NullCom) Instantiate() ComInstance { return nullInstance{} }
+func (NullCom) Inverse() Com             { return NullCom{} }
 
 type nullInstance struct{}
 

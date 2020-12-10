@@ -16,6 +16,14 @@ func (pc ParCom) Instantiate() ComInstance {
 	return &parInstance{Inners: inners, inputType: ioType, outputType: ioType}
 }
 
+func (pc ParCom) Inverse() Com {
+	subInverses := make([]Com, len(pc))
+	for i, subCom := range pc {
+		subInverses[i] = subCom.Inverse()
+	}
+	return ParCom(subInverses)
+}
+
 type parInstance struct {
 	Inners                map[int]ComInstance
 	inputType, outputType DType
