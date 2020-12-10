@@ -12,8 +12,10 @@ const (
 	space      byte = 32
 	bang       byte = 33
 	hash       byte = 35
+	dollar     byte = 36
 	leftParen  byte = 40
 	rightParen byte = 41
+	hyphen     byte = 45
 	colon      byte = 58
 	backslash  byte = 92
 	underscore byte = 95
@@ -73,20 +75,27 @@ type parser interface {
 }
 
 type name struct {
-	Namep, Preparsed        bool
-	Nonemptyp               bool
-	LeftMarker, RightMarker bool
-	B                       strings.Builder
-	PPSyntax                Syntax
+	Namep, Contextp, Preparsed bool
+	Nonemptyp                  bool
+	LeftMarker, RightMarker    bool
+	B                          strings.Builder
+	PPSyntax                   Syntax
 }
 
 // impl parser
 func (state *name) Next(e token) (bad []string) {
 	if state.Preparsed || state.Namep && e.Tag == syntaxTokenTag {
 		bad = []string{"Subelement in name"}
+	} else if state.Contextp {
+		bad = []string{"Nonterminal context"}
 	} else if e.Tag == syntaxTokenTag {
 		state.Preparsed = true
 		state.PPSyntax = e.Syntax
+	} else if e.IsByte(dollar) {
+		if state.Namep {
+			bad = []string{"Noninitial context"}
+		} else if state.Contextp = true; true {
+		}
 	} else if state.RightMarker {
 		bad = []string{"Nonterminal right colon"}
 	} else if state.Namep = true; e.IsByte(underscore) {
@@ -98,8 +107,7 @@ func (state *name) Next(e token) (bad []string) {
 		state.RightMarker = true
 	} else if state.LeftMarker {
 		bad = []string{"Double left colon"}
-	} else {
-		state.LeftMarker = true
+	} else if state.LeftMarker = true; true {
 	}
 	return
 }
@@ -109,6 +117,8 @@ func (state *name) Done() (syntax Syntax, bad []string) {
 		syntax.LeftMarker = state.LeftMarker
 		syntax.RightMarker = state.RightMarker
 		syntax.Name = state.B.String()
+	} else if state.Contextp {
+		syntax.Tag = ContextSyntaxTag
 	} else if state.Preparsed {
 		syntax = state.PPSyntax
 	} else {
@@ -117,39 +127,71 @@ func (state *name) Done() (syntax Syntax, bad []string) {
 	return
 }
 
-type macroCall struct {
+type macroCallOrSandwich struct {
 	SubName      name
-	NameSyntax   Syntax
-	SubMacroCall *macroCall
+	SubMacroCall *macroCallOrSandwich
+	Sandwich     bool
+	NoSandwich   bool
+	LHS          Syntax
 }
 
 // impl parser
-func (state *macroCall) Next(e token) (bad []string) {
+func (state *macroCallOrSandwich) Next(e token) (bad []string) {
 	if state.SubMacroCall != nil {
 		bad = state.SubMacroCall.Next(e)
 	} else if e.IsByte(bang) {
-		state.NameSyntax, bad = state.SubName.Done()
-		if bad == nil && state.NameSyntax.Tag != NameSyntaxTag {
-			bad = []string{"Non-name macro name"}
+		if state.Sandwich {
+			bad = []string{"Sandwich macro"}
+		} else if state.LHS, bad = state.SubName.Done(); true {
+			if bad == nil && state.LHS.Tag != NameSyntaxTag {
+				bad = []string{"Non-name macro name"}
+			}
+			if bad != nil {
+				bad = append(bad, "in macro name")
+			} else {
+				state.SubMacroCall = new(macroCallOrSandwich)
+				state.SubMacroCall.NoSandwich = true
+			}
 		}
-		if bad != nil {
-			bad = append(bad, "in macro name")
-		} else {
-			state.SubMacroCall = new(macroCall)
+	} else if e.IsByte(hyphen) {
+		if state.NoSandwich {
+			bad = []string{"Macro sandwich"}
+		} else if nameHere := &state.LHS; true {
+			if state.Sandwich {
+				state.LHS = Syntax{
+					Tag: SandwichSyntaxTag, Children: []Syntax{state.LHS, {}}}
+				nameHere = &state.LHS.Children[1]
+			}
+			if *nameHere, bad = state.SubName.Done(); bad != nil {
+				bad = append(bad, "in sandwich liner")
+			} else {
+				state.SubName = macroCallOrSandwich{}.SubName
+				state.Sandwich = true
+			}
 		}
-	} else {
-		bad = state.SubName.Next(e)
+	} else if bad = state.SubName.Next(e); bad != nil && state.Sandwich {
+		bad = append(bad, "in sandwich bread")
 	}
 	return
 }
-func (state *macroCall) Done() (syntax Syntax, bad []string) {
+func (state *macroCallOrSandwich) Done() (syntax Syntax, bad []string) {
 	if state.SubMacroCall == nil {
-		syntax, bad = state.SubName.Done()
+		nameHere := &state.LHS
+		if state.Sandwich {
+			state.LHS = Syntax{
+				Tag: SandwichSyntaxTag, Children: []Syntax{state.LHS, {}}}
+			nameHere = &state.LHS.Children[1]
+		}
+		*nameHere, bad = state.SubName.Done()
+		syntax = state.LHS
+		if bad != nil && state.Sandwich {
+			bad = append(bad, "in sandwich bread")
+		}
 	} else {
-		syntax = state.NameSyntax
+		syntax = state.LHS
 		syntax.Tag = MCallSyntaxTag
-		syntax.Child = new(Syntax)
-		if *syntax.Child, bad = state.SubMacroCall.Done(); bad != nil {
+		syntax.Children = []Syntax{{}}
+		if syntax.Children[0], bad = state.SubMacroCall.Done(); bad != nil {
 			bad = append(bad, "in parameter to macro")
 		}
 	}
@@ -158,7 +200,7 @@ func (state *macroCall) Done() (syntax Syntax, bad []string) {
 
 type spaced struct {
 	Midfactor bool
-	Sub       macroCall
+	Sub       macroCallOrSandwich
 	Children  []Syntax
 }
 
@@ -198,12 +240,12 @@ func (state *spaced) Done() (syntax Syntax, bad []string) {
 
 // Only Sub (and Passthrough) for Passthrough
 type list struct {
-	InitLF                  bool
-	Passthrough             bool
-	Midline                 bool
-	Commented               bool
-	Sub                     spaced
-	Children                []Syntax
+	InitLF      bool
+	Passthrough bool
+	Midline     bool
+	Commented   bool
+	Sub         spaced
+	Children    []Syntax
 }
 
 // impl parser

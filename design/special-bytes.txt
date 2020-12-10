@@ -9,7 +9,7 @@ space	  used : tight separator
 !	  used : macro call
 @	unused
 #	  used : comment
-$	unused
+$	  used : context
 %	unused
 ^	unused
 &	unused
@@ -17,7 +17,7 @@ $	unused
 (	  used : start
 )	  used : end
 _	  used : empty identifier
--	unused
+-	  used : sandwich
 =	unused
 +	unused
 [	unused
