@@ -5,7 +5,7 @@ import . "don/core"
 type JoinCom struct{}
 
 func (JoinCom) Instantiate() ComInstance { return &joinInstance{} }
-func (JoinCom) Inverse() Com             { return SplitCom{} }
+func (JoinCom) Inverse() Com             { return ForkCom{} }
 
 type joinInstance struct {
 	inputType, outputType DType

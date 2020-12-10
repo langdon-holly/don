@@ -22,7 +22,7 @@ var DefContext = coms.PipeCom([]Com{coms.ScatterCom{}, coms.ParCom([]Com{
 	entry("<|", coms.MergeCom{}),
 	entry("|>", coms.ChooseCom{}),
 	entry("<||", coms.JoinCom{}),
-	entry("||>", coms.SplitCom{}),
+	entry("||>", coms.ForkCom{}),
 	entry("prod", coms.ProdCom{}),
 	entry("yet", coms.YetCom{}),
 }), coms.GatherCom{}})

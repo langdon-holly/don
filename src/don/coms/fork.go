@@ -2,28 +2,28 @@ package coms
 
 import . "don/core"
 
-type SplitCom struct{}
+type ForkCom struct{}
 
-func (SplitCom) Instantiate() ComInstance { return &splitInstance{} }
-func (SplitCom) Inverse() Com             { return JoinCom{} }
+func (ForkCom) Instantiate() ComInstance { return &forkInstance{} }
+func (ForkCom) Inverse() Com             { return JoinCom{} }
 
-type splitInstance struct {
+type forkInstance struct {
 	inputType, outputType DType
 	underdefined          Error
 }
 
-func (si *splitInstance) InputType() *DType  { return &si.inputType }
-func (si *splitInstance) OutputType() *DType { return &si.outputType }
+func (fi *forkInstance) InputType() *DType  { return &fi.inputType }
+func (fi *forkInstance) OutputType() *DType { return &fi.outputType }
 
-func (si *splitInstance) Types() {
-	si.underdefined = FanAffineTypes(&si.outputType, &si.inputType)
+func (fi *forkInstance) Types() {
+	fi.underdefined = FanAffineTypes(&fi.outputType, &fi.inputType)
 }
 
-func (si splitInstance) Underdefined() Error {
-	return si.underdefined.Context("in split")
+func (fi forkInstance) Underdefined() Error {
+	return fi.underdefined.Context("in fork")
 }
 
-func runSplit(input Input, outputs []Output) {
+func runFork(input Input, outputs []Output) {
 	for fieldName, subInput := range input.Fields {
 		var subOutputs []Output
 		for _, output := range outputs {
@@ -31,7 +31,7 @@ func runSplit(input Input, outputs []Output) {
 				subOutputs = append(subOutputs, subOutput)
 			}
 		}
-		go runSplit(subInput, subOutputs)
+		go runFork(subInput, subOutputs)
 	}
 	if input.Unit != nil {
 		var unitChans []chan<- Unit
@@ -49,12 +49,12 @@ func runSplit(input Input, outputs []Output) {
 	}
 }
 
-func (splitInstance) Run(input Input, output Output) {
+func (forkInstance) Run(input Input, output Output) {
 	outputs := make([]Output, len(output.Fields))
 	i := 0
 	for _, subOutput := range output.Fields {
 		outputs[i] = subOutput
 		i++
 	}
-	runSplit(input, outputs)
+	runFork(input, outputs)
 }
