@@ -157,7 +157,7 @@ func typeString(out *strings.Builder, t DType, indent []byte) {
 		for fieldName, fieldType := range t.Fields {
 			out.Write(subIndent)
 			out.WriteString(fieldName)
-			out.WriteString(":!")
+			out.WriteString(":-")
 			typeString(out, fieldType, subIndent)
 			out.WriteString("\n")
 		}
@@ -167,7 +167,7 @@ func typeString(out *strings.Builder, t DType, indent []byte) {
 		for fieldName, fieldType := range t.Fields {
 			out.Write(subSubIndent)
 			out.WriteString(fieldName)
-			out.WriteString(":!")
+			out.WriteString(":-")
 			typeString(out, fieldType, subIndent)
 			out.WriteString("\n")
 		}

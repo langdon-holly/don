@@ -18,6 +18,7 @@ type Syntax struct {
 	//  Tag == SpacedSyntaxTag ||
 	//  Tag == MCallSyntaxTag ||
 	//  Tag == SandwichSyntaxTag
+	// Nonempty for SpacedSyntaxTag
 	// 1 element for MCallSyntaxTag; 2 elements for SandwichSyntaxTag
 	Children []Syntax
 

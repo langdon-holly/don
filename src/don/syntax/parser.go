@@ -128,71 +128,57 @@ func (state *name) Done() (syntax Syntax, bad []string) {
 }
 
 type macroCallOrSandwich struct {
-	SubName      name
-	SubMacroCall *macroCallOrSandwich
-	Sandwich     bool
-	NoSandwich   bool
-	LHS          Syntax
+	SubName                name
+	SubMacroCallOrSandwich *macroCallOrSandwich
+	SubMacroCallP          bool
+	LHS                    Syntax
 }
 
 // impl parser
 func (state *macroCallOrSandwich) Next(e token) (bad []string) {
-	if state.SubMacroCall != nil {
-		bad = state.SubMacroCall.Next(e)
+	if state.SubMacroCallOrSandwich != nil {
+		if bad = state.SubMacroCallOrSandwich.Next(e); bad == nil {
+		} else if state.SubMacroCallP {
+			bad = append(bad, "in parameter to macro")
+		} else {
+			bad = append(bad, "in sandwich liner")
+		}
 	} else if e.IsByte(bang) {
-		if state.Sandwich {
-			bad = []string{"Sandwich macro"}
-		} else if state.LHS, bad = state.SubName.Done(); true {
-			if bad == nil && state.LHS.Tag != NameSyntaxTag {
-				bad = []string{"Non-name macro name"}
-			}
-			if bad != nil {
-				bad = append(bad, "in macro name")
-			} else {
-				state.SubMacroCall = new(macroCallOrSandwich)
-				state.SubMacroCall.NoSandwich = true
-			}
+		state.LHS, bad = state.SubName.Done()
+		if bad == nil && state.LHS.Tag != NameSyntaxTag {
+			bad = []string{"Non-name macro name"}
+		}
+		if bad != nil {
+			bad = append(bad, "in macro name")
+		} else {
+			state.SubMacroCallOrSandwich = new(macroCallOrSandwich)
+			state.SubMacroCallP = true
 		}
 	} else if e.IsByte(hyphen) {
-		if state.NoSandwich {
-			bad = []string{"Macro sandwich"}
-		} else if nameHere := &state.LHS; true {
-			if state.Sandwich {
-				state.LHS = Syntax{
-					Tag: SandwichSyntaxTag, Children: []Syntax{state.LHS, {}}}
-				nameHere = &state.LHS.Children[1]
-			}
-			if *nameHere, bad = state.SubName.Done(); bad != nil {
-				bad = append(bad, "in sandwich liner")
-			} else {
-				state.SubName = macroCallOrSandwich{}.SubName
-				state.Sandwich = true
-			}
+		state.LHS, bad = state.SubName.Done()
+		if bad != nil {
+			bad = append(bad, "in sandwich bread")
+		} else {
+			state.SubMacroCallOrSandwich = new(macroCallOrSandwich)
 		}
-	} else if bad = state.SubName.Next(e); bad != nil && state.Sandwich {
-		bad = append(bad, "in sandwich bread")
+	} else if bad = state.SubName.Next(e); true {
 	}
 	return
 }
 func (state *macroCallOrSandwich) Done() (syntax Syntax, bad []string) {
-	if state.SubMacroCall == nil {
-		nameHere := &state.LHS
-		if state.Sandwich {
-			state.LHS = Syntax{
-				Tag: SandwichSyntaxTag, Children: []Syntax{state.LHS, {}}}
-			nameHere = &state.LHS.Children[1]
-		}
-		*nameHere, bad = state.SubName.Done()
-		syntax = state.LHS
-		if bad != nil && state.Sandwich {
-			bad = append(bad, "in sandwich bread")
-		}
-	} else {
+	if state.SubMacroCallOrSandwich == nil {
+		syntax, bad = state.SubName.Done()
+	} else if state.SubMacroCallP {
 		syntax = state.LHS
 		syntax.Tag = MCallSyntaxTag
 		syntax.Children = []Syntax{{}}
-		if syntax.Children[0], bad = state.SubMacroCall.Done(); bad != nil {
+		if syntax.Children[0], bad = state.SubMacroCallOrSandwich.Done(); bad != nil {
 			bad = append(bad, "in parameter to macro")
+		}
+	} else {
+		syntax = Syntax{Tag: SandwichSyntaxTag, Children: []Syntax{state.LHS, {}}}
+		if syntax.Children[1], bad = state.SubMacroCallOrSandwich.Done(); bad != nil {
+			bad = append(bad, "in sandwich liner")
 		}
 	}
 	return

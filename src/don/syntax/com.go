@@ -42,16 +42,8 @@ func (s Syntax) ToCom(context Com) Com {
 		}
 		return coms.PipeCom(pipeComs)
 	case MCallSyntaxTag:
-		child := s.Children[0]
-		if s.LeftMarker {
-			if s.RightMarker {
-				panic("Doubly-marked macro")
-			} else {
-				return coms.PipeCom([]Com{coms.DeselectCom(s.Name), child.ToCom(context), coms.SelectCom(s.Name)})
-			}
-		} else if s.RightMarker {
-			return coms.PipeCom([]Com{coms.SelectCom(s.Name), child.ToCom(context), coms.DeselectCom(s.Name)})
-		} else {
+		if !s.LeftMarker && !s.RightMarker {
+			child := s.Children[0]
 			switch s.Name {
 			case "rec":
 				return coms.RecCom{Inner: child.ToCom(context)}
@@ -61,6 +53,7 @@ func (s Syntax) ToCom(context Com) Com {
 				return child.ToCom(context).Inverse()
 			}
 			panic("Unknown macro")
+		} else if panic("Doubly-marked macro"); true {
 		}
 	case NameSyntaxTag:
 		if s.LeftMarker {
@@ -78,9 +71,9 @@ func (s Syntax) ToCom(context Com) Com {
 		return context
 	case SandwichSyntaxTag:
 		return coms.PipeCom([]Com{
+			s.Children[0].ToCom(context).Inverse(),
 			s.Children[1].ToCom(context),
-			s.Children[0].ToCom(context),
-			s.Children[1].ToCom(context).Inverse()})
+			s.Children[0].ToCom(context)})
 	}
 	panic("Unreachable")
 }
