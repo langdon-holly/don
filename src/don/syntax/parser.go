@@ -6,21 +6,6 @@ import (
 	"strings"
 )
 
-const (
-	tab        byte = 9
-	lf         byte = 10
-	space      byte = 32
-	bang       byte = 33
-	hash       byte = 35
-	dollar     byte = 36
-	leftParen  byte = 40
-	rightParen byte = 41
-	hyphen     byte = 45
-	colon      byte = 58
-	backslash  byte = 92
-	underscore byte = 95
-)
-
 func readByte(r io.Reader) (b byte, ok bool) {
 	var bs [1]byte
 	for {
@@ -350,5 +335,10 @@ func ParseTop(inReader io.Reader) Syntax {
 	doBad(escapeDone(escaped))
 	s, bad := parensParser.Done()
 	doBad(bad)
+	if s.Tag != ListSyntaxTag {
+		panic("Unreachable")
+	} else if len(s.Children) != 1 {
+		panic("Not one top-level child")
+	}
 	return s.Children[0]
 }

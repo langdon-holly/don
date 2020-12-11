@@ -1,6 +1,9 @@
 package coms
 
-import . "don/core"
+import (
+	. "don/core"
+	"don/syntax"
+)
 
 type SelectCom string
 
@@ -24,7 +27,8 @@ func (si *selectInstance) Types() {
 	si.inputType.Meets(siInputType)
 }
 func (si selectInstance) Underdefined() Error {
-	return si.outputType.Underdefined().Context("in output from select field " + si.FieldName)
+	return si.outputType.Underdefined().Context(
+		"in output from select field " + syntax.EscapeFieldName(si.FieldName))
 }
 func (si selectInstance) Run(input Input, output Output) {
 	if len(si.inputType.Fields) > 0 {

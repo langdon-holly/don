@@ -1,6 +1,9 @@
 package coms
 
-import . "don/core"
+import (
+	. "don/core"
+	"don/syntax"
+)
 
 type DeselectCom string
 
@@ -25,7 +28,7 @@ func (di *deselectInstance) Types() {
 }
 func (di deselectInstance) Underdefined() Error {
 	return di.inputType.Underdefined().Context(
-		"in input to deselect field " + di.FieldName)
+		"in input to deselect field " + syntax.EscapeFieldName(di.FieldName))
 }
 func (di deselectInstance) Run(input Input, output Output) {
 	if len(di.outputType.Fields) > 0 {

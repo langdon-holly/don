@@ -4,6 +4,8 @@ import (
 	"strings"
 )
 
+import "don/syntax"
+
 // DType
 
 // DTypes form a Boolean algebra
@@ -158,13 +160,13 @@ func typeString(out *strings.Builder, t DType, indent []byte) {
 		out.WriteString("fields")
 		for fieldName := range t.Fields {
 			out.WriteString(" withoutField!")
-			out.WriteString(fieldName)
+			out.WriteString(syntax.EscapeFieldName(fieldName))
 		}
 		out.WriteString("\n")
 	}
 	for fieldName, fieldType := range t.Fields {
 		out.Write(subIndent)
-		out.WriteString(fieldName)
+		out.WriteString(syntax.EscapeFieldName(fieldName))
 		out.WriteString(":-")
 		typeString(out, fieldType, subIndent)
 		out.WriteString("\n")

@@ -2,6 +2,8 @@ package core
 
 import "strings"
 
+import "don/syntax"
+
 // nil or nonempty
 type Error []string
 
@@ -16,7 +18,7 @@ func (e Error) Context(msg string) Error {
 	}
 }
 func (e Error) InField(fieldName string) Error {
-	return e.Context("in field " + fieldName)
+	return e.Context("in field " + syntax.EscapeFieldName(fieldName))
 }
 
 func (e0 *Error) Ors(e1 Error) *Error {

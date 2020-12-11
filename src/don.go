@@ -6,6 +6,7 @@ import (
 )
 
 import (
+	"don/coms"
 	. "don/core"
 	"don/syntax"
 	"don/types"
@@ -40,7 +41,7 @@ func main() {
 
 	hopefulOutputType := types.Uint9Type
 
-	comI := syntax.ParseTop(ifile).ToCom(syntax.DefContext).Instantiate()
+	comI := coms.ComFromSyntax(syntax.ParseTop(ifile), coms.DefContext).Instantiate()
 	comI.InputType().Meets(hopefulInputType)
 
 	checkTypes(comI, hopefulInputType, hopefulOutputType)
