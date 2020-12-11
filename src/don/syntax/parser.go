@@ -310,10 +310,9 @@ func ParseTop(inReader io.Reader) Syntax {
 	var parensParser parens
 	for {
 		var t token
-		if escaped, t = escapeNext(escaped, b); escaped {
-			continue
+		if escaped, t = escapeNext(escaped, b); !escaped {
+			doBad(parensParser.Next(t))
 		}
-		doBad(parensParser.Next(t))
 		if b, ok = readByte(inReader); !ok {
 			break
 		}
