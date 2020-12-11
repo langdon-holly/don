@@ -59,6 +59,14 @@ func ComFromSyntax(s syntax.Syntax, context Com) Com {
 				} else {
 					panic("Marked parameter to withoutField: " + child.String())
 				}
+			case "bind":
+				if child.Tag == syntax.ListSyntaxTag {
+					for _, childChild := range child.Children {
+						context = ComFromSyntax(childChild, context)
+					}
+					return context
+				} else if panic("Non-list parameter to bind"); true {
+				}
 			}
 			panic("Unknown macro: " + syntax.Syntax{Name: s.Name}.String())
 		} else if panic("Marked macro name: " + syntax.Syntax{Name: s.Name}.String()); true {

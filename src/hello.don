@@ -1,0 +1,136 @@
+bind!(
+	<-(
+		withoutField!halfAdder withoutField!halfAdderFromTheFuture withoutField!fullAdder $
+
+		halfAdder:-(<| (
+			(
+				0:
+				0:
+			) ||> :0 :0
+			(
+				1:
+				0:
+			) ||> <| (
+				:1 :0
+				:0 :1
+			) >
+			(
+				0:
+				1:
+			) ||> :1 :1
+		) > prod)
+
+		halfAdderFromTheFuture:-<|-(
+			(
+				0:
+				0:
+			) ||> <|| (
+				:0
+				:0
+			)
+			(
+				1:
+				0:
+			) ||> <|-(
+				<|| (
+					:0
+					:1
+				)
+				<|| (
+					:1
+					:0
+				)
+			)
+			(
+				0:
+				1:
+			) ||> <|| (
+				:1
+				:1
+			)
+		)
+
+		fullAdder:-(<| (
+			(
+				0:
+				0:
+			) ||> :0 :0 :0
+			(
+				1:
+				0:
+			) ||> <| (
+				:1 :0 :0
+				:0 :1 :0
+				:0 :0 :1
+			) >
+			(
+				0:
+				1:
+			) ||> <| (
+				:1 :1 :0
+				:1 :0 :1
+				:0 :1 :1
+			) >
+			(
+				1:
+				1:
+			) ||> :1 :1 :1
+		) > prod)
+	)
+
+	(:>-~!(withoutField!<)-$)-(
+		map!:out
+		8:-:2
+	) <-(
+		< (
+			7: out:
+			8: 2:
+		) fullAdder :7
+		I
+	) <-(
+		< (
+			6: out:
+			7: 2:
+		) fullAdder :6
+		I
+	) <-(
+		< (
+			5: out:
+			6: 2:
+		) fullAdder :5
+		I
+	) <-(
+		< (
+			4: out:
+			5: 2:
+		) fullAdder :4
+		I
+	) <-(
+		< (
+			3: out:
+			4: 2:
+		) fullAdder :3
+		I
+	) <-(
+		< (
+			2: out:
+			3: 2:
+		) fullAdder :2
+		I
+	) <-(
+		< (
+			1: out:
+			2: 2:
+		) fullAdder :1
+		I
+	) <-(
+		< (
+			0: out:
+			1: 2:
+		) halfAdder :0
+		I
+	) < (
+		map!0:
+		map!1:
+	)
+)
