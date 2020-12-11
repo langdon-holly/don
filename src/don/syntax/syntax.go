@@ -6,9 +6,9 @@ const (
 	ListSyntaxTag = SyntaxTag(iota)
 	SpacedSyntaxTag
 	MCallSyntaxTag
+	SandwichSyntaxTag
 	NameSyntaxTag
 	ContextSyntaxTag
-	SandwichSyntaxTag
 )
 
 type Syntax struct {
