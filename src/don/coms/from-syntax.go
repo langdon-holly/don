@@ -42,39 +42,37 @@ func ComFromSyntax(s syntax.Syntax, context Com) Com {
 		}
 		return PipeCom(pipeComs)
 	case syntax.MCallSyntaxTag:
-		if !s.LeftMarker && !s.RightMarker {
-			child := s.Children[0]
-			switch s.Name {
+		name := s.Children[0]
+		if name.Tag != syntax.NameSyntaxTag {
+			panic("Non-name macro name")
+		} else if !name.LeftMarker && !name.RightMarker {
+			param := s.Children[1]
+			switch name.Name {
 			case "rec":
-				return RecCom{Inner: ComFromSyntax(child, context)}
+				return RecCom{Inner: ComFromSyntax(param, context)}
 			case "map":
-				return MapCom{Com: ComFromSyntax(child, context)}
+				return MapCom{Com: ComFromSyntax(param, context)}
 			case "~":
-				return ComFromSyntax(child, context).Inverse()
+				return ComFromSyntax(param, context).Inverse()
 			case "withoutField":
-				if child.Tag != syntax.NameSyntaxTag {
+				if param.Tag != syntax.NameSyntaxTag {
 					panic("Non-name parameter to withoutField")
-				} else if !child.LeftMarker && !child.RightMarker {
-					return ICom(NullType.At(child.Name))
+				} else if !param.LeftMarker && !param.RightMarker {
+					return ICom(NullType.At(param.Name))
 				} else {
-					panic("Marked parameter to withoutField: " + child.String())
+					panic("Marked parameter to withoutField: " + param.String())
 				}
 			case "context":
-				if child.Tag == syntax.ListSyntaxTag {
-					for _, childChild := range child.Children {
-						context = ComFromSyntax(childChild, context)
+				if param.Tag == syntax.ListSyntaxTag {
+					for _, paramChild := range param.Children {
+						context = ComFromSyntax(paramChild, context)
 					}
 					return context
 				} else if panic("Non-list parameter to bind"); true {
 				}
 			}
-			panic("Unknown macro: " +
-				syntax.Syntax{Tag: syntax.NameSyntaxTag, Name: s.Name}.String())
-		} else if panic("Marked macro name: " + syntax.Syntax{
-			Tag:         syntax.NameSyntaxTag,
-			LeftMarker:  s.LeftMarker,
-			RightMarker: s.RightMarker,
-			Name:        s.Name}.String()); true {
+			panic("Unknown macro: " + name.String())
+		} else if panic("Marked macro name: " + name.String()); true {
 		}
 	case syntax.SandwichSyntaxTag:
 		return PipeCom([]Com{

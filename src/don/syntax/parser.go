@@ -121,9 +121,6 @@ func (state *macroCallOrSandwich) Next(e token) (bad []string) {
 		}
 	} else if e.IsByte(bang) {
 		state.LHS, bad = state.SubName.Done()
-		if bad == nil && state.LHS.Tag != NameSyntaxTag {
-			bad = []string{"Non-name macro name"}
-		}
 		if bad != nil {
 			bad = append(bad, "in macro name")
 		} else {
@@ -145,10 +142,8 @@ func (state *macroCallOrSandwich) Done() (syntax Syntax, bad []string) {
 	if state.SubMacroCallOrSandwich == nil {
 		syntax, bad = state.SubName.Done()
 	} else if state.SubMacroCallP {
-		syntax = state.LHS
-		syntax.Tag = MCallSyntaxTag
-		syntax.Children = []Syntax{{}}
-		if syntax.Children[0], bad = state.SubMacroCallOrSandwich.Done(); bad != nil {
+		syntax = Syntax{Tag: MCallSyntaxTag, Children: []Syntax{state.LHS, {}}}
+		if syntax.Children[1], bad = state.SubMacroCallOrSandwich.Done(); bad != nil {
 			bad = append(bad, "in parameter to macro")
 		}
 	} else {

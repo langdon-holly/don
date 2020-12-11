@@ -18,9 +18,10 @@ type Syntax struct {
 	//  Tag == MCallSyntaxTag ||
 	//  Tag == SandwichSyntaxTag
 	// Nonempty for SpacedSyntaxTag
-	// 1 element for MCallSyntaxTag; 2 elements for SandwichSyntaxTag
+	// 2 elements for MCallSyntaxTag or SandwichSyntaxTag
 	Children []Syntax
 
-	LeftMarker, RightMarker bool   /* for Tag == NameSyntaxTag || Tag == MCallSyntaxTag */
-	Name                    string /* for Tag == NameSyntaxTag || Tag == MCallSyntaxTag */
+	// for Tag == NameSyntaxTag
+	LeftMarker, RightMarker bool
+	Name                    string
 }
