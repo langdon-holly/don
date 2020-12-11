@@ -15,7 +15,7 @@ func entry(fieldName string, inner Com) Com {
 var DefContext = coms.PipeCom([]Com{coms.ScatterCom{}, coms.ParCom([]Com{
 	entry("I", coms.ICom(UnknownType)),
 	entry("unit", coms.ICom(UnitType)),
-	entry("struct", coms.ICom(StructType)),
+	entry("fields", coms.ICom(FieldsType)),
 	entry("null", coms.NullCom{}),
 	entry("<", coms.GatherCom{}),
 	entry(">", coms.ScatterCom{}),
@@ -51,14 +51,21 @@ func (s Syntax) ToCom(context Com) Com {
 				return coms.MapCom{Com: child.ToCom(context)}
 			case "~":
 				return child.ToCom(context).Inverse()
+			case "withoutField":
+				if child.Tag != NameSyntaxTag {
+					panic("Non-name parameter to withoutField")
+				} else if !child.LeftMarker && !child.RightMarker {
+					return coms.ICom(NullType.At(child.Name))
+				} else if panic("Marked parameter to withoutField"); true {
+				}
 			}
 			panic("Unknown macro")
-		} else if panic("Doubly-marked macro"); true {
+		} else if panic("Marked macro name"); true {
 		}
 	case NameSyntaxTag:
 		if s.LeftMarker {
 			if s.RightMarker {
-				panic("Doubly-marked macro: :" + s.Name + ":")
+				panic("Doubly-marked variable: :" + s.Name + ":")
 			} else {
 				return coms.SelectCom(s.Name)
 			}

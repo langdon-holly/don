@@ -2,7 +2,7 @@ package types
 
 import . "don/core"
 
-var BitType DType = MakeNStructType(2)
+var BitType DType = MakeNFieldsType(2)
 
 func init() {
 	BitType.Fields["0"] = UnitType

@@ -73,7 +73,7 @@ define(full_adder, <| (
 	) ||> :1 :1 :1
 ) > prod)
 
-(:>-~!$)-(
+(:>-~!(withoutField!<)-$)-(
 	map!:out
 	8:-:2
 ) <-(

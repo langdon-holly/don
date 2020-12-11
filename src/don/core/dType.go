@@ -17,12 +17,12 @@ type DType struct {
 
 var UnknownType DType
 var UnitType = DType{Positive: true}
-var StructType = DType{NoUnit: true}
+var FieldsType = DType{NoUnit: true}
 var NullType = DType{NoUnit: true, Positive: true}
 
 func NullPtr() *DType { nt := NullType; return &nt }
 
-func MakeNStructType(nFields int) DType {
+func MakeNFieldsType(nFields int) DType {
 	return DType{NoUnit: true, Positive: true, Fields: make(map[string]DType, nFields)}
 }
 
@@ -153,26 +153,21 @@ func typeString(out *strings.Builder, t DType, indent []byte) {
 		out.Write(subIndent)
 		out.WriteString("unit\n")
 	}
-	if t.Positive {
-		for fieldName, fieldType := range t.Fields {
-			out.Write(subIndent)
-			out.WriteString(fieldName)
-			out.WriteString(":-")
-			typeString(out, fieldType, subIndent)
-			out.WriteString("\n")
-		}
-	} else {
-		subSubIndent := append(subIndent, byte('\t'))
-		out.WriteString("negative!(\n")
-		for fieldName, fieldType := range t.Fields {
-			out.Write(subSubIndent)
-			out.WriteString(fieldName)
-			out.WriteString(":-")
-			typeString(out, fieldType, subIndent)
-			out.WriteString("\n")
-		}
+	if !t.Positive {
 		out.Write(subIndent)
-		out.WriteString(")\n")
+		out.WriteString("fields")
+		for fieldName := range t.Fields {
+			out.WriteString(" withoutField!")
+			out.WriteString(fieldName)
+		}
+		out.WriteString("\n")
+	}
+	for fieldName, fieldType := range t.Fields {
+		out.Write(subIndent)
+		out.WriteString(fieldName)
+		out.WriteString(":-")
+		typeString(out, fieldType, subIndent)
+		out.WriteString("\n")
 	}
 	out.Write(indent)
 	out.WriteString(")")
@@ -188,7 +183,7 @@ func FanAffineTypes(many, one *DType) Error {
 		*many = NullType
 	} else {
 		many.RemakeFields()
-		if many.Meets(StructType); many.Positive {
+		if many.Meets(FieldsType); many.Positive {
 			join := NullType
 			for fieldName, fieldType := range many.Fields {
 				fieldType.Meets(*one)

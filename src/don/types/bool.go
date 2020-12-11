@@ -2,7 +2,7 @@ package types
 
 import . "don/core"
 
-var BoolType DType = MakeNStructType(2)
+var BoolType DType = MakeNFieldsType(2)
 
 func init() {
 	BoolType.Fields["T"] = UnitType

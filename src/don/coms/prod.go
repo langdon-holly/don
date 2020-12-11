@@ -9,7 +9,7 @@ import (
 type ProdCom struct{}
 
 func (ProdCom) Instantiate() ComInstance {
-	return &prodInstance{inputType: StructType}
+	return &prodInstance{inputType: FieldsType}
 }
 
 func (ProdCom) Inverse() Com { return UnimplementedInverseCom{ProdCom{}} }

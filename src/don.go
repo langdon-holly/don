@@ -34,7 +34,7 @@ func checkTypes(comI ComInstance, hopefulInputType, hopefulOutputType DType) {
 func main() {
 	ifile := os.Stdin
 
-	hopefulInputType := MakeNStructType(2)
+	hopefulInputType := MakeNFieldsType(2)
 	hopefulInputType.Fields["0"] = types.Uint8Type
 	hopefulInputType.Fields["1"] = types.Uint8Type
 

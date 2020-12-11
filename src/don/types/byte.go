@@ -2,7 +2,7 @@ package types
 
 import . "don/core"
 
-var ByteType = MakeNStructType(8)
+var ByteType = MakeNFieldsType(8)
 
 func init() {
 	ByteType.Fields["0"] = BoolType

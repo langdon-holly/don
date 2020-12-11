@@ -19,7 +19,7 @@ func (di *deselectInstance) InputType() *DType  { return &di.inputType }
 func (di *deselectInstance) OutputType() *DType { return &di.outputType }
 func (di *deselectInstance) Types() {
 	di.inputType.Meets(di.outputType.Get(di.FieldName))
-	diOutputType := MakeNStructType(1)
+	diOutputType := MakeNFieldsType(1)
 	diOutputType.Fields[di.FieldName] = di.inputType
 	di.outputType.Meets(diOutputType)
 }

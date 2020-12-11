@@ -7,7 +7,7 @@ import (
 
 type YetCom struct{}
 
-var yetComInputType = MakeNStructType(2)
+var yetComInputType = MakeNFieldsType(2)
 
 func init() {
 	yetComInputType.Fields[""] = UnitType

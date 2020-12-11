@@ -2,7 +2,7 @@ package types
 
 import . "don/core"
 
-var Uint9Type = MakeNStructType(9)
+var Uint9Type = MakeNFieldsType(9)
 
 func init() {
 	Uint9Type.Fields["0"] = BitType

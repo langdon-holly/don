@@ -8,7 +8,7 @@ type ParCom []Com
 
 func (pc ParCom) Instantiate() ComInstance {
 	inners := make(map[int]ComInstance, len(pc))
-	ioType := MakeNStructType(len(pc))
+	ioType := MakeNFieldsType(len(pc))
 	for i, subCom := range pc {
 		inners[i] = subCom.Instantiate()
 		ioType.Fields[strconv.Itoa(i)] = UnknownType

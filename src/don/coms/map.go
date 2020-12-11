@@ -5,7 +5,7 @@ import . "don/core"
 type MapCom struct{ Com Com }
 
 func (mc MapCom) Instantiate() ComInstance {
-	return &mapInstance{Com: mc.Com, inputType: StructType, outputType: StructType}
+	return &mapInstance{Com: mc.Com, inputType: FieldsType, outputType: FieldsType}
 }
 
 func (mc MapCom) Inverse() Com { return MapCom{Com: mc.Com.Inverse()} }

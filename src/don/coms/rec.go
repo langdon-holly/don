@@ -4,7 +4,7 @@ import . "don/core"
 
 type RecCom struct{ Inner Com }
 
-var recComInOutType = MakeNStructType(2)
+var recComInOutType = MakeNFieldsType(2)
 
 func init() {
 	recComInOutType.Fields["rec"] = UnknownType
