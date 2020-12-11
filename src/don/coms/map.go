@@ -2,19 +2,19 @@ package coms
 
 import . "don/core"
 
-type MapCom struct{ Com }
+type MapCom struct{ Com Com }
 
 func (mc MapCom) Instantiate() ComInstance {
 	return &mapInstance{Com: mc.Com, inputType: StructType, outputType: StructType}
 }
 
-func (mc MapCom) Inverse() Com { return MapCom{mc.Com.Inverse()} }
+func (mc MapCom) Inverse() Com { return MapCom{Com: mc.Com.Inverse()} }
 
 type mapInstance struct {
 	InnerP bool
 
 	// for !InnerP
-	Com
+	Com                   Com
 	inputType, outputType DType
 
 	// for InnerP
