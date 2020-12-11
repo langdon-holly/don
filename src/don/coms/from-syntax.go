@@ -59,7 +59,7 @@ func ComFromSyntax(s syntax.Syntax, context Com) Com {
 				} else {
 					panic("Marked parameter to withoutField: " + child.String())
 				}
-			case "bind":
+			case "context":
 				if child.Tag == syntax.ListSyntaxTag {
 					for _, childChild := range child.Children {
 						context = ComFromSyntax(childChild, context)
@@ -68,9 +68,19 @@ func ComFromSyntax(s syntax.Syntax, context Com) Com {
 				} else if panic("Non-list parameter to bind"); true {
 				}
 			}
-			panic("Unknown macro: " + syntax.Syntax{Name: s.Name}.String())
-		} else if panic("Marked macro name: " + syntax.Syntax{Name: s.Name}.String()); true {
+			panic("Unknown macro: " +
+				syntax.Syntax{Tag: syntax.NameSyntaxTag, Name: s.Name}.String())
+		} else if panic("Marked macro name: " + syntax.Syntax{
+			Tag:         syntax.NameSyntaxTag,
+			LeftMarker:  s.LeftMarker,
+			RightMarker: s.RightMarker,
+			Name:        s.Name}.String()); true {
 		}
+	case syntax.SandwichSyntaxTag:
+		return PipeCom([]Com{
+			ComFromSyntax(s.Children[0], context).Inverse(),
+			ComFromSyntax(s.Children[1], context),
+			ComFromSyntax(s.Children[0], context)})
 	case syntax.NameSyntaxTag:
 		if s.LeftMarker {
 			if s.RightMarker {
@@ -83,13 +93,6 @@ func ComFromSyntax(s syntax.Syntax, context Com) Com {
 		} else {
 			return PipeCom([]Com{DeselectCom(s.Name), context, SelectCom(s.Name)})
 		}
-	case syntax.ContextSyntaxTag:
-		return context
-	case syntax.SandwichSyntaxTag:
-		return PipeCom([]Com{
-			ComFromSyntax(s.Children[0], context).Inverse(),
-			ComFromSyntax(s.Children[1], context),
-			ComFromSyntax(s.Children[0], context)})
 	}
 	panic("Unreachable")
 }

@@ -8,7 +8,6 @@ const (
 	MCallSyntaxTag
 	SandwichSyntaxTag
 	NameSyntaxTag
-	ContextSyntaxTag
 )
 
 type Syntax struct {

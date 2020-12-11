@@ -6,7 +6,6 @@ const (
 	space      byte = 32
 	bang       byte = 33
 	hash       byte = 35
-	dollar     byte = 36
 	leftParen  byte = 40
 	rightParen byte = 41
 	hyphen     byte = 45
@@ -21,7 +20,6 @@ func byteIsSpecial(b byte) bool {
 		b == space ||
 		b == bang ||
 		b == hash ||
-		b == dollar ||
 		b == leftParen ||
 		b == rightParen ||
 		b == hyphen ||

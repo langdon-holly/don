@@ -1,6 +1,7 @@
-bind!(
+context!(
 	<-(
-		withoutField!halfAdder withoutField!halfAdderFromTheFuture withoutField!fullAdder $
+		withoutField!halfAdder withoutField!halfAdderFromTheFuture withoutField!fullAdder context!(
+		)
 
 		halfAdder:-(<| (
 			(
@@ -78,7 +79,7 @@ bind!(
 		) > prod)
 	)
 
-	(:>-~!(withoutField!<)-$)-(
+	<-(
 		map!:out
 		8:-:2
 	) <-(

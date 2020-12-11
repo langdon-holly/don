@@ -60,27 +60,20 @@ type parser interface {
 }
 
 type name struct {
-	Namep, Contextp, Preparsed bool
-	Nonemptyp                  bool
-	LeftMarker, RightMarker    bool
-	B                          strings.Builder
-	PPSyntax                   Syntax
+	Namep, Preparsed        bool
+	Nonemptyp               bool
+	LeftMarker, RightMarker bool
+	B                       strings.Builder
+	PPSyntax                Syntax
 }
 
 // impl parser
 func (state *name) Next(e token) (bad []string) {
 	if state.Preparsed || state.Namep && e.Tag == syntaxTokenTag {
 		bad = []string{"Subelement in name"}
-	} else if state.Contextp {
-		bad = []string{"Nonterminal context"}
 	} else if e.Tag == syntaxTokenTag {
 		state.Preparsed = true
 		state.PPSyntax = e.Syntax
-	} else if e.IsByte(dollar) {
-		if state.Namep {
-			bad = []string{"Noninitial context"}
-		} else if state.Contextp = true; true {
-		}
 	} else if state.RightMarker {
 		bad = []string{"Nonterminal right colon"}
 	} else if state.Namep = true; e.IsByte(underscore) {
@@ -102,8 +95,6 @@ func (state *name) Done() (syntax Syntax, bad []string) {
 		syntax.LeftMarker = state.LeftMarker
 		syntax.RightMarker = state.RightMarker
 		syntax.Name = state.B.String()
-	} else if state.Contextp {
-		syntax.Tag = ContextSyntaxTag
 	} else if state.Preparsed {
 		syntax = state.PPSyntax
 	} else {
