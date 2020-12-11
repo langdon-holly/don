@@ -1,6 +1,6 @@
 context!(
 	<-(
-		withoutField!halfAdder withoutField!halfAdderFromTheFuture withoutField!fullAdder context!(
+		(withoutField!halfAdder)-(withoutField!halfAdderFromTheFuture)-(withoutField!fullAdder)-context!(
 		)
 
 		halfAdder:-(<| (
