@@ -320,10 +320,7 @@ func ParseTop(inReader io.Reader) Syntax {
 	doBad(escapeDone(escaped))
 	s, bad := parensParser.Done()
 	doBad(bad)
-	if s.Tag != ListSyntaxTag {
-		panic("Unreachable")
-	} else if len(s.Children) != 1 {
-		panic("Not one top-level child")
-	}
-	return s.Children[0]
+	return Syntax{
+		Tag:      MCallSyntaxTag,
+		Children: []Syntax{{Tag: NameSyntaxTag, Name: "context"}, s}}
 }
