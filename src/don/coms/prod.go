@@ -2,9 +2,7 @@ package coms
 
 import "strconv"
 
-import (
-	. "don/core"
-)
+import . "don/core"
 
 type ProdCom struct{}
 
@@ -12,7 +10,7 @@ func (ProdCom) Instantiate() ComInstance {
 	return &prodInstance{inputType: FieldsType}
 }
 
-func (ProdCom) Inverse() Com { return UnimplementedInverseCom{ProdCom{}} }
+func (ProdCom) Inverse() Com { return InverseProdCom{} }
 
 type prodInstance struct{ inputType, outputType DType }
 

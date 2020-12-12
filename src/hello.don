@@ -1,23 +1,23 @@
 <-(
 	(withoutField!halfAdder)-context!(
 	)
-	halfAdder:-(<| (
+	halfAdder:-((
 		(
-			0:
-			0:
-		) ||> :0 :0
+			unit
+			unit
+		)
 		(
-			1:
-			0:
-		) ||> <| (
+			unit
+			unit
+		)
+	) (~!prod)-<-(
+		0: 0: :0 :0
+		1: 0: <| (
 			:1 :0
 			:0 :1
 		) >
-		(
-			0:
-			1:
-		) ||> :1 :1
-	) > prod)
+		0: 1: :1 :1
+	))
 )
 #<-(
 	(withoutField!halfAdderFromTheFuture)-context!(
