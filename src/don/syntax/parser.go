@@ -230,9 +230,14 @@ func (state *list) Next(e token) (bad []string) {
 				return
 			} else if !state.Commented {
 				state.Children = append(state.Children, subS)
+			} else if state.Children = append(
+				state.Children,
+				Syntax{Tag: CommentSyntaxTag, Children: []Syntax{subS}}); true {
 			}
 			state.Midline = false
 			state.Sub = list{}.Sub
+		} else {
+			state.Children = append(state.Children, Syntax{Tag: EmptyLineSyntaxTag})
 		}
 		state.Commented = false
 	} else if e.IsByte(tab) {

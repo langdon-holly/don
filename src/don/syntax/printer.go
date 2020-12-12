@@ -19,10 +19,17 @@ func syntaxString(out *strings.Builder, s Syntax, indent []byte, topLevel bool) 
 		}
 		out.WriteString("\n")
 		for _, line := range s.Children {
-			out.Write(subIndent)
+			if line.Tag != EmptyLineSyntaxTag {
+				out.Write(subIndent)
+			}
 			subSyntaxString(out, line, subIndent, ListSyntaxTag+1)
 			out.WriteString("\n")
 		}
+		out.Write(indent)
+	case EmptyLineSyntaxTag:
+	case CommentSyntaxTag:
+		out.WriteString("#")
+		subSyntaxString(out, s.Children[0], indent, CommentSyntaxTag+1)
 	case SpacedSyntaxTag:
 		subSyntaxString(out, s.Children[0], indent, SpacedSyntaxTag+1)
 		for i := 1; i < len(s.Children); i++ {

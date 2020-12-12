@@ -30,11 +30,18 @@ var DefContext = PipeCom([]Com{ScatterCom{}, ParCom([]Com{
 func ComFromSyntax(s syntax.Syntax, context Com) Com {
 	switch s.Tag {
 	case syntax.ListSyntaxTag:
-		parComs := make([]Com, len(s.Children))
-		for i, line := range s.Children {
-			parComs[i] = ComFromSyntax(line, context)
+		var parComs []Com
+		for _, line := range s.Children {
+			if line.Tag != syntax.EmptyLineSyntaxTag &&
+				line.Tag != syntax.CommentSyntaxTag {
+				parComs = append(parComs, ComFromSyntax(line, context))
+			}
 		}
 		return ParCom(parComs)
+	case syntax.EmptyLineSyntaxTag:
+		panic("Com from empty line")
+	case syntax.CommentSyntaxTag:
+		panic("Com from comment")
 	case syntax.SpacedSyntaxTag:
 		pipeComs := make([]Com, len(s.Children))
 		for i, subS := range s.Children {
@@ -65,7 +72,10 @@ func ComFromSyntax(s syntax.Syntax, context Com) Com {
 			case "context":
 				if param.Tag == syntax.ListSyntaxTag {
 					for _, paramChild := range param.Children {
-						context = ComFromSyntax(paramChild, context)
+						if paramChild.Tag != syntax.EmptyLineSyntaxTag &&
+							paramChild.Tag != syntax.CommentSyntaxTag {
+							context = ComFromSyntax(paramChild, context)
+						}
 					}
 					return context
 				} else if panic("Non-list parameter to bind"); true {
