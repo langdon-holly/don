@@ -20,7 +20,7 @@ func (YetCom) Instantiate() ComInstance {
 		outputType: types.BoolType}
 }
 
-func (YetCom) Inverse() Com { return UnimplementedInverseCom{Inner: YetCom{}} }
+func (YetCom) Inverse() Com { return InverseYetCom{} }
 
 type yetInstance struct{ inputType, outputType DType }
 
