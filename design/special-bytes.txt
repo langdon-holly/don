@@ -9,7 +9,7 @@ space	  used : tight separator
 !	  used : macro call
 @	unused
 #	  used : comment
-$	  used : context
+$	unused
 %	unused
 ^	unused
 &	unused
