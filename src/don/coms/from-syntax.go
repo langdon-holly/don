@@ -32,16 +32,13 @@ func ComFromSyntax(s syntax.Syntax, context Com) Com {
 	case syntax.ListSyntaxTag:
 		var parComs []Com
 		for _, line := range s.Children {
-			if line.Tag != syntax.EmptyLineSyntaxTag &&
-				line.Tag != syntax.CommentSyntaxTag {
+			if line.Tag != syntax.EmptyLineSyntaxTag {
 				parComs = append(parComs, ComFromSyntax(line, context))
 			}
 		}
 		return ParCom(parComs)
 	case syntax.EmptyLineSyntaxTag:
 		panic("Com from empty line")
-	case syntax.CommentSyntaxTag:
-		panic("Com from comment")
 	case syntax.SpacedSyntaxTag:
 		pipeComs := make([]Com, len(s.Children))
 		for i, subS := range s.Children {
@@ -72,14 +69,17 @@ func ComFromSyntax(s syntax.Syntax, context Com) Com {
 			case "context":
 				if param.Tag == syntax.ListSyntaxTag {
 					for _, paramChild := range param.Children {
-						if paramChild.Tag != syntax.EmptyLineSyntaxTag &&
-							paramChild.Tag != syntax.CommentSyntaxTag {
+						if paramChild.Tag != syntax.EmptyLineSyntaxTag {
 							context = ComFromSyntax(paramChild, context)
 						}
 					}
 					return context
 				} else if panic("Non-list parameter to bind"); true {
 				}
+			case "#":
+				return NullCom{}
+			case "##":
+				return context
 			}
 			panic("Unknown macro: " + name.String())
 		} else if panic("Marked macro name: " + name.String()); true {

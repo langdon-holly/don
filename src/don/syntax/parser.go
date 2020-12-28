@@ -200,7 +200,6 @@ type list struct {
 	InitLF      bool
 	Passthrough bool
 	Midline     bool
-	Commented   bool
 	Sub         spaced
 	Children    []Syntax
 }
@@ -208,9 +207,7 @@ type list struct {
 // impl parser
 func (state *list) Next(e token) (bad []string) {
 	if state.Passthrough {
-		if e.IsByte(lf) ||
-			e.IsByte(tab) ||
-			e.IsByte(hash) {
+		if e.IsByte(lf) || e.IsByte(tab) {
 			bad = []string{"List-specific byte but no initial LF"}
 		} else {
 			bad = state.Sub.Next(e)
@@ -228,30 +225,18 @@ func (state *list) Next(e token) (bad []string) {
 			if subS, bad = state.Sub.Done(); bad != nil {
 				bad = append(bad, "at EOL in list")
 				return
-			} else if !state.Commented {
-				state.Children = append(state.Children, subS)
-			} else if state.Children = append(
-				state.Children,
-				Syntax{Tag: CommentSyntaxTag, Children: []Syntax{subS}}); true {
+			} else if state.Children = append(state.Children, subS); true {
 			}
 			state.Midline = false
 			state.Sub = list{}.Sub
 		} else {
 			state.Children = append(state.Children, Syntax{Tag: EmptyLineSyntaxTag})
 		}
-		state.Commented = false
-	} else if e.IsByte(tab) {
-		if state.Midline {
-			bad = []string{"Unindenting tab"}
-		}
-	} else if !e.IsByte(hash) {
+	} else if !e.IsByte(tab) {
 		bad = state.Sub.Next(e)
 		state.Midline = true
 	} else if state.Midline {
-		bad = []string{"End-of-line comment"}
-	} else {
-		state.Midline = true
-		state.Commented = true
+		bad = []string{"Unindenting tab"}
 	}
 	return
 }

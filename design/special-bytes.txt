@@ -8,7 +8,7 @@ space	  used : tight separator
 ~	unused
 !	  used : macro call
 @	unused
-#	  used : comment
+#	unused
 $	unused
 %	unused
 ^	unused
