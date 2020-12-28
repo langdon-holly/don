@@ -74,12 +74,37 @@ func ComFromSyntax(s syntax.Syntax, context Com) Com {
 						}
 					}
 					return context
-				} else if panic("Non-list parameter to bind"); true {
+				} else if panic("Non-list parameter to context"); true {
 				}
 			case "#":
 				return NullCom{}
 			case "##":
 				return context
+			case "def":
+				if param.Tag != syntax.ListSyntaxTag {
+					panic("Non-list parameter to def")
+				} else if len(param.Children) != 2 {
+					panic("Non-doubleton parameter to def")
+				} else if param.Children[0].Tag != syntax.SpacedSyntaxTag ||
+					len(param.Children[0].Children) != 1 ||
+					param.Children[0].Children[0].Tag != syntax.NameSyntaxTag {
+					panic("Non-name name in parameter to def")
+				} else if name := param.Children[0].Children[0]; name.LeftMarker || name.RightMarker {
+					panic("Marked name in parameter to def")
+				} else if true {
+					return PipeCom([]Com{
+						ScatterCom{},
+						ParCom([]Com{
+							PipeCom([]Com{context, ICom(NullType.At(name.Name))}),
+							PipeCom([]Com{
+								SelectCom(name.Name),
+								ComFromSyntax(param.Children[1], context),
+								DeselectCom(name.Name),
+							}),
+						}),
+						GatherCom{},
+					})
+				}
 			}
 			panic("Unknown macro: " + name.String())
 		} else if panic("Marked macro name: " + name.String()); true {

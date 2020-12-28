@@ -1,7 +1,6 @@
-<-(
-	(withoutField!halfAdder)-context!(
-	)
-	halfAdder:-((
+def!(
+	halfAdder
+	(
 		(
 			unit
 			unit
@@ -17,13 +16,12 @@
 			:0 :1
 		) >
 		0: 1: :1 :1
-	))
+	)
 )
 
-##!<-(
-	(withoutField!halfAdderFromTheFuture)-context!(
-	)
-	halfAdderFromTheFuture:-<|-(
+##!def!(
+	halfAdderFromTheFuture
+	<|-(
 		(
 			0:
 			0:
@@ -54,10 +52,9 @@
 	)
 )
 
-<-(
-	(withoutField!fullAdder)-context!(
-	)
-	fullAdder:-(<| (
+def!(
+	fullAdder
+	<| (
 		(
 			0:
 			0:
@@ -82,7 +79,7 @@
 			1:
 			1:
 		) ||> :1 :1 :1
-	) > prod)
+	) > prod
 )
 
 <-(
