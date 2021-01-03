@@ -27,20 +27,20 @@ func syntaxString(out *strings.Builder, s Syntax, indent []byte, topLevel bool) 
 		}
 		out.Write(indent)
 	case EmptyLineSyntaxTag:
-	case SpacedSyntaxTag:
-		subSyntaxString(out, s.Children[0], indent, SpacedSyntaxTag+1)
+	case CompositionSyntaxTag:
+		subSyntaxString(out, s.Children[0], indent, CompositionSyntaxTag+1)
 		for i := 1; i < len(s.Children); i++ {
 			out.WriteString(" ")
-			subSyntaxString(out, s.Children[i], indent, SpacedSyntaxTag+1)
+			subSyntaxString(out, s.Children[i], indent, CompositionSyntaxTag+1)
 		}
-	case MCallSyntaxTag:
+	case ApplicationSyntaxTag:
 		subSyntaxString(out, s.Children[0], indent, SandwichSyntaxTag+1)
 		out.WriteString("!")
-		subSyntaxString(out, s.Children[1], indent, MCallSyntaxTag)
+		subSyntaxString(out, s.Children[1], indent, ApplicationSyntaxTag)
 	case SandwichSyntaxTag:
 		subSyntaxString(out, s.Children[0], indent, SandwichSyntaxTag+1)
 		out.WriteString("-")
-		subSyntaxString(out, s.Children[1], indent, MCallSyntaxTag)
+		subSyntaxString(out, s.Children[1], indent, ApplicationSyntaxTag)
 	case NameSyntaxTag:
 		if s.LeftMarker {
 			out.WriteString(":")

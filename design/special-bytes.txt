@@ -1,12 +1,12 @@
 Byte	Status : Purpose
 ----	----------------
 tab	  used : indentation
-LF	  used : loose separator
+LF	  used : list
 CR	unused
-space	  used : tight separator
+space	  used : composition
 `	unused
 ~	unused
-!	  used : macro call
+!	  used : application
 @	unused
 #	unused
 $	unused

@@ -39,13 +39,13 @@ func ComFromSyntax(s syntax.Syntax, context Com) Com {
 		return ParCom(parComs)
 	case syntax.EmptyLineSyntaxTag:
 		panic("Com from empty line")
-	case syntax.SpacedSyntaxTag:
+	case syntax.CompositionSyntaxTag:
 		pipeComs := make([]Com, len(s.Children))
 		for i, subS := range s.Children {
 			pipeComs[len(s.Children)-1-i] = ComFromSyntax(subS, context)
 		}
 		return PipeCom(pipeComs)
-	case syntax.MCallSyntaxTag:
+	case syntax.ApplicationSyntaxTag:
 		name := s.Children[0]
 		if name.Tag != syntax.NameSyntaxTag {
 			panic("Non-name macro name")
@@ -85,7 +85,7 @@ func ComFromSyntax(s syntax.Syntax, context Com) Com {
 					panic("Non-list parameter to def")
 				} else if len(param.Children) != 2 {
 					panic("Non-doubleton parameter to def")
-				} else if param.Children[0].Tag != syntax.SpacedSyntaxTag ||
+				} else if param.Children[0].Tag != syntax.CompositionSyntaxTag ||
 					len(param.Children[0].Children) != 1 ||
 					param.Children[0].Children[0].Tag != syntax.NameSyntaxTag {
 					panic("Non-name name in parameter to def")

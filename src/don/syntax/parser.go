@@ -103,94 +103,94 @@ func (state *name) Done() (syntax Syntax, bad []string) {
 	return
 }
 
-type macroCallOrSandwich struct {
-	SubName                name
-	SubMacroCallOrSandwich *macroCallOrSandwich
-	SubMacroCallP          bool
-	LHS                    Syntax
+type applicationOrSandwich struct {
+	SubName                  name
+	SubApplicationOrSandwich *applicationOrSandwich
+	SubApplicationP          bool
+	LHS                      Syntax
 }
 
 // impl parser
-func (state *macroCallOrSandwich) Next(e token) (bad []string) {
-	if state.SubMacroCallOrSandwich != nil {
-		if bad = state.SubMacroCallOrSandwich.Next(e); bad == nil {
-		} else if state.SubMacroCallP {
-			bad = append(bad, "in parameter to macro")
+func (state *applicationOrSandwich) Next(e token) (bad []string) {
+	if state.SubApplicationOrSandwich != nil {
+		if bad = state.SubApplicationOrSandwich.Next(e); bad == nil {
+		} else if state.SubApplicationP {
+			bad = append(bad, "in application parameter")
 		} else {
 			bad = append(bad, "in sandwich liner")
 		}
 	} else if e.IsByte(bang) {
 		state.LHS, bad = state.SubName.Done()
 		if bad != nil {
-			bad = append(bad, "in macro name")
+			bad = append(bad, "in application computer")
 		} else {
-			state.SubMacroCallOrSandwich = new(macroCallOrSandwich)
-			state.SubMacroCallP = true
+			state.SubApplicationOrSandwich = new(applicationOrSandwich)
+			state.SubApplicationP = true
 		}
 	} else if e.IsByte(hyphen) {
 		state.LHS, bad = state.SubName.Done()
 		if bad != nil {
 			bad = append(bad, "in sandwich bread")
 		} else {
-			state.SubMacroCallOrSandwich = new(macroCallOrSandwich)
+			state.SubApplicationOrSandwich = new(applicationOrSandwich)
 		}
 	} else if bad = state.SubName.Next(e); true {
 	}
 	return
 }
-func (state *macroCallOrSandwich) Done() (syntax Syntax, bad []string) {
-	if state.SubMacroCallOrSandwich == nil {
+func (state *applicationOrSandwich) Done() (syntax Syntax, bad []string) {
+	if state.SubApplicationOrSandwich == nil {
 		syntax, bad = state.SubName.Done()
-	} else if state.SubMacroCallP {
-		syntax = Syntax{Tag: MCallSyntaxTag, Children: []Syntax{state.LHS, {}}}
-		if syntax.Children[1], bad = state.SubMacroCallOrSandwich.Done(); bad != nil {
-			bad = append(bad, "in parameter to macro")
+	} else if state.SubApplicationP {
+		syntax = Syntax{Tag: ApplicationSyntaxTag, Children: []Syntax{state.LHS, {}}}
+		if syntax.Children[1], bad = state.SubApplicationOrSandwich.Done(); bad != nil {
+			bad = append(bad, "in application parameter")
 		}
 	} else {
 		syntax = Syntax{Tag: SandwichSyntaxTag, Children: []Syntax{state.LHS, {}}}
-		if syntax.Children[1], bad = state.SubMacroCallOrSandwich.Done(); bad != nil {
+		if syntax.Children[1], bad = state.SubApplicationOrSandwich.Done(); bad != nil {
 			bad = append(bad, "in sandwich liner")
 		}
 	}
 	return
 }
 
-type spaced struct {
+type composition struct {
 	Midfactor bool
-	Sub       macroCallOrSandwich
+	Sub       applicationOrSandwich
 	Children  []Syntax
 }
 
 // impl parser
-func (state *spaced) Next(e token) (bad []string) {
+func (state *composition) Next(e token) (bad []string) {
 	if !e.IsByte(space) {
 		state.Midfactor = true
 		bad = state.Sub.Next(e)
 	} else if state.Midfactor {
 		var subS Syntax
 		if subS, bad = state.Sub.Done(); bad != nil {
-			bad = append(bad, "in spaced")
+			bad = append(bad, "in composition")
 			return
 		}
 		state.Midfactor = false
-		state.Sub = spaced{}.Sub
+		state.Sub = composition{}.Sub
 		state.Children = append(state.Children, subS)
 	} else {
 		bad = []string{"Too much space"}
 	}
 	return
 }
-func (state *spaced) Done() (syntax Syntax, bad []string) {
+func (state *composition) Done() (syntax Syntax, bad []string) {
 	if state.Midfactor {
 		var subS Syntax
 		if subS, bad = state.Sub.Done(); bad != nil {
-			bad = append(bad, "in spaced")
+			bad = append(bad, "in composition")
 			return
 		}
-		syntax.Tag = SpacedSyntaxTag
+		syntax.Tag = CompositionSyntaxTag
 		syntax.Children = append(state.Children, subS)
 	} else {
-		bad = []string{"Spaced didn't end with factor"}
+		bad = []string{"Composition didn't end with factor"}
 	}
 	return
 }
@@ -200,7 +200,7 @@ type list struct {
 	InitLF      bool
 	Passthrough bool
 	Midline     bool
-	Sub         spaced
+	Sub         composition
 	Children    []Syntax
 }
 
@@ -311,6 +311,6 @@ func ParseTop(inReader io.Reader) Syntax {
 	s, bad := parensParser.Done()
 	doBad(bad)
 	return Syntax{
-		Tag:      MCallSyntaxTag,
+		Tag:      ApplicationSyntaxTag,
 		Children: []Syntax{{Tag: NameSyntaxTag, Name: "context"}, s}}
 }
