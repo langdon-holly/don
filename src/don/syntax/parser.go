@@ -103,61 +103,9 @@ func (state *name) Done() (syntax Syntax, bad []string) {
 	return
 }
 
-type applicationOrSandwich struct {
-	SubName                  name
-	SubApplicationOrSandwich *applicationOrSandwich
-	SubApplicationP          bool
-	LHS                      Syntax
-}
-
-// impl parser
-func (state *applicationOrSandwich) Next(e token) (bad []string) {
-	if state.SubApplicationOrSandwich != nil {
-		if bad = state.SubApplicationOrSandwich.Next(e); bad == nil {
-		} else if state.SubApplicationP {
-			bad = append(bad, "in application parameter")
-		} else {
-			bad = append(bad, "in sandwich liner")
-		}
-	} else if e.IsByte(bang) {
-		state.LHS, bad = state.SubName.Done()
-		if bad != nil {
-			bad = append(bad, "in application computer")
-		} else {
-			state.SubApplicationOrSandwich = new(applicationOrSandwich)
-			state.SubApplicationP = true
-		}
-	} else if e.IsByte(hyphen) {
-		state.LHS, bad = state.SubName.Done()
-		if bad != nil {
-			bad = append(bad, "in sandwich bread")
-		} else {
-			state.SubApplicationOrSandwich = new(applicationOrSandwich)
-		}
-	} else if bad = state.SubName.Next(e); true {
-	}
-	return
-}
-func (state *applicationOrSandwich) Done() (syntax Syntax, bad []string) {
-	if state.SubApplicationOrSandwich == nil {
-		syntax, bad = state.SubName.Done()
-	} else if state.SubApplicationP {
-		syntax = Syntax{Tag: ApplicationSyntaxTag, Children: []Syntax{state.LHS, {}}}
-		if syntax.Children[1], bad = state.SubApplicationOrSandwich.Done(); bad != nil {
-			bad = append(bad, "in application parameter")
-		}
-	} else {
-		syntax = Syntax{Tag: SandwichSyntaxTag, Children: []Syntax{state.LHS, {}}}
-		if syntax.Children[1], bad = state.SubApplicationOrSandwich.Done(); bad != nil {
-			bad = append(bad, "in sandwich liner")
-		}
-	}
-	return
-}
-
 type composition struct {
 	Midfactor bool
-	Sub       applicationOrSandwich
+	Sub       name
 	Children  []Syntax
 }
 
@@ -195,12 +143,91 @@ func (state *composition) Done() (syntax Syntax, bad []string) {
 	return
 }
 
+type application struct {
+	OpProgress int
+	Sub        composition
+	ComP       bool
+	Com        Syntax
+}
+
+var spaceToken = token{Tag: byteTokenTag, B: space}
+
+func maybeInParam(bad *[]string, state *application) {
+	if state.ComP {
+		*bad = append(*bad, "in application parameter")
+	}
+}
+
+// impl parser
+func (state *application) Next(e token) (bad []string) {
+	if state.OpProgress == 0 {
+		if e.IsByte(space) {
+			state.OpProgress++
+		} else if e.IsByte(bang) {
+			bad = []string{"Bang not after space"}
+			maybeInParam(&bad, state)
+		} else if bad = state.Sub.Next(e); bad != nil {
+			maybeInParam(&bad, state)
+		}
+	} else if state.OpProgress == 1 {
+		if e.IsByte(space) {
+			bad = []string{"Too much space"}
+			maybeInParam(&bad, state)
+		} else if e.IsByte(bang) {
+			state.OpProgress++
+			subS := &state.Com
+			if state.ComP {
+				state.Com = Syntax{Tag: ApplicationSyntaxTag, Children: []Syntax{state.Com, {}}}
+				subS = &state.Com.Children[1]
+			}
+			if *subS, bad = state.Sub.Done(); bad != nil {
+				maybeInParam(&bad, state)
+				bad = append(bad, "in application computer")
+			}
+			state.Sub = application{}.Sub
+			state.ComP = true
+		} else if state.OpProgress = 0; true {
+			if bad = state.Sub.Next(spaceToken); bad != nil {
+				maybeInParam(&bad, state)
+			} else if bad = state.Sub.Next(e); bad != nil {
+				maybeInParam(&bad, state)
+			}
+		}
+	} else if state.OpProgress = 0; !e.IsByte(space) {
+		bad = []string{"Bang not before space"}
+		maybeInParam(&bad, state)
+	}
+	return
+}
+func (state *application) Done() (syntax Syntax, bad []string) {
+	if state.OpProgress == 2 {
+		bad = []string{"Nothing after bang"}
+		maybeInParam(&bad, state)
+		return
+	}
+	if state.OpProgress == 1 {
+		if bad = state.Sub.Next(spaceToken); bad != nil {
+			maybeInParam(&bad, state)
+			return
+		}
+	}
+	subS := &syntax
+	if state.ComP {
+		syntax = Syntax{Tag: ApplicationSyntaxTag, Children: []Syntax{state.Com, {}}}
+		subS = &syntax.Children[1]
+	}
+	if *subS, bad = state.Sub.Done(); bad != nil {
+		maybeInParam(&bad, state)
+	}
+	return
+}
+
 // Only Sub (and Passthrough) for Passthrough
 type list struct {
 	InitLF      bool
 	Passthrough bool
 	Midline     bool
-	Sub         composition
+	Sub         application
 	Children    []Syntax
 }
 

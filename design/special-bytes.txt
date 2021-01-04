@@ -3,7 +3,7 @@ Byte	Status : Purpose
 tab	  used : indentation
 LF	  used : list
 CR	unused
-space	  used : composition
+space	  used : composition, application
 `	unused
 ~	unused
 !	  used : application
@@ -17,7 +17,7 @@ $	unused
 (	  used : start
 )	  used : end
 _	  used : empty identifier
--	  used : sandwich
+-	unused
 =	unused
 +	unused
 [	unused
