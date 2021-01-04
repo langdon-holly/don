@@ -3,8 +3,8 @@ Byte	Status : Purpose
 tab	  used : indentation
 LF	  used : list
 CR	unused
-space	  used : composition, application
-`	unused
+space	  used : composition, application, quotation
+`	  used : quotation
 ~	unused
 !	  used : application
 @	unused

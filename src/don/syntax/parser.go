@@ -137,15 +137,62 @@ func (state *composition) Done() (syntax Syntax, bad []string) {
 		}
 		syntax.Tag = CompositionSyntaxTag
 		syntax.Children = append(state.Children, subS)
+		if len(syntax.Children) == 1 {
+			syntax = syntax.Children[0]
+		}
 	} else {
 		bad = []string{"Composition didn't end with factor"}
 	}
 	return
 }
 
-type application struct {
+type quotation struct {
 	OpProgress int
 	Sub        composition
+	Quotes     int
+}
+
+func (state *quotation) Next(e token) (bad []string) {
+	if state.OpProgress == 2 {
+		if bad = state.Sub.Next(e); bad != nil {
+			for ; state.Quotes > 0; state.Quotes-- {
+				bad = append(bad, "in quotation")
+			}
+		}
+	} else if state.OpProgress == 1 {
+		if state.OpProgress = 0; !e.IsByte(space) {
+			bad = []string{"Non-space after backtick"}
+		}
+	} else if e.IsByte(backtick) {
+		state.OpProgress++
+		state.Quotes++
+	} else if state.OpProgress = 2; true {
+		if bad = state.Sub.Next(e); bad != nil {
+			for ; state.Quotes > 0; state.Quotes-- {
+				bad = append(bad, "in quotation")
+			}
+		}
+	}
+	return
+}
+func (state *quotation) Done() (syntax Syntax, bad []string) {
+	if state.OpProgress == 1 {
+		bad = []string{"Nothing after backtick"}
+	} else if syntax, bad = state.Sub.Done(); bad == nil {
+		for ; state.Quotes > 0; state.Quotes-- {
+			syntax = Syntax{Tag: QuotationSyntaxTag, Children: []Syntax{syntax}}
+		}
+	} else {
+		for ; state.Quotes > 0; state.Quotes-- {
+			bad = append(bad, "in quotation")
+		}
+	}
+	return
+}
+
+type application struct {
+	OpProgress int
+	Sub        quotation
 	ComP       bool
 	Com        Syntax
 }
@@ -338,6 +385,8 @@ func ParseTop(inReader io.Reader) Syntax {
 	s, bad := parensParser.Done()
 	doBad(bad)
 	return Syntax{
-		Tag:      ApplicationSyntaxTag,
-		Children: []Syntax{{Tag: NameSyntaxTag, Name: "context"}, s}}
+		Tag: ApplicationSyntaxTag,
+		Children: []Syntax{
+			{Tag: NameSyntaxTag, Name: "context"},
+			{Tag: QuotationSyntaxTag, Children: []Syntax{s}}}}
 }

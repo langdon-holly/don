@@ -2,10 +2,11 @@ package syntax
 
 type SyntaxTag int
 
-const (
+const ( /* Order matters, for printing */
 	ListSyntaxTag      = SyntaxTag(iota)
 	EmptyLineSyntaxTag /* child only of list */
 	ApplicationSyntaxTag
+	QuotationSyntaxTag
 	CompositionSyntaxTag
 	NameSyntaxTag
 )
@@ -15,8 +16,10 @@ type Syntax struct {
 
 	// for Tag == ListSyntaxTag ||
 	//  Tag == ApplicationSyntaxTag ||
+	//  Tag == QuotationSyntaxTag ||
 	//  Tag == CompositionSyntaxTag ||
 	// 2 elements for ApplicationSyntaxTag
+	// 1 element for QuotationSyntaxTag
 	// Nonempty for CompositionSyntaxTag
 	Children []Syntax
 

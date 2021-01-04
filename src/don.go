@@ -41,7 +41,7 @@ func main() {
 
 	hopefulOutputType := types.Uint9Type
 
-	comI := coms.ComFromSyntax(syntax.ParseTop(ifile), coms.DefContext).Instantiate()
+	comI := coms.Eval(syntax.ParseTop(ifile), coms.DefContext).Com().Instantiate()
 	comI.InputType().Meets(hopefulInputType)
 
 	checkTypes(comI, hopefulInputType, hopefulOutputType)
