@@ -146,60 +146,16 @@ func (state *composition) Done() (syntax Syntax, bad []string) {
 	return
 }
 
-type quotation struct {
-	OpProgress int
-	Sub        composition
-	Quotes     int
-}
-
-func (state *quotation) Next(e token) (bad []string) {
-	if state.OpProgress == 2 {
-		if bad = state.Sub.Next(e); bad != nil {
-			for ; state.Quotes > 0; state.Quotes-- {
-				bad = append(bad, "in quotation")
-			}
-		}
-	} else if state.OpProgress == 1 {
-		if state.OpProgress = 0; !e.IsByte(space) {
-			bad = []string{"Non-space after backtick"}
-		}
-	} else if e.IsByte(backtick) {
-		state.OpProgress++
-		state.Quotes++
-	} else if state.OpProgress = 2; true {
-		if bad = state.Sub.Next(e); bad != nil {
-			for ; state.Quotes > 0; state.Quotes-- {
-				bad = append(bad, "in quotation")
-			}
-		}
-	}
-	return
-}
-func (state *quotation) Done() (syntax Syntax, bad []string) {
-	if state.OpProgress == 1 {
-		bad = []string{"Nothing after backtick"}
-	} else if syntax, bad = state.Sub.Done(); bad == nil {
-		for ; state.Quotes > 0; state.Quotes-- {
-			syntax = Syntax{Tag: QuotationSyntaxTag, Children: []Syntax{syntax}}
-		}
-	} else {
-		for ; state.Quotes > 0; state.Quotes-- {
-			bad = append(bad, "in quotation")
-		}
-	}
-	return
-}
-
 type application struct {
 	OpProgress int
-	Sub        quotation
+	Sub        composition
 	ComP       bool
 	Com        Syntax
 }
 
 var spaceToken = token{Tag: byteTokenTag, B: space}
 
-func maybeInParam(bad *[]string, state *application) {
+func (state *application) maybeInParam(bad *[]string /* mutated */) {
 	if state.ComP {
 		*bad = append(*bad, "in application parameter")
 	}
@@ -212,14 +168,14 @@ func (state *application) Next(e token) (bad []string) {
 			state.OpProgress++
 		} else if e.IsByte(bang) {
 			bad = []string{"Bang not after space"}
-			maybeInParam(&bad, state)
+			state.maybeInParam(&bad)
 		} else if bad = state.Sub.Next(e); bad != nil {
-			maybeInParam(&bad, state)
+			state.maybeInParam(&bad)
 		}
 	} else if state.OpProgress == 1 {
 		if e.IsByte(space) {
 			bad = []string{"Too much space"}
-			maybeInParam(&bad, state)
+			state.maybeInParam(&bad)
 		} else if e.IsByte(bang) {
 			state.OpProgress++
 			subS := &state.Com
@@ -228,33 +184,33 @@ func (state *application) Next(e token) (bad []string) {
 				subS = &state.Com.Children[1]
 			}
 			if *subS, bad = state.Sub.Done(); bad != nil {
-				maybeInParam(&bad, state)
+				state.maybeInParam(&bad)
 				bad = append(bad, "in application computer")
 			}
 			state.Sub = application{}.Sub
 			state.ComP = true
 		} else if state.OpProgress = 0; true {
 			if bad = state.Sub.Next(spaceToken); bad != nil {
-				maybeInParam(&bad, state)
+				state.maybeInParam(&bad)
 			} else if bad = state.Sub.Next(e); bad != nil {
-				maybeInParam(&bad, state)
+				state.maybeInParam(&bad)
 			}
 		}
 	} else if state.OpProgress = 0; !e.IsByte(space) {
 		bad = []string{"Bang not before space"}
-		maybeInParam(&bad, state)
+		state.maybeInParam(&bad)
 	}
 	return
 }
 func (state *application) Done() (syntax Syntax, bad []string) {
 	if state.OpProgress == 2 {
 		bad = []string{"Nothing after bang"}
-		maybeInParam(&bad, state)
+		state.maybeInParam(&bad)
 		return
 	}
 	if state.OpProgress == 1 {
 		if bad = state.Sub.Next(spaceToken); bad != nil {
-			maybeInParam(&bad, state)
+			state.maybeInParam(&bad)
 			return
 		}
 	}
@@ -264,7 +220,7 @@ func (state *application) Done() (syntax Syntax, bad []string) {
 		subS = &syntax.Children[1]
 	}
 	if *subS, bad = state.Sub.Done(); bad != nil {
-		maybeInParam(&bad, state)
+		state.maybeInParam(&bad)
 	}
 	return
 }
@@ -328,31 +284,69 @@ func (state *list) Done() (syntax Syntax, bad []string) {
 	return
 }
 
-type parens struct {
-	Subs []list
-	Sub  list
+type circumfix struct {
+	Subs   []list
+	Quotes []bool
+	Sub    list
 }
 
 // impl parser
-func (state *parens) Next(e token) (bad []string) {
+func (state *circumfix) Next(e token) (bad []string) {
 	var subS Syntax
 	if e.IsByte(leftParen) {
 		state.Subs = append(state.Subs, state.Sub)
-		state.Sub = parens{}.Sub
-	} else if !e.IsByte(rightParen) {
+		state.Sub = circumfix{}.Sub
+		state.Quotes = append(state.Quotes, false)
+	} else if e.IsByte(rightParen) {
+		if len(state.Subs) == 0 {
+			bad = []string{"Not enough left-parens"}
+		} else if state.Quotes[len(state.Quotes)-1] {
+			bad = []string{"Brace starts, paren ends"}
+		} else if subS, bad = state.Sub.Done(); bad == nil {
+			state.Sub = state.Subs[len(state.Subs)-1]
+			state.Subs = state.Subs[:len(state.Subs)-1]
+			state.Quotes = state.Quotes[:len(state.Quotes)-1]
+			bad = state.Sub.Next(token{Tag: syntaxTokenTag, Syntax: subS})
+		}
+	} else if e.IsByte(leftBrace) {
+		state.Subs = append(state.Subs, state.Sub)
+		state.Sub = circumfix{}.Sub
+		state.Quotes = append(state.Quotes, true)
+	} else if e.IsByte(rightBrace) {
+		if len(state.Subs) == 0 {
+			bad = []string{"Not enough left-braces"}
+		} else if !state.Quotes[len(state.Quotes)-1] {
+			bad = []string{"Paren starts, brace ends"}
+		} else if subS, bad = state.Sub.Done(); bad == nil {
+			state.Sub = state.Subs[len(state.Subs)-1]
+			state.Subs = state.Subs[:len(state.Subs)-1]
+			state.Quotes = state.Quotes[:len(state.Quotes)-1]
+			bad = state.Sub.Next(token{
+				Tag:    syntaxTokenTag,
+				Syntax: Syntax{Tag: QuotationSyntaxTag, Children: []Syntax{subS}}})
+		}
+	} else {
 		bad = state.Sub.Next(e)
-	} else if len(state.Subs) == 0 {
-		bad = []string{"Not enough left-parens"}
-	} else if subS, bad = state.Sub.Done(); bad == nil {
-		state.Sub = state.Subs[len(state.Subs)-1]
-		state.Subs = state.Subs[:len(state.Subs)-1]
-		bad = state.Sub.Next(token{Tag: syntaxTokenTag, Syntax: subS})
+	}
+	if bad != nil {
+		for i := len(state.Quotes) - 1; i >= 0; i-- {
+			if state.Quotes[i] {
+				bad = append(bad, "in quotation")
+			} else if bad = append(bad, "in parentheses"); true {
+			}
+		}
 	}
 	return
 }
-func (state *parens) Done() (syntax Syntax, bad []string) {
+func (state *circumfix) Done() (syntax Syntax, bad []string) {
 	if len(state.Subs) > 0 {
-		bad = []string{"Not enough right-parens"}
+		bad = []string{"Not enough right delimiters"}
+		for i := len(state.Quotes) - 1; i >= 0; i-- {
+			if state.Quotes[i] {
+				bad = append(bad, "in quotation")
+			} else if bad = append(bad, "in parentheses"); true {
+			}
+		}
 	} else {
 		syntax, bad = state.Sub.Done()
 	}
@@ -371,18 +365,18 @@ func doBad(bad []string) {
 func ParseTop(inReader io.Reader) Syntax {
 	b, ok := lf, true
 	var escaped bool
-	var parensParser parens
+	var circumfixParser circumfix
 	for {
 		var t token
 		if escaped, t = escapeNext(escaped, b); !escaped {
-			doBad(parensParser.Next(t))
+			doBad(circumfixParser.Next(t))
 		}
 		if b, ok = readByte(inReader); !ok {
 			break
 		}
 	}
 	doBad(escapeDone(escaped))
-	s, bad := parensParser.Done()
+	s, bad := circumfixParser.Done()
 	doBad(bad)
 	return Syntax{
 		Tag: ApplicationSyntaxTag,

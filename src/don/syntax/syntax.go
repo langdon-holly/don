@@ -6,9 +6,9 @@ const ( /* Order matters, for printing */
 	ListSyntaxTag      = SyntaxTag(iota)
 	EmptyLineSyntaxTag /* child only of list */
 	ApplicationSyntaxTag
-	QuotationSyntaxTag
 	CompositionSyntaxTag
 	NameSyntaxTag
+	QuotationSyntaxTag
 )
 
 type Syntax struct {

@@ -3,8 +3,8 @@ Byte	Status : Purpose
 tab	  used : indentation
 LF	  used : list
 CR	unused
-space	  used : composition, application, quotation
-`	  used : quotation
+space	  used : composition, application
+`	unused
 ~	unused
 !	  used : application
 @	unused
@@ -22,8 +22,8 @@ _	  used : empty identifier
 +	unused
 [	unused
 ]	unused
-{	unused
-}	unused
+{	  used : start quotation
+}	  used : end quotation
 \	  used : escape byte
 |	unused
 ;	unused

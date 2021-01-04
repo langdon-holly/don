@@ -10,7 +10,8 @@ const (
 	colon      byte = 58
 	backslash  byte = 92
 	underscore byte = 95
-	backtick   byte = 96
+	leftBrace  byte = 123
+	rightBrace byte = 125
 )
 
 func byteIsSpecial(b byte) bool {
@@ -23,5 +24,6 @@ func byteIsSpecial(b byte) bool {
 		b == colon ||
 		b == backslash ||
 		b == underscore ||
-		b == backtick
+		b == leftBrace ||
+		b == rightBrace
 }

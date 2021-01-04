@@ -146,8 +146,6 @@ func eval(s Syntax, c Context) interface{} {
 		panic("Eval empty line")
 	case ApplicationSyntaxTag:
 		return Eval(s.Children[0], c).Apply(Eval(s.Children[1], c)).It
-	case QuotationSyntaxTag:
-		return s.Children[0]
 	case CompositionSyntaxTag:
 		rs := make([]EvalResult, len(s.Children))
 		for i, subS := range s.Children {
@@ -181,6 +179,8 @@ func eval(s Syntax, c Context) interface{} {
 		} else {
 			return PipeCom([]Com{DeselectCom(s.Name), c.Com, SelectCom(s.Name)})
 		}
+	case QuotationSyntaxTag:
+		return s.Children[0]
 	}
 	panic("Unreachable")
 }

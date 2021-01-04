@@ -31,9 +31,6 @@ func syntaxString(out *strings.Builder, s Syntax, indent []byte, topLevel bool) 
 		subSyntaxString(out, s.Children[0], indent, ApplicationSyntaxTag)
 		out.WriteString(" ! ")
 		subSyntaxString(out, s.Children[1], indent, ApplicationSyntaxTag+1)
-	case QuotationSyntaxTag:
-		out.WriteString("` ")
-		subSyntaxString(out, s.Children[0], indent, QuotationSyntaxTag)
 	case CompositionSyntaxTag:
 		subSyntaxString(out, s.Children[0], indent, CompositionSyntaxTag+1)
 		for i := 1; i < len(s.Children); i++ {
@@ -56,6 +53,10 @@ func syntaxString(out *strings.Builder, s Syntax, indent []byte, topLevel bool) 
 		if s.RightMarker {
 			out.WriteString(":")
 		}
+	case QuotationSyntaxTag:
+		out.WriteString("{")
+		subSyntaxString(out, s.Children[0], indent, 0)
+		out.WriteString("}")
 	}
 	return
 }
