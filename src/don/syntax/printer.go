@@ -2,15 +2,15 @@ package syntax
 
 import "strings"
 
-func subSyntaxString(out *strings.Builder, s Syntax, indent []byte, precedence SyntaxTag) {
+func (s Syntax) subWriteString(out *strings.Builder, indent []byte, precedence SyntaxTag) {
 	if s.Tag < precedence {
 		out.WriteString("(")
-		syntaxString(out, s, indent, false)
+		s.writeString(out, indent, false)
 		out.WriteString(")")
-	} else if syntaxString(out, s, indent, false); true {
+	} else if s.writeString(out, indent, false); true {
 	}
 }
-func syntaxString(out *strings.Builder, s Syntax, indent []byte, topLevel bool) {
+func (s Syntax) writeString(out *strings.Builder, indent []byte, topLevel bool) {
 	switch s.Tag {
 	case ListSyntaxTag:
 		subIndent := indent
@@ -22,20 +22,20 @@ func syntaxString(out *strings.Builder, s Syntax, indent []byte, topLevel bool) 
 			if line.Tag != EmptyLineSyntaxTag {
 				out.Write(subIndent)
 			}
-			subSyntaxString(out, line, subIndent, ListSyntaxTag+1)
+			line.subWriteString(out, subIndent, ListSyntaxTag+1)
 			out.WriteString("\n")
 		}
 		out.Write(indent)
 	case EmptyLineSyntaxTag:
 	case ApplicationSyntaxTag:
-		subSyntaxString(out, s.Children[0], indent, ApplicationSyntaxTag)
+		s.Children[0].subWriteString(out, indent, ApplicationSyntaxTag)
 		out.WriteString(" ! ")
-		subSyntaxString(out, s.Children[1], indent, ApplicationSyntaxTag+1)
+		s.Children[1].subWriteString(out, indent, ApplicationSyntaxTag+1)
 	case CompositionSyntaxTag:
-		subSyntaxString(out, s.Children[0], indent, CompositionSyntaxTag+1)
+		s.Children[0].subWriteString(out, indent, CompositionSyntaxTag+1)
 		for i := 1; i < len(s.Children); i++ {
 			out.WriteString(" ")
-			subSyntaxString(out, s.Children[i], indent, CompositionSyntaxTag+1)
+			s.Children[i].subWriteString(out, indent, CompositionSyntaxTag+1)
 		}
 	case NameSyntaxTag:
 		if s.LeftMarker {
@@ -55,14 +55,20 @@ func syntaxString(out *strings.Builder, s Syntax, indent []byte, topLevel bool) 
 		}
 	case QuotationSyntaxTag:
 		out.WriteString("{")
-		subSyntaxString(out, s.Children[0], indent, 0)
+		s.Children[0].subWriteString(out, indent, 0)
 		out.WriteString("}")
 	}
 	return
 }
 func (s Syntax) String() string {
 	var b strings.Builder
-	syntaxString(&b, s, nil, true)
+	s.subWriteString(&b, nil, ListSyntaxTag+1)
+	return b.String()
+}
+
+func (s Syntax) StringAtTop() string {
+	var b strings.Builder
+	s.writeString(&b, nil, true)
 	return b.String()
 }
 
