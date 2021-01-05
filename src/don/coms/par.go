@@ -46,7 +46,7 @@ func (pi *parInstance) Types() {
 			inner.Types()
 			pi.inputType.Meets(inner.InputType().At(idxStr))
 			pi.outputType.Meets(inner.OutputType().At(idxStr))
-			if inner.InputType().LTE(NullType) {
+			if inner.InputType().LTE(NullType) && inner.OutputType().LTE(NullType) {
 				delete(pi.Inners, i)
 			} else {
 				pi.Inners[i] = inner
