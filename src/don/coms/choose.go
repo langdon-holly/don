@@ -33,10 +33,17 @@ func runChoose(input Input, outputs []Output) {
 		}
 		go runChoose(subInput, subOutputs)
 	}
+	var onlyOutput chan<- Unit
 	for _, output := range outputs {
 		if output.Unit != nil {
-			panic("Unimplemented")
+			if onlyOutput != nil {
+				panic("Unimplemented")
+			} else if onlyOutput = output.Unit; true {
+			}
 		}
+	}
+	if onlyOutput != nil {
+		PipeUnit(onlyOutput, input.Unit)
 	}
 }
 
