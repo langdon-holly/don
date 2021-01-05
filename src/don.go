@@ -32,6 +32,16 @@ func checkTypes(comI ComInstance, hopefulInputType, hopefulOutputType DType) {
 	}
 }
 
+func runWithInputs(comI ComInstance, arg0, arg1 int) {
+	inputR, input := MakeIO(*comI.InputType())
+	output, outputW := MakeIO(*comI.OutputType())
+	go comI.Run(inputR, outputW)
+
+	types.WriteUint8(input.Fields["0"], arg0)
+	types.WriteUint8(input.Fields["1"], arg1)
+	printUint9(output)
+}
+
 func main() {
 	ifile := os.Stdin
 
@@ -46,23 +56,8 @@ func main() {
 
 	checkTypes(comI, hopefulInputType, hopefulOutputType)
 
-	inputR, input := MakeIO(*comI.InputType())
-	output, outputW := MakeIO(*comI.OutputType())
-	go comI.Run(inputR, outputW)
-
-	types.WriteUint8(input.Fields["0"], 0)
-	types.WriteUint8(input.Fields["1"], 0)
-	printUint9(output)
-
-	types.WriteUint8(input.Fields["0"], 2)
-	types.WriteUint8(input.Fields["1"], 2)
-	printUint9(output)
-
-	types.WriteUint8(input.Fields["0"], 189)
-	types.WriteUint8(input.Fields["1"], 55)
-	printUint9(output)
-
-	types.WriteUint8(input.Fields["0"], 255)
-	types.WriteUint8(input.Fields["1"], 255)
-	printUint9(output)
+	runWithInputs(comI, 0, 0)
+	runWithInputs(comI, 2, 2)
+	runWithInputs(comI, 189, 55)
+	runWithInputs(comI, 255, 255)
 }

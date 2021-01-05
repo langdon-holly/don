@@ -34,16 +34,10 @@ func runFork(input Input, outputs []Output) {
 		go runFork(subInput, subOutputs)
 	}
 	if input.Unit != nil {
-		var unitChans []chan<- Unit
+		<-input.Unit
 		for _, output := range outputs {
 			if output.Unit != nil {
-				unitChans = append(unitChans, output.Unit)
-			}
-		}
-		for {
-			<-input.Unit
-			for _, unitChan := range unitChans {
-				unitChan <- Unit{}
+				output.Unit <- Unit{}
 			}
 		}
 	}

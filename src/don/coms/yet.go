@@ -40,17 +40,11 @@ func (yi yetInstance) Run(input Input, output Output) {
 	if !yetComInputType.LTE(yi.inputType) || !types.BoolType.LTE(yi.outputType) {
 		return
 	}
-	itInput := input.Fields[""]
-	askInput := input.Fields["?"]
-	trueOutput := output.Fields["T"]
-	falseOutput := output.Fields["F"]
-	for {
-		<-askInput.Unit
-		select {
-		case <-itInput.Unit:
-			trueOutput.WriteUnit()
-		default:
-			falseOutput.WriteUnit()
-		}
+	<-input.Fields["?"].Unit
+	select {
+	case <-input.Fields[""].Unit:
+		output.Fields["T"].Converge()
+	default:
+		output.Fields["F"].Converge()
 	}
 }

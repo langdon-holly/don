@@ -34,18 +34,12 @@ func runJoin(inputs []Input, output Output) {
 		go runJoin(subInputs, subOutput)
 	}
 	if output.Unit != nil {
-		var unitChans []<-chan Unit
 		for _, input := range inputs {
 			if input.Unit != nil {
-				unitChans = append(unitChans, input.Unit)
+				<-input.Unit
 			}
 		}
-		for {
-			for _, unitChan := range unitChans {
-				<-unitChan
-			}
-			output.WriteUnit()
-		}
+		output.Converge()
 	}
 }
 

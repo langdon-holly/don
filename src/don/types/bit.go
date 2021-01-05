@@ -11,8 +11,8 @@ func init() {
 
 func WriteBit(output Output, val int) {
 	if val == 0 {
-		output.Fields["0"].WriteUnit()
+		output.Fields["0"].Converge()
 	} else {
-		output.Fields["1"].WriteUnit()
+		output.Fields["1"].Converge()
 	}
 }

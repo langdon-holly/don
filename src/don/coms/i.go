@@ -19,10 +19,7 @@ func (ii iInstance) Underdefined() Error {
 }
 
 func PipeUnit(outputChan chan<- Unit, inputChan <-chan Unit) {
-	for {
-		<-inputChan
-		outputChan <- Unit{}
-	}
+	outputChan <- <-inputChan
 }
 
 func RunI(theType DType, input Input, output Output) {

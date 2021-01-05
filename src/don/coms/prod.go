@@ -213,10 +213,8 @@ func (pi prodInstance) Underdefined() Error {
 }
 
 func getFieldPath(pathChan chan<- []string, fieldPath []string, unitChan <-chan Unit) {
-	for {
-		<-unitChan
-		pathChan <- fieldPath
-	}
+	<-unitChan
+	pathChan <- fieldPath
 }
 
 func getFieldPaths(pathChan chan<- []string, atPath []string, input Input) {
@@ -246,14 +244,11 @@ func (pi prodInstance) Run(input Input, output Output) {
 		subInput := input.Fields[fieldName]
 		getFieldPaths(pathChan, nil, subInput)
 	}
-	for {
-		currentOutput := output
-		for _, pathChan := range pathChans {
-			fieldPath := <-pathChan
-			for _, fieldName := range fieldPath {
-				currentOutput = currentOutput.Fields[fieldName]
-			}
+	for _, pathChan := range pathChans {
+		fieldPath := <-pathChan
+		for _, fieldName := range fieldPath {
+			output = output.Fields[fieldName]
 		}
-		currentOutput.WriteUnit()
 	}
+	output.Converge()
 }

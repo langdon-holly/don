@@ -44,11 +44,6 @@ var DefContext = Context{
 
 func init() {
 	ms := DefContext.Macros
-	ms["rec"] = func(_ Context) func(EvalResult) EvalResult {
-		return func(param EvalResult) EvalResult {
-			return EvalResult{RecCom{Inner: param.Com()}}
-		}
-	}
 	ms["map"] = func(_ Context) func(EvalResult) EvalResult {
 		return func(param EvalResult) EvalResult {
 			return EvalResult{MapCom{Com: param.Com()}}

@@ -11,9 +11,9 @@ func init() {
 
 func WriteBool(output Output, val bool) {
 	if val {
-		output.Fields["T"].WriteUnit()
+		output.Fields["T"].Converge()
 	} else {
-		output.Fields["F"].WriteUnit()
+		output.Fields["F"].Converge()
 	}
 }
 

@@ -27,4 +27,4 @@ func MakeIO(t DType) (input Input, output Output) {
 	return
 }
 
-func (o Output) WriteUnit() { o.Unit <- Unit{} }
+func (o Output) Converge() { o.Unit <- Unit{} }
