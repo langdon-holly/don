@@ -103,31 +103,50 @@ func (state *application) Done() (syntax Syntax, bad []string) {
 
 // Children for !Listp
 type list struct {
-	Sub      application
-	Listp    bool
-	Children []Syntax
+	Sub           application
+	Listp         bool
+	Midfactor     bool
+	EmptyLine     bool
+	EmptyLineNext bool
+	Children      []Syntax
 }
 
 // impl parser
 func (state *list) Next(e token) (bad []string) {
 	if e.IsByte(asterisk) {
-		if subS, subBad := state.Sub.Done(); subBad != nil {
-			bad = append(subBad, "in list")
-		} else if subS.Tag != CompositionSyntaxTag || len(subS.Children) > 0 {
-			state.Children = append(state.Children, subS)
+		if factorS, factorBad := state.Sub.Done(); factorBad != nil {
+			bad = append(factorBad, "in list")
+		} else if factorS.Tag != CompositionSyntaxTag || len(factorS.Children) > 0 {
+			if state.EmptyLine && len(state.Children) > 0 {
+				state.Children = append(state.Children, Syntax{Tag: EmptyLineSyntaxTag})
+			}
+			state.Children = append(state.Children, factorS)
 		} else if state.Listp {
 			bad = []string{"Nothing", "in list"}
 		}
 		state.Sub = list{}.Sub
 		state.Listp = true
-	} else if bad = state.Sub.Next(e); bad != nil && state.Listp {
-		bad = append(bad, "in list")
+		state.Midfactor = false
+		state.EmptyLine = state.EmptyLineNext
+		state.EmptyLineNext = false
+	} else if e.Bp || e.Syntax.Tag != EmptyLineSyntaxTag {
+		state.Midfactor = true
+		state.EmptyLineNext = false
+		if bad = state.Sub.Next(e); bad != nil && state.Listp {
+			bad = append(bad, "in list")
+		}
+	} else if state.Midfactor {
+		state.EmptyLineNext = true
+	} else if state.EmptyLine = true; true {
 	}
 	return
 }
 func (state *list) Done() (syntax Syntax, bad []string) {
 	if syntax, bad = state.Sub.Done(); !state.Listp {
 	} else if syntax.Tag != CompositionSyntaxTag || len(syntax.Children) > 0 {
+		if state.EmptyLine && len(state.Children) > 0 {
+			state.Children = append(state.Children, Syntax{Tag: EmptyLineSyntaxTag})
+		}
 		syntax = Syntax{Tag: ListSyntaxTag, Children: append(state.Children, syntax)}
 	} else {
 		syntax = Syntax{Tag: ListSyntaxTag, Children: state.Children}
@@ -218,9 +237,11 @@ type name struct {
 	LeftMarker   bool
 	Name         strings.Builder
 	Sub          circumfix
+	NonemptyLine bool
 }
 
 func (state *name) Next(b byte) (bad []string) {
+	nonemptyLineNext := true
 	if isSpecial := byteIsSpecial(b); !isSpecial && state.NameProgress == 3 {
 		bad = []string{"Unseparated names"}
 	} else if state.Escaped || !isSpecial {
@@ -264,10 +285,15 @@ func (state *name) Next(b byte) (bad []string) {
 			state.LeftMarker = false
 			state.Name = strings.Builder{}
 		}
-		if state.NameProgress = 0; bad == nil && b != tab && b != lf && b != space {
+		if state.NameProgress = 0; bad != nil {
+		} else if b != tab && b != lf && b != space {
 			bad = state.Sub.Next(token{Bp: true, B: b})
+		} else if nonemptyLineNext = state.NonemptyLine && b != lf; false {
+		} else if !state.NonemptyLine && b == lf {
+			bad = state.Sub.Next(token{Syntax: Syntax{Tag: EmptyLineSyntaxTag}})
 		}
 	}
+	state.NonemptyLine = nonemptyLineNext
 	return
 }
 func (state *name) Done() (syntax Syntax, bad []string) {

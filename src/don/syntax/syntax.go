@@ -4,7 +4,7 @@ type SyntaxTag int
 
 const ( /* Order matters, for printing */
 	ListSyntaxTag      = SyntaxTag(iota)
-	EmptyLineSyntaxTag /* child only of list */
+	EmptyLineSyntaxTag /* child only of list; neither first nor last child */
 	ApplicationSyntaxTag
 	CompositionSyntaxTag
 	NameSyntaxTag

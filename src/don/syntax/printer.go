@@ -61,40 +61,43 @@ func (s Syntax) layout() (l layoutInfo, writeString func(out *strings.Builder, i
 	switch s.Tag {
 	case ListSyntaxTag:
 		if len(s.Children) == 0 {
-			l = layoutInfo{Tokens: []int{1}}
+			l.Tokens = []int{1}
 			writeString = func(out *strings.Builder, _ []byte) { out.WriteString("*") }
 		} else if len(s.Children) == 1 {
-			var subWriteString func(*strings.Builder, []byte)
-			l, subWriteString = s.Children[0].subLayout(ListSyntaxTag + 1)
+			var factorWriteString func(*strings.Builder, []byte)
+			l, factorWriteString = s.Children[0].subLayout(ListSyntaxTag + 1)
 			l.Tokens[0]++
 			writeString = func(out *strings.Builder, indent []byte) {
 				out.WriteString("* ")
-				subWriteString(out, indent)
+				factorWriteString(out, indent)
 			}
-		} else if subLayouts := make([]layoutInfo, len(s.Children)); true {
+		} else if factorEmptyLines := make([]bool, len(s.Children)); true {
+			factorLs := make([]layoutInfo, len(s.Children))
 			factorWriteStrings := make([]func(*strings.Builder, []byte), len(s.Children))
 			multiline := false
 			tokens := 0
 			for i, factor := range s.Children {
-				subLayouts[i], factorWriteStrings[i] = factor.subLayout(ListSyntaxTag + 1)
-				multiline = multiline || len(subLayouts[i].Tokens) == 2
-				l.Circumfix = l.Circumfix || subLayouts[i].Circumfix
-				tokens += subLayouts[i].Top() + 1
+				factorEmptyLines[i] = factor.Tag == EmptyLineSyntaxTag
+				factorLs[i], factorWriteStrings[i] = factor.subLayout(ListSyntaxTag + 1)
+				multiline = multiline || len(factorLs[i].Tokens) == 2
+				l.Circumfix = l.Circumfix || factorLs[i].Circumfix
+				tokens += factorLs[i].Top() + 1
 			}
 			tokens--
 			if multiline || tokens > MAX_TOKENS_PER_LINE {
 				l.Tokens = []int{
-					subLayouts[0].Top() + 1,
-					subLayouts[len(subLayouts)-1].Bot() + 1,
+					factorLs[0].Top() + 1,
+					factorLs[len(factorLs)-1].Bot() + 1,
 				}
 				writeString = func(out *strings.Builder, indent []byte) {
 					out.WriteString("* ")
 					factorWriteStrings[0](out, indent)
 					for i := 1; i < len(factorWriteStrings); i++ {
-						out.WriteString("\n")
-						out.Write(indent)
-						out.WriteString("* ")
-						factorWriteStrings[i](out, indent)
+						if out.WriteString("\n"); !factorEmptyLines[i] {
+							out.Write(indent)
+							out.WriteString("* ")
+							factorWriteStrings[i](out, indent)
+						}
 					}
 				}
 			} else if l.Tokens = []int{tokens}; true {
@@ -108,7 +111,8 @@ func (s Syntax) layout() (l layoutInfo, writeString func(out *strings.Builder, i
 			}
 		}
 	case EmptyLineSyntaxTag:
-		panic("Unimplemented")
+		l.Tokens = []int{0, 0}
+		writeString = func(*strings.Builder, []byte) { panic("Unreachable") }
 	case ApplicationSyntaxTag:
 		comL, comWriteString := s.Children[0].subLayout(ApplicationSyntaxTag)
 		argL, argWriteString := s.Children[1].subLayout(ApplicationSyntaxTag + 1)
@@ -134,7 +138,7 @@ func (s Syntax) layout() (l layoutInfo, writeString func(out *strings.Builder, i
 			}
 		}
 	case NameSyntaxTag:
-		l = layoutInfo{Tokens: []int{1}}
+		l.Tokens = []int{1}
 		writeString = func(out *strings.Builder, _ []byte) {
 			if s.LeftMarker {
 				out.WriteString(":")
@@ -153,7 +157,7 @@ func (s Syntax) layout() (l layoutInfo, writeString func(out *strings.Builder, i
 			}
 		}
 	case ISyntaxTag:
-		l = layoutInfo{Tokens: []int{2}}
+		l.Tokens = []int{2}
 		writeString = func(out *strings.Builder, _ []byte) { out.WriteString("()") }
 	case QuotationSyntaxTag:
 		subL, subWriteString := s.Children[0].subLayout(0)
