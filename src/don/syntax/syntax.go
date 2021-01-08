@@ -8,6 +8,7 @@ const ( /* Order matters, for printing */
 	ApplicationSyntaxTag
 	CompositionSyntaxTag
 	NameSyntaxTag
+	ISyntaxTag
 	QuotationSyntaxTag
 )
 

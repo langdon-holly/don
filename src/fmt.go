@@ -7,6 +7,4 @@ import (
 
 import "don/syntax"
 
-func main() {
-	fmt.Print(syntax.ParseTop(os.Stdin).Children[1].Children[0].StringAtTop()[1:])
-}
+func main() { fmt.Println(syntax.ParseTop(os.Stdin).TopString()) }

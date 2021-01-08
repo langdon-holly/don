@@ -27,10 +27,8 @@ func entry(fieldName string, inner Com) Com {
 
 var DefContext = Context{
 	Com: PipeCom([]Com{ScatterCom{}, ParCom([]Com{
-		entry("I", ICom(UnknownType)),
 		entry("unit", ICom(UnitType)),
 		entry("fields", ICom(FieldsType)),
-		entry("null", NullCom{}),
 		entry("<", GatherCom{}),
 		entry(">", ScatterCom{}),
 		entry("<|", MergeCom{}),
@@ -131,9 +129,9 @@ func eval(s Syntax, c Context) interface{} {
 	switch s.Tag {
 	case ListSyntaxTag:
 		var parComs []Com
-		for _, line := range s.Children {
-			if line.Tag != EmptyLineSyntaxTag {
-				parComs = append(parComs, Eval(line, c).Com())
+		for _, factor := range s.Children {
+			if factor.Tag != EmptyLineSyntaxTag {
+				parComs = append(parComs, Eval(factor, c).Com())
 			}
 		}
 		return ParCom(parComs)
@@ -142,21 +140,21 @@ func eval(s Syntax, c Context) interface{} {
 	case ApplicationSyntaxTag:
 		return Eval(s.Children[0], c).Apply(Eval(s.Children[1], c)).It
 	case CompositionSyntaxTag:
-		rs := make([]EvalResult, len(s.Children))
-		for i, subS := range s.Children {
-			rs[len(s.Children)-1-i] = Eval(subS, c)
+		factorResults := make([]EvalResult, len(s.Children))
+		for i, factor := range s.Children {
+			factorResults[len(s.Children)-1-i] = Eval(factor, c)
 		}
-		if _, macrosp := rs[0].It.(func(EvalResult) EvalResult); macrosp {
+		if _, macrosp := factorResults[0].It.(func(EvalResult) EvalResult); macrosp {
 			return func(param EvalResult) EvalResult {
-				for _, subR := range rs {
-					param = subR.Apply(param)
+				for _, factorResult := range factorResults {
+					param = factorResult.Apply(param)
 				}
 				return param
 			}
 		} else {
-			pipeComs := make([]Com, len(rs))
-			for i, subR := range rs {
-				pipeComs[i] = subR.Com()
+			pipeComs := make([]Com, len(factorResults))
+			for i, factorResult := range factorResults {
+				pipeComs[i] = factorResult.Com()
 			}
 			return PipeCom(pipeComs)
 		}
@@ -174,6 +172,8 @@ func eval(s Syntax, c Context) interface{} {
 		} else {
 			return PipeCom([]Com{DeselectCom(s.Name), c.Com, SelectCom(s.Name)})
 		}
+	case ISyntaxTag:
+		return ICom{}
 	case QuotationSyntaxTag:
 		return s.Children[0]
 	}

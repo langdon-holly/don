@@ -17,40 +17,13 @@ func readByte(r io.Reader) (b byte, ok bool) {
 	}
 }
 
-type tokenTag int
-
-const (
-	byteTokenTag = tokenTag(iota)
-	escapedTokenTag
-	syntaxTokenTag
-)
-
 type token struct {
-	Tag tokenTag
-	B   byte
-	Syntax
+	Bp     bool
+	B      byte   /* for Bp */
+	Syntax Syntax /* for !Bp */
 }
 
-func (t token) IsByte(b byte) bool { return t.Tag == byteTokenTag && t.B == b }
-
-// t for !nextEscaped
-func escapeNext(escaped bool, b byte) (nextEscaped bool, t token) {
-	if escaped {
-		t = token{Tag: escapedTokenTag, B: b}
-	} else if b == backslash {
-		nextEscaped = true
-	} else {
-		t = token{Tag: byteTokenTag, B: b}
-	}
-	return
-}
-
-func escapeDone(escaped bool) (bad []string) {
-	if escaped {
-		bad = []string{"Unending escape"}
-	}
-	return
-}
+func (t token) IsByte(b byte) bool { return t.Bp && t.B == b }
 
 // Used in spirit
 // Discard after bad != nil or Done is called
@@ -59,227 +32,105 @@ type parser interface {
 	Done() (syntax Syntax, bad []string) /* mutates; syntax for bad != nil */
 }
 
-type name struct {
-	Namep, Preparsed        bool
-	Nonemptyp               bool
-	LeftMarker, RightMarker bool
-	B                       strings.Builder
-	PPSyntax                Syntax
-}
-
-// impl parser
-func (state *name) Next(e token) (bad []string) {
-	if state.Preparsed || state.Namep && e.Tag == syntaxTokenTag {
-		bad = []string{"Subelement in name"}
-	} else if e.Tag == syntaxTokenTag {
-		state.Preparsed = true
-		state.PPSyntax = e.Syntax
-	} else if state.RightMarker {
-		bad = []string{"Nonterminal right colon"}
-	} else if state.Namep = true; e.IsByte(underscore) {
-		state.Nonemptyp = true
-	} else if !e.IsByte(colon) {
-		state.Nonemptyp = true
-		state.B.WriteByte(e.B)
-	} else if state.Nonemptyp {
-		state.RightMarker = true
-	} else if state.LeftMarker {
-		bad = []string{"Double left colon"}
-	} else if state.LeftMarker = true; true {
-	}
-	return
-}
-func (state *name) Done() (syntax Syntax, bad []string) {
-	if state.Nonemptyp {
-		syntax.Tag = NameSyntaxTag
-		syntax.LeftMarker = state.LeftMarker
-		syntax.RightMarker = state.RightMarker
-		syntax.Name = state.B.String()
-	} else if state.Preparsed {
-		syntax = state.PPSyntax
-	} else {
-		bad = []string{"Empty name"}
-	}
-	return
-}
-
-type composition struct {
-	Midfactor bool
-	Sub       name
-	Children  []Syntax
-}
+type composition []Syntax
 
 // impl parser
 func (state *composition) Next(e token) (bad []string) {
-	if !e.IsByte(space) {
-		state.Midfactor = true
-		bad = state.Sub.Next(e)
-	} else if state.Midfactor {
-		var subS Syntax
-		if subS, bad = state.Sub.Done(); bad != nil {
-			bad = append(bad, "in composition")
-			return
-		}
-		state.Midfactor = false
-		state.Sub = composition{}.Sub
-		state.Children = append(state.Children, subS)
-	} else {
-		bad = []string{"Too much space"}
+	if *state = append(*state, e.Syntax); e.Bp {
+		bad = []string{"Stray byte: '" + string([]byte{e.B}) + "'"}
 	}
 	return
 }
 func (state *composition) Done() (syntax Syntax, bad []string) {
-	if state.Midfactor {
-		var subS Syntax
-		if subS, bad = state.Sub.Done(); bad != nil {
-			bad = append(bad, "in composition")
-			return
-		}
-		syntax.Tag = CompositionSyntaxTag
-		syntax.Children = append(state.Children, subS)
-		if len(syntax.Children) == 1 {
-			syntax = syntax.Children[0]
-		}
-	} else {
-		bad = []string{"Composition didn't end with factor"}
+	syntax = Syntax{Tag: CompositionSyntaxTag, Children: *state}
+	if len(syntax.Children) == 1 {
+		syntax = syntax.Children[0]
 	}
 	return
 }
 
 type application struct {
-	OpProgress int
-	Sub        composition
-	ComP       bool
-	Com        Syntax
+	Sub  composition
+	Comp bool
+	Com  Syntax
 }
 
-var spaceToken = token{Tag: byteTokenTag, B: space}
-
 func (state *application) maybeInParam(bad *[]string /* mutated */) {
-	if state.ComP {
+	if state.Comp {
 		*bad = append(*bad, "in application parameter")
 	}
 }
 
 // impl parser
 func (state *application) Next(e token) (bad []string) {
-	if state.OpProgress == 0 {
-		if e.IsByte(space) {
-			state.OpProgress++
-		} else if e.IsByte(bang) {
-			bad = []string{"Bang not after space"}
-			state.maybeInParam(&bad)
-		} else if bad = state.Sub.Next(e); bad != nil {
-			state.maybeInParam(&bad)
+	if e.IsByte(bang) {
+		subS := &state.Com
+		if state.Comp {
+			state.Com =
+				Syntax{Tag: ApplicationSyntaxTag, Children: []Syntax{state.Com, {}}}
+			subS = &state.Com.Children[1]
 		}
-	} else if state.OpProgress == 1 {
-		if e.IsByte(space) {
-			bad = []string{"Too much space"}
-			state.maybeInParam(&bad)
-		} else if e.IsByte(bang) {
-			state.OpProgress++
-			subS := &state.Com
-			if state.ComP {
-				state.Com = Syntax{Tag: ApplicationSyntaxTag, Children: []Syntax{state.Com, {}}}
-				subS = &state.Com.Children[1]
-			}
-			if *subS, bad = state.Sub.Done(); bad != nil {
-				state.maybeInParam(&bad)
-				bad = append(bad, "in application computer")
-			}
-			state.Sub = application{}.Sub
-			state.ComP = true
-		} else if state.OpProgress = 0; true {
-			if bad = state.Sub.Next(spaceToken); bad != nil {
-				state.maybeInParam(&bad)
-			} else if bad = state.Sub.Next(e); bad != nil {
-				state.maybeInParam(&bad)
-			}
+		*subS, bad = state.Sub.Done()
+		if bad == nil && subS.Tag == CompositionSyntaxTag && len(subS.Children) == 0 {
+			bad = []string{"Nothing"}
 		}
-	} else if state.OpProgress = 0; !e.IsByte(space) {
-		bad = []string{"Bang not before space"}
-		state.maybeInParam(&bad)
+		if bad != nil {
+			if state.Comp {
+				bad = append(bad, "in application parameter")
+			}
+			bad = append(bad, "in application computer")
+		}
+		state.Sub = application{}.Sub
+		state.Comp = true
+	} else if bad = state.Sub.Next(e); bad != nil && state.Comp {
+		bad = append(bad, "in application parameter")
 	}
 	return
 }
 func (state *application) Done() (syntax Syntax, bad []string) {
-	if state.OpProgress == 2 {
-		bad = []string{"Nothing after bang"}
-		state.maybeInParam(&bad)
-		return
-	}
-	if state.OpProgress == 1 {
-		if bad = state.Sub.Next(spaceToken); bad != nil {
-			state.maybeInParam(&bad)
-			return
-		}
-	}
-	subS := &syntax
-	if state.ComP {
+	if state.Comp {
 		syntax = Syntax{Tag: ApplicationSyntaxTag, Children: []Syntax{state.Com, {}}}
-		subS = &syntax.Children[1]
-	}
-	if *subS, bad = state.Sub.Done(); bad != nil {
-		state.maybeInParam(&bad)
+		subS := &syntax.Children[1]
+		if *subS, bad = state.Sub.Done(); bad != nil {
+			bad = append(bad, "in application parameter")
+		} else if subS.Tag == CompositionSyntaxTag && len(subS.Children) == 0 {
+			bad = []string{"Nothing", "in application parameter"}
+		}
+	} else if syntax, bad = state.Sub.Done(); true {
 	}
 	return
 }
 
-// Only Sub (and Passthrough) for Passthrough
+// Children for !Listp
 type list struct {
-	InitLF      bool
-	Passthrough bool
-	Midline     bool
-	Sub         application
-	Children    []Syntax
+	Sub      application
+	Listp    bool
+	Children []Syntax
 }
 
 // impl parser
 func (state *list) Next(e token) (bad []string) {
-	if state.Passthrough {
-		if e.IsByte(lf) || e.IsByte(tab) {
-			bad = []string{"List-specific byte but no initial LF"}
-		} else {
-			bad = state.Sub.Next(e)
+	if e.IsByte(asterisk) {
+		if subS, subBad := state.Sub.Done(); subBad != nil {
+			bad = append(subBad, "in list")
+		} else if subS.Tag != CompositionSyntaxTag || len(subS.Children) > 0 {
+			state.Children = append(state.Children, subS)
+		} else if state.Listp {
+			bad = []string{"Nothing", "in list"}
 		}
-	} else if !state.InitLF {
-		if e.IsByte(lf) {
-			state.InitLF = true
-		} else {
-			state.Passthrough = true
-			bad = state.Next(e)
-		}
-	} else if e.IsByte(lf) {
-		if state.Midline {
-			var subS Syntax
-			if subS, bad = state.Sub.Done(); bad != nil {
-				bad = append(bad, "at EOL in list")
-				return
-			} else if state.Children = append(state.Children, subS); true {
-			}
-			state.Midline = false
-			state.Sub = list{}.Sub
-		} else {
-			state.Children = append(state.Children, Syntax{Tag: EmptyLineSyntaxTag})
-		}
-	} else if !e.IsByte(tab) {
-		bad = state.Sub.Next(e)
-		state.Midline = true
-	} else if state.Midline {
-		bad = []string{"Unindenting tab"}
+		state.Sub = list{}.Sub
+		state.Listp = true
+	} else if bad = state.Sub.Next(e); bad != nil && state.Listp {
+		bad = append(bad, "in list")
 	}
 	return
 }
 func (state *list) Done() (syntax Syntax, bad []string) {
-	if state.Passthrough {
-		syntax, bad = state.Sub.Done()
-	} else if !state.InitLF {
-		bad = []string{"No LF in list"}
-	} else if state.Midline {
-		bad = []string{"Mid-line end of list"}
+	if syntax, bad = state.Sub.Done(); !state.Listp {
+	} else if syntax.Tag != CompositionSyntaxTag || len(syntax.Children) > 0 {
+		syntax = Syntax{Tag: ListSyntaxTag, Children: append(state.Children, syntax)}
 	} else {
-		syntax.Tag = ListSyntaxTag
-		syntax.Children = state.Children
+		syntax = Syntax{Tag: ListSyntaxTag, Children: state.Children}
 	}
 	return
 }
@@ -303,10 +154,13 @@ func (state *circumfix) Next(e token) (bad []string) {
 		} else if state.Quotes[len(state.Quotes)-1] {
 			bad = []string{"Brace starts, paren ends"}
 		} else if subS, bad = state.Sub.Done(); bad == nil {
+			if subS.Tag == CompositionSyntaxTag && len(subS.Children) == 0 {
+				subS = Syntax{Tag: ISyntaxTag}
+			}
 			state.Sub = state.Subs[len(state.Subs)-1]
 			state.Subs = state.Subs[:len(state.Subs)-1]
 			state.Quotes = state.Quotes[:len(state.Quotes)-1]
-			bad = state.Sub.Next(token{Tag: syntaxTokenTag, Syntax: subS})
+			bad = state.Sub.Next(token{Syntax: subS})
 		}
 	} else if e.IsByte(leftBrace) {
 		state.Subs = append(state.Subs, state.Sub)
@@ -318,12 +172,14 @@ func (state *circumfix) Next(e token) (bad []string) {
 		} else if !state.Quotes[len(state.Quotes)-1] {
 			bad = []string{"Paren starts, brace ends"}
 		} else if subS, bad = state.Sub.Done(); bad == nil {
-			state.Sub = state.Subs[len(state.Subs)-1]
-			state.Subs = state.Subs[:len(state.Subs)-1]
-			state.Quotes = state.Quotes[:len(state.Quotes)-1]
-			bad = state.Sub.Next(token{
-				Tag:    syntaxTokenTag,
-				Syntax: Syntax{Tag: QuotationSyntaxTag, Children: []Syntax{subS}}})
+			if subS.Tag != CompositionSyntaxTag || len(subS.Children) > 0 {
+				state.Sub = state.Subs[len(state.Subs)-1]
+				state.Subs = state.Subs[:len(state.Subs)-1]
+				state.Quotes = state.Quotes[:len(state.Quotes)-1]
+				bad = state.Sub.Next(
+					token{Syntax: Syntax{Tag: QuotationSyntaxTag, Children: []Syntax{subS}}})
+			} else if bad = []string{"Nothing"}; true {
+			}
 		}
 	} else {
 		bad = state.Sub.Next(e)
@@ -347,8 +203,91 @@ func (state *circumfix) Done() (syntax Syntax, bad []string) {
 			} else if bad = append(bad, "in parentheses"); true {
 			}
 		}
+	} else if syntax, bad = state.Sub.Done(); true {
+		s := syntax
+		if bad == nil && s.Tag == CompositionSyntaxTag && len(s.Children) == 0 {
+			bad = []string{"Nothing"}
+		}
+	}
+	return
+}
+
+type name struct {
+	Escaped      bool
+	NameProgress int /* 0: ready 1: left marked, 2: in name, 3: not ready */
+	LeftMarker   bool
+	Name         strings.Builder
+	Sub          circumfix
+}
+
+func (state *name) Next(b byte) (bad []string) {
+	if isSpecial := byteIsSpecial(b); !isSpecial && state.NameProgress == 3 {
+		bad = []string{"Unseparated names"}
+	} else if state.Escaped || !isSpecial {
+		state.Escaped = false
+		state.NameProgress = 2
+		state.Name.WriteByte(b)
+	} else if b == underscore {
+		if state.NameProgress == 3 {
+			bad = []string{"Unseparated names"}
+		} else if state.NameProgress = 2; true {
+		}
+	} else if b == backslash {
+		if state.NameProgress == 3 {
+			bad = []string{"Unseparated names"}
+		} else if state.Escaped = true; true {
+		}
+	} else if b == colon {
+		if state.NameProgress == 0 {
+			state.LeftMarker = true
+		} else if state.NameProgress == 1 {
+			bad = []string{"Double left colon"}
+		} else if state.NameProgress == 2 {
+			bad = state.Sub.Next(token{Syntax: Syntax{
+				Tag:         NameSyntaxTag,
+				LeftMarker:  state.LeftMarker,
+				RightMarker: true,
+				Name:        state.Name.String()}})
+			state.LeftMarker = false
+			state.NameProgress = 3
+			state.Name = strings.Builder{}
+		} else if bad = []string{"Unseparated names"}; true {
+		}
 	} else {
+		if state.NameProgress == 1 {
+			bad = []string{"Lone colon"}
+		} else if state.NameProgress == 2 {
+			bad = state.Sub.Next(token{Syntax: Syntax{
+				Tag:        NameSyntaxTag,
+				LeftMarker: state.LeftMarker,
+				Name:       state.Name.String()}})
+			state.LeftMarker = false
+			state.Name = strings.Builder{}
+		}
+		if state.NameProgress = 0; bad == nil && b != tab && b != lf && b != space {
+			bad = state.Sub.Next(token{Bp: true, B: b})
+		}
+	}
+	return
+}
+func (state *name) Done() (syntax Syntax, bad []string) {
+	if state.Escaped {
+		bad = []string{"Unending escape"}
+	} else if state.NameProgress == 1 {
+		bad = []string{"Lone colon"}
+	} else if state.NameProgress == 2 {
+		bad = state.Sub.Next(token{Syntax: Syntax{
+			Tag:        NameSyntaxTag,
+			LeftMarker: state.LeftMarker,
+			Name:       state.Name.String()}})
+	}
+	if bad == nil {
 		syntax, bad = state.Sub.Done()
+		syntax = Syntax{
+			Tag: ApplicationSyntaxTag,
+			Children: []Syntax{
+				{Tag: NameSyntaxTag, Name: "context"},
+				{Tag: QuotationSyntaxTag, Children: []Syntax{syntax}}}}
 	}
 	return
 }
@@ -363,24 +302,11 @@ func doBad(bad []string) {
 }
 
 func ParseTop(inReader io.Reader) Syntax {
-	b, ok := lf, true
-	var escaped bool
-	var circumfixParser circumfix
-	for {
-		var t token
-		if escaped, t = escapeNext(escaped, b); !escaped {
-			doBad(circumfixParser.Next(t))
-		}
-		if b, ok = readByte(inReader); !ok {
-			break
-		}
+	var topParser name
+	for b, ok := readByte(inReader); ok; b, ok = readByte(inReader) {
+		doBad(topParser.Next(b))
 	}
-	doBad(escapeDone(escaped))
-	s, bad := circumfixParser.Done()
+	s, bad := topParser.Done()
 	doBad(bad)
-	return Syntax{
-		Tag: ApplicationSyntaxTag,
-		Children: []Syntax{
-			{Tag: NameSyntaxTag, Name: "context"},
-			{Tag: QuotationSyntaxTag, Children: []Syntax{s}}}}
+	return s
 }

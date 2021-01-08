@@ -7,6 +7,7 @@ const (
 	bang       byte = 33
 	leftParen  byte = 40
 	rightParen byte = 41
+	asterisk   byte = 42
 	colon      byte = 58
 	backslash  byte = 92
 	underscore byte = 95
@@ -21,6 +22,7 @@ func byteIsSpecial(b byte) bool {
 		b == bang ||
 		b == leftParen ||
 		b == rightParen ||
+		b == asterisk ||
 		b == colon ||
 		b == backslash ||
 		b == underscore ||

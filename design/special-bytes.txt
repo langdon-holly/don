@@ -1,9 +1,9 @@
 Byte	Status : Purpose
 ----	----------------
-tab	  used : indentation
-LF	  used : list
+tab	  used : separator
+LF	  used : separator
 CR	unused
-space	  used : composition, application
+space	  used : separator
 `	unused
 ~	unused
 !	  used : application
@@ -13,7 +13,7 @@ $	unused
 %	unused
 ^	unused
 &	unused
-*	unused
+*	  used : list
 (	  used : start
 )	  used : end
 _	  used : empty identifier
