@@ -2,71 +2,51 @@ package coms
 
 import . "don/core"
 
-type MapCom struct{ Com Com }
-
-func (mc MapCom) Instantiate() ComInstance {
-	return &mapInstance{Com: mc.Com, inputType: FieldsType, outputType: FieldsType}
+func Map(com Com) Com {
+	return &MapCom{Com: com, inputType: FieldsType, outputType: FieldsType}
 }
 
-func (mc MapCom) Inverse() Com { return MapCom{Com: mc.Com.Inverse()} }
-
-type mapInstance struct {
-	InnerP bool
-
-	// for !InnerP
+type MapCom struct {
 	Com                   Com
 	inputType, outputType DType
-
-	// for InnerP
-	Inner ComInstance
 }
 
-func (mi *mapInstance) InputType() *DType {
-	if mi.InnerP {
-		return mi.Inner.InputType()
-	} else {
-		return &mi.inputType
-	}
-}
-func (mi *mapInstance) OutputType() *DType {
-	if mi.InnerP {
-		return mi.Inner.OutputType()
-	} else {
-		return &mi.outputType
-	}
-}
+func (mc *MapCom) InputType() *DType  { return &mc.inputType }
+func (mc *MapCom) OutputType() *DType { return &mc.outputType }
 
-func (mi *mapInstance) Types() {
-	if !mi.InnerP && mi.inputType.Positive || mi.outputType.Positive {
-		fieldNames := mi.outputType.Fields
-		if mi.inputType.Positive {
-			fieldNames = mi.inputType.Fields
+func (mc *MapCom) Types() Com {
+	if mc.inputType.Positive || mc.outputType.Positive {
+		fieldNames := mc.outputType.Fields
+		if mc.inputType.Positive {
+			fieldNames = mc.inputType.Fields
 		}
 		pipes := make([]Com, len(fieldNames))
 		i := 0
 		for fieldName := range fieldNames {
-			pipes[i] = PipeCom([]Com{SelectCom(fieldName), mi.Com, DeselectCom(fieldName)})
+			pipes[i] = Pipe([]Com{Select(fieldName), mc.Com.Copy(), Deselect(fieldName)})
 			i++
 		}
-		inner := PipeCom(
-			[]Com{ScatterCom{}, ParCom(pipes), GatherCom{}}).Instantiate()
-		inner.InputType().Meets(mi.inputType)
-		inner.OutputType().Meets(mi.outputType)
-		*mi = mapInstance{InnerP: true, Inner: inner}
-	}
-	if mi.InnerP {
-		mi.Inner.Types()
-	}
-}
-
-func (mi mapInstance) Underdefined() Error {
-	if mi.InnerP {
-		return mi.Inner.Underdefined().Context("in map")
+		inner := Pipe([]Com{Scatter(), Par(pipes), Gather()})
+		inner.InputType().Meets(mc.inputType)
+		inner.OutputType().Meets(mc.outputType)
+		return inner.Types()
 	} else {
-		return NewError("Negative fields in input/output to map")
+		return mc
 	}
 }
 
-func (mi mapInstance) Run(input Input, output Output) {
-	mi.Inner.Run(input, output)
+func (mc MapCom) Underdefined() Error {
+	return NewError("Negative fields in input/output to map")
+}
+
+func (mc MapCom) Copy() Com { mc.Com = mc.Com.Copy(); return &mc }
+
+func (mc *MapCom) Invert() Com {
+	mc.Com = mc.Com.Invert()
+	mc.inputType, mc.outputType = mc.outputType, mc.inputType
+	return mc
+}
+
+func (mc MapCom) Run(input Input, output Output) {
+	panic("Negative fields in input/output to map")
 }

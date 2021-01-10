@@ -5,48 +5,55 @@ import (
 	"don/types"
 )
 
-type InverseYetCom struct{}
+func InverseYet() Com { return InverseYetCom{Yet: Yet()} }
 
-func (InverseYetCom) Instantiate() ComInstance {
-	return inverseYetInstance{Yet: YetCom{}.Instantiate()}
+type InverseYetCom struct{ Yet Com }
+
+func (iyc InverseYetCom) InputType() *DType { return iyc.Yet.OutputType() }
+
+func (iyc InverseYetCom) OutputType() *DType { return iyc.Yet.InputType() }
+
+func (iyc InverseYetCom) Types() Com {
+	iyc.Yet = iyc.Yet.Types()
+	if _, nullp := iyc.Yet.(NullCom); nullp {
+		return Null
+	} else {
+		return iyc
+	}
 }
 
-func (InverseYetCom) Inverse() Com { return YetCom{} }
-
-type inverseYetInstance struct{ Yet ComInstance }
-
-func (iyi inverseYetInstance) InputType() *DType { return iyi.Yet.OutputType() }
-
-func (iyi inverseYetInstance) OutputType() *DType { return iyi.Yet.InputType() }
-
-func (iyi inverseYetInstance) Types() { iyi.Yet.Types() }
-
-func (iyi inverseYetInstance) Underdefined() Error {
-	return iyi.Yet.Underdefined().Context("in inverse yet")
+func (iyc InverseYetCom) Underdefined() Error {
+	return iyc.Yet.Underdefined().Context("in inverse yet")
 }
 
-func (iyi inverseYetInstance) Run(input Input, output Output) {
-	inputType := *iyi.Yet.OutputType()
-	outputType := *iyi.Yet.InputType()
+func (iyc InverseYetCom) Copy() Com { iyc.Yet = iyc.Yet.Copy(); return iyc }
+
+func (iyc InverseYetCom) Invert() Com { return iyc.Yet }
+
+func (iyc InverseYetCom) Run(input Input, output Output) {
+	inputType := *iyc.Yet.OutputType()
+	outputType := *iyc.Yet.InputType()
 	if !types.BoolType.LTE(inputType) || !yetComInputType.LTE(outputType) {
 		return
 	}
 
-	comI := PipeCom([]Com{
-		ScatterCom{},
-		ParCom([]Com{
-			PipeCom([]Com{SelectCom("T"), ForkCom{}, ICom(yetComInputType)}),
-			PipeCom([]Com{SelectCom("F"), DeselectCom("?")})}),
-		MergeCom{}}).Instantiate()
-	comI.InputType().Meets(inputType)
-	comI.OutputType().Meets(outputType)
-	comI.Types()
-	if underdefined := comI.Underdefined(); underdefined != nil {
+	com := Pipe([]Com{
+		Scatter(),
+		Par([]Com{
+			Pipe([]Com{Select("T"), Fork(), I(yetComInputType)}),
+			Pipe([]Com{Select("F"), Deselect("?")})},
+		),
+		Merge(),
+	})
+	com.InputType().Meets(inputType)
+	com.OutputType().Meets(outputType)
+	com = com.Types()
+	if underdefined := com.Underdefined(); underdefined != nil {
 		panic("Unreachable underdefined:\n" + underdefined.String())
-	} else if !inputType.LTE(*comI.InputType()) {
+	} else if !inputType.LTE(*com.InputType()) {
 		panic("Unreachable")
-	} else if !outputType.LTE(*comI.OutputType()) {
+	} else if !outputType.LTE(*com.OutputType()) {
 		panic("Unreachable")
 	}
-	comI.Run(input, output)
+	com.Run(input, output)
 }

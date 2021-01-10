@@ -2,15 +2,14 @@ package coms
 
 import . "don/core"
 
+var Null = NullCom{}
+
 type NullCom struct{}
 
-func (NullCom) Instantiate() ComInstance { return nullInstance{} }
-func (NullCom) Inverse() Com             { return NullCom{} }
-
-type nullInstance struct{}
-
-func (nullInstance) InputType() *DType              { return NullPtr() }
-func (nullInstance) OutputType() *DType             { return NullPtr() }
-func (nullInstance) Types()                         {}
-func (nullInstance) Underdefined() Error            { return nil }
-func (nullInstance) Run(input Input, output Output) {}
+func (NullCom) InputType() *DType              { return NullPtr() }
+func (NullCom) OutputType() *DType             { return NullPtr() }
+func (NullCom) Types() Com                     { return NullCom{} }
+func (NullCom) Underdefined() Error            { return nil }
+func (NullCom) Copy() Com                      { return NullCom{} }
+func (NullCom) Invert() Com                    { return NullCom{} }
+func (NullCom) Run(input Input, output Output) {}

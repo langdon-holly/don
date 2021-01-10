@@ -1,14 +1,11 @@
 package core
 
 type Com interface {
-	Instantiate() ComInstance
-	Inverse() Com
-}
-
-type ComInstance interface {
-	InputType() *DType   /* Invalidated by Types; may alias OutputType(); after, call Types before Underdefined */
-	OutputType() *DType  /* Invalidated by Types; may alias InputType(); after, call Types before Underdefined */
-	Types()              /* Mutates */
-	Underdefined() Error /* First, call Types */
+	InputType() *DType  /* Invalidated by Types or Invert; may alias OutputType(); after mutating, call Types */
+	OutputType() *DType /* Invalidated by Types or Invert; may alias InputType(); after mutating, call Types */
+	Types() Com         /* Invalidates */
+	Underdefined() Error
+	Copy() Com
+	Invert() Com /* Invalidates */
 	Run(input Input, output Output)
 }

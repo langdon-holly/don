@@ -2,25 +2,45 @@ package coms
 
 import . "don/core"
 
-type MergeCom struct{}
+func Merge() Com { return &MergeCom{inputType: FieldsType} }
 
-func (MergeCom) Instantiate() ComInstance { return &mergeInstance{} }
-func (MergeCom) Inverse() Com             { return ChooseCom{} }
-
-type mergeInstance struct {
+type MergeCom struct {
 	inputType, outputType DType
 	underdefined          Error
 }
 
-func (mi *mergeInstance) InputType() *DType  { return &mi.inputType }
-func (mi *mergeInstance) OutputType() *DType { return &mi.outputType }
+func (mc *MergeCom) InputType() *DType  { return &mc.inputType }
+func (mc *MergeCom) OutputType() *DType { return &mc.outputType }
 
-func (mi *mergeInstance) Types() {
-	mi.underdefined = FanAffineTypes(&mi.inputType, &mi.outputType)
+func (mc *MergeCom) Types() Com {
+	mc.underdefined = FanAffineTypes(&mc.inputType, &mc.outputType)
+	if mc.outputType.LTE(NullType) {
+		return Null
+	} else if mc.inputType.Positive && len(mc.inputType.Fields) == 1 {
+		for fieldName := range mc.inputType.Fields {
+			sc := Select(fieldName)
+			sc.InputType().Meets(mc.inputType)
+			sc.OutputType().Meets(mc.outputType)
+			return sc.Types()
+		}
+		panic("Unreachable")
+	} else {
+		return mc
+	}
 }
 
-func (mi mergeInstance) Underdefined() Error {
-	return mi.underdefined.Context("in merge")
+func (mc MergeCom) Underdefined() Error {
+	return mc.underdefined.Context("in merge")
+}
+
+func (mc MergeCom) Copy() Com { mc.underdefined.Remake(); return &mc }
+
+func (mc MergeCom) Invert() Com {
+	return &ChooseCom{
+		inputType:    mc.outputType,
+		outputType:   mc.inputType,
+		underdefined: mc.underdefined,
+	}
 }
 
 func runMerge(inputs []Input, output Output) {
@@ -40,8 +60,8 @@ func runMerge(inputs []Input, output Output) {
 	}
 }
 
-func (mi mergeInstance) Run(input Input, output Output) {
-	inputs := make([]Input, len(mi.inputType.Fields))
+func (mc MergeCom) Run(input Input, output Output) {
+	inputs := make([]Input, len(mc.inputType.Fields))
 	i := 0
 	for _, subInput := range input.Fields {
 		inputs[i] = subInput

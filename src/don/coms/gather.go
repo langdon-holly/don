@@ -2,25 +2,45 @@ package coms
 
 import . "don/core"
 
-type GatherCom struct{}
+func Gather() Com { return &GatherCom{inputType: FieldsType} }
 
-func (GatherCom) Instantiate() ComInstance { return &gatherInstance{} }
-func (GatherCom) Inverse() Com             { return ScatterCom{} }
-
-type gatherInstance struct {
+type GatherCom struct {
 	inputType, outputType DType
 	underdefined          Error
 }
 
-func (gi *gatherInstance) InputType() *DType  { return &gi.inputType }
-func (gi *gatherInstance) OutputType() *DType { return &gi.outputType }
+func (gc *GatherCom) InputType() *DType  { return &gc.inputType }
+func (gc *GatherCom) OutputType() *DType { return &gc.outputType }
 
-func (gi *gatherInstance) Types() {
-	gi.underdefined = FanLinearTypes(&gi.inputType, &gi.outputType)
+func (gc *GatherCom) Types() Com {
+	gc.underdefined = FanLinearTypes(&gc.inputType, &gc.outputType)
+	if gc.outputType.LTE(NullType) {
+		return Null
+	} else if gc.inputType.Positive && len(gc.inputType.Fields) == 1 {
+		for fieldName := range gc.inputType.Fields {
+			sc := Select(fieldName)
+			sc.InputType().Meets(gc.inputType)
+			sc.OutputType().Meets(gc.outputType)
+			return sc.Types()
+		}
+		panic("Unreachable")
+	} else {
+		return gc
+	}
 }
 
-func (gi gatherInstance) Underdefined() Error {
-	return gi.underdefined.Context("in gather")
+func (gc GatherCom) Underdefined() Error {
+	return gc.underdefined.Context("in gather")
+}
+
+func (gc GatherCom) Copy() Com { gc.underdefined.Remake(); return &gc }
+
+func (gc GatherCom) Invert() Com {
+	return &ScatterCom{
+		inputType:    gc.outputType,
+		outputType:   gc.inputType,
+		underdefined: gc.underdefined,
+	}
 }
 
 func runGather(inputs []Input, output Output) {
@@ -44,8 +64,8 @@ func runGather(inputs []Input, output Output) {
 	}
 }
 
-func (gi gatherInstance) Run(input Input, output Output) {
-	inputs := make([]Input, len(gi.inputType.Fields))
+func (gc GatherCom) Run(input Input, output Output) {
+	inputs := make([]Input, len(gc.inputType.Fields))
 	i := 0
 	for _, subInput := range input.Fields {
 		inputs[i] = subInput

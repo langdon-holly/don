@@ -4,18 +4,12 @@ import "strconv"
 
 import . "don/core"
 
-type ProdCom struct{}
+func Prod() Com { return &ProdCom{inputType: FieldsType} }
 
-func (ProdCom) Instantiate() ComInstance {
-	return &prodInstance{inputType: FieldsType}
-}
+type ProdCom struct{ inputType, outputType DType }
 
-func (ProdCom) Inverse() Com { return InverseProdCom{} }
-
-type prodInstance struct{ inputType, outputType DType }
-
-func (pi *prodInstance) InputType() *DType  { return &pi.inputType }
-func (pi *prodInstance) OutputType() *DType { return &pi.outputType }
+func (pc *ProdCom) InputType() *DType  { return &pc.inputType }
+func (pc *ProdCom) OutputType() *DType { return &pc.outputType }
 
 func strToNat(s string) (nat int, err bool) {
 	if s == "" {
@@ -142,37 +136,36 @@ func (typesPath path) Type() (t DType) {
 	return
 }
 
-func (pi *prodInstance) Types() {
-	if pi.outputType.LTE(NullType) {
-		pi.inputType = NullType
-		return
-	} else if !pi.inputType.Positive {
-		return
+func (pc *ProdCom) Types() Com {
+	if pc.outputType.LTE(NullType) {
+		return Null
+	} else if !pc.inputType.Positive {
+		return pc
 	}
-	pi.inputType.RemakeFields()
+	pc.inputType.RemakeFields()
 
 	var indexStrings []string
-	for fieldName := range pi.inputType.Fields {
+	for fieldName := range pc.inputType.Fields {
 		if idx, badNat := strToNat(fieldName); !badNat {
 			for idx >= len(indexStrings) {
 				idxStr := strconv.Itoa(len(indexStrings))
-				if _, exists := pi.inputType.Fields[idxStr]; exists {
+				if _, exists := pc.inputType.Fields[idxStr]; exists {
 					indexStrings = append(indexStrings, idxStr)
-				} else if delete(pi.inputType.Fields, fieldName); true {
+				} else if delete(pc.inputType.Fields, fieldName); true {
 					break
 				}
 			}
-		} else if delete(pi.inputType.Fields, fieldName); true {
+		} else if delete(pc.inputType.Fields, fieldName); true {
 		}
 	}
 
 	outputPath := nullPath()
-	typePath(pi.outputType, 0, &outputPath)
+	typePath(pc.outputType, 0, &outputPath)
 
-	inputPaths := make([]path, len(pi.inputType.Fields))
+	inputPaths := make([]path, len(pc.inputType.Fields))
 	for i, idxStr := range indexStrings {
 		inputPaths[i] = nullPath()
-		typePath(pi.inputType.Fields[idxStr], 0, &inputPaths[i])
+		typePath(pc.inputType.Fields[idxStr], 0, &inputPaths[i])
 	}
 
 	idxInOutPath := 0
@@ -201,16 +194,25 @@ func (pi *prodInstance) Types() {
 	}
 AFTER_INPUT_ITER:
 	for i, idxStr := range indexStrings {
-		inputFieldType := pi.inputType.Fields[idxStr]
+		inputFieldType := pc.inputType.Fields[idxStr]
 		inputFieldType.Meets(inputPaths[i].Type())
-		pi.inputType.Fields[idxStr] = inputFieldType
+		pc.inputType.Fields[idxStr] = inputFieldType
 	}
-	pi.outputType.Meets(outputPath.Type())
+	pc.outputType.Meets(outputPath.Type())
+	if pc.outputType.LTE(NullType) {
+		return Null
+	} else {
+		return pc
+	}
 }
 
-func (pi prodInstance) Underdefined() Error {
-	return pi.inputType.Underdefined().Context("in input to prod")
+func (pc ProdCom) Underdefined() Error {
+	return pc.inputType.Underdefined().Context("in input to prod")
 }
+
+func (pc ProdCom) Copy() Com { return &pc }
+
+func (pc *ProdCom) Invert() Com { return &InverseProdCom{Prod: pc} }
 
 func getFieldPath(pathChan chan<- []string, fieldPath []string, unitChan <-chan Unit) {
 	<-unitChan
@@ -231,12 +233,12 @@ func getFieldPaths(pathChan chan<- []string, atPath []string, input Input) {
 	}
 }
 
-func (pi prodInstance) Run(input Input, output Output) {
-	if len(pi.inputType.Fields) == 0 {
+func (pc ProdCom) Run(input Input, output Output) {
+	if len(pc.inputType.Fields) == 0 {
 		return
 	}
 	var pathChans []<-chan []string
-	for i := 0; i < len(pi.inputType.Fields); i++ {
+	for i := 0; i < len(pc.inputType.Fields); i++ {
 		pathChan := make(chan []string)
 		pathChans = append(pathChans, pathChan)
 

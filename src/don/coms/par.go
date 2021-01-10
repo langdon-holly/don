@@ -4,67 +4,91 @@ import "strconv"
 
 import . "don/core"
 
-type ParCom []Com
-
-func (pc ParCom) Instantiate() ComInstance {
-	inners := make(map[int]ComInstance, len(pc))
-	ioType := MakeNFieldsType(len(pc))
-	for i, subCom := range pc {
-		inners[i] = subCom.Instantiate()
-		ioType.Fields[strconv.Itoa(i)] = UnknownType
+func Par(coms []Com) Com {
+	inners := make(map[int]Com, len(coms))
+	inputType :=
+		DType{NoUnit: true, Positive: true, Fields: make(map[string]DType)}
+	outputType :=
+		DType{NoUnit: true, Positive: true, Fields: make(map[string]DType)}
+	for i, com := range coms {
+		if _, nullp := com.(NullCom); !nullp {
+			inners[i] = com
+			inputType.Fields[strconv.Itoa(i)] = *com.InputType()
+			outputType.Fields[strconv.Itoa(i)] = *com.OutputType()
+		}
 	}
-	return &parInstance{Inners: inners, inputType: ioType, outputType: ioType}
+	if len(inners) > 0 {
+		return &ParCom{Inners: inners, inputType: inputType, outputType: outputType}
+	} else {
+		return Null
+	}
 }
 
-func (pc ParCom) Inverse() Com {
-	subInverses := make([]Com, len(pc))
-	for i, subCom := range pc {
-		subInverses[i] = subCom.Inverse()
-	}
-	return ParCom(subInverses)
-}
-
-type parInstance struct {
-	Inners                map[int]ComInstance
+type ParCom struct {
+	Inners                map[int]Com
 	inputType, outputType DType
-	Typesed               bool
 }
 
-func (pi *parInstance) InputType() *DType  { return &pi.inputType }
-func (pi *parInstance) OutputType() *DType { return &pi.outputType }
+func (pc *ParCom) InputType() *DType  { return &pc.inputType }
+func (pc *ParCom) OutputType() *DType { return &pc.outputType }
 
-func (pi *parInstance) Types() {
-	for i, inner := range pi.Inners {
+func (pc *ParCom) Types() Com {
+	for i, inner := range pc.Inners {
 		idxStr := strconv.Itoa(i)
-		newInputType := pi.inputType.Get(idxStr)
-		newOutputType := pi.outputType.Get(idxStr)
-		if !pi.Typesed ||
-			!inner.InputType().LTE(newInputType) ||
+		newInputType := pc.inputType.Get(idxStr)
+		newOutputType := pc.outputType.Get(idxStr)
+		if !inner.InputType().LTE(newInputType) ||
 			!inner.OutputType().LTE(newOutputType) {
 			inner.InputType().Meets(newInputType)
 			inner.OutputType().Meets(newOutputType)
-			inner.Types()
-			pi.inputType.Meets(inner.InputType().At(idxStr))
-			pi.outputType.Meets(inner.OutputType().At(idxStr))
-			if inner.InputType().LTE(NullType) && inner.OutputType().LTE(NullType) {
-				delete(pi.Inners, i)
+			inner = inner.Types()
+			pc.inputType.Meets(inner.InputType().At(idxStr))
+			pc.outputType.Meets(inner.OutputType().At(idxStr))
+			if _, nullp := inner.(NullCom); nullp {
+				delete(pc.Inners, i)
 			} else {
-				pi.Inners[i] = inner
+				pc.Inners[i] = inner
 			}
 		}
 	}
-	pi.Typesed = true
+	if len(pc.Inners) == 0 {
+		return Null
+	} else if len(pc.Inners) == 1 {
+		for i, inner := range pc.Inners {
+			return Pipe([]Com{Select(strconv.Itoa(i)), inner, Deselect(strconv.Itoa(i))})
+		}
+		panic("Unreachable")
+	} else {
+		return pc
+	}
 }
 
-func (pi parInstance) Underdefined() (underdefined Error) {
-	for i, inner := range pi.Inners {
+func (pc ParCom) Underdefined() (underdefined Error) {
+	for i, inner := range pc.Inners {
 		underdefined.Ors(inner.Underdefined().Context("in " + strconv.Itoa(i) + "'th computer in par"))
 	}
 	return
 }
 
-func (pi parInstance) Run(input Input, output Output) {
-	for i, inner := range pi.Inners {
+func (pc ParCom) Copy() Com {
+	inners := make(map[int]Com, len(pc.Inners))
+	for i, inner := range pc.Inners {
+		inners[i] = inner.Copy()
+	}
+	pc.Inners = inners
+	return &pc
+}
+
+func (pc *ParCom) Invert() Com {
+	for i, inner := range pc.Inners {
+		pc.Inners[i] = inner.Invert()
+	}
+	pc.inputType, pc.outputType = pc.outputType, pc.inputType
+	return pc
+}
+
+func (pc ParCom) Run(input Input, output Output) {
+	for i, inner := range pc.Inners {
 		idxStr := strconv.Itoa(i)
 		go inner.Run(input.Fields[idxStr], output.Fields[idxStr])
 	}

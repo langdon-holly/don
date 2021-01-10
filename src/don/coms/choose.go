@@ -2,25 +2,45 @@ package coms
 
 import . "don/core"
 
-type ChooseCom struct{}
+func Choose() Com { return &ChooseCom{outputType: FieldsType} }
 
-func (ChooseCom) Instantiate() ComInstance { return &chooseInstance{} }
-func (ChooseCom) Inverse() Com             { return MergeCom{} }
-
-type chooseInstance struct {
+type ChooseCom struct {
 	inputType, outputType DType
 	underdefined          Error
 }
 
-func (ci *chooseInstance) InputType() *DType  { return &ci.inputType }
-func (ci *chooseInstance) OutputType() *DType { return &ci.outputType }
+func (cc *ChooseCom) InputType() *DType  { return &cc.inputType }
+func (cc *ChooseCom) OutputType() *DType { return &cc.outputType }
 
-func (ci *chooseInstance) Types() {
-	ci.underdefined = FanAffineTypes(&ci.outputType, &ci.inputType)
+func (cc *ChooseCom) Types() Com {
+	cc.underdefined = FanAffineTypes(&cc.outputType, &cc.inputType)
+	if cc.inputType.LTE(NullType) {
+		return Null
+	} else if cc.outputType.Positive && len(cc.outputType.Fields) == 1 {
+		for fieldName := range cc.outputType.Fields {
+			dc := Deselect(fieldName)
+			dc.InputType().Meets(cc.inputType)
+			dc.OutputType().Meets(cc.outputType)
+			return dc.Types()
+		}
+		panic("Unreachable")
+	} else {
+		return cc
+	}
 }
 
-func (ci chooseInstance) Underdefined() Error {
-	return ci.underdefined.Context("in choose")
+func (cc ChooseCom) Underdefined() Error {
+	return cc.underdefined.Context("in choose")
+}
+
+func (cc ChooseCom) Copy() Com { cc.underdefined.Remake(); return &cc }
+
+func (cc ChooseCom) Invert() Com {
+	return &MergeCom{
+		inputType:    cc.outputType,
+		outputType:   cc.inputType,
+		underdefined: cc.underdefined,
+	}
 }
 
 func runChoose(input Input, outputs []Output) {
@@ -47,7 +67,7 @@ func runChoose(input Input, outputs []Output) {
 	}
 }
 
-func (chooseInstance) Run(input Input, output Output) {
+func (ChooseCom) Run(input Input, output Output) {
 	outputs := make([]Output, len(output.Fields))
 	i := 0
 	for _, subOutput := range output.Fields {

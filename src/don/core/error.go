@@ -9,6 +9,9 @@ type Error []string
 
 func NewError(msg string) Error { return Error([]string{msg}) }
 
+// Sets e
+func (e *Error) Remake() { *e = append(Error(nil), *e...) }
+
 // Mutates e
 func (e Error) Context(msg string) Error {
 	if e == nil {

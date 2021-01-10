@@ -16,26 +16,26 @@ func printUint9(input Input) {
 	fmt.Println(types.ReadUint9(input))
 }
 
-func checkTypes(comI ComInstance, hopefulInputType, hopefulOutputType DType) {
-	comI.Types()
-	if underdefined := comI.Underdefined(); underdefined != nil {
+func checkTypes(com Com, hopefulInputType, hopefulOutputType DType) {
+	com = com.Types()
+	if underdefined := com.Underdefined(); underdefined != nil {
 		fmt.Println(underdefined)
 		panic("Underdefined types")
-	} else if !comI.InputType().Equal(hopefulInputType) {
+	} else if !com.InputType().Equal(hopefulInputType) {
 		fmt.Println("Input type:")
-		fmt.Println(*comI.InputType())
+		fmt.Println(*com.InputType())
 		panic("Bad input type")
-	} else if !comI.OutputType().Equal(hopefulOutputType) {
+	} else if !com.OutputType().Equal(hopefulOutputType) {
 		fmt.Println("Output type:")
-		fmt.Println(*comI.OutputType())
+		fmt.Println(*com.OutputType())
 		panic("Bad output type")
 	}
 }
 
-func runWithInputs(comI ComInstance, arg0, arg1 int) {
-	inputR, input := MakeIO(*comI.InputType())
-	output, outputW := MakeIO(*comI.OutputType())
-	go comI.Run(inputR, outputW)
+func runWithInputs(com Com, arg0, arg1 int) {
+	inputR, input := MakeIO(*com.InputType())
+	output, outputW := MakeIO(*com.OutputType())
+	go com.Run(inputR, outputW)
 
 	types.WriteUint8(input.Fields["0"], arg0)
 	types.WriteUint8(input.Fields["1"], arg1)
@@ -51,13 +51,13 @@ func main() {
 
 	hopefulOutputType := types.Uint9Type
 
-	comI := coms.Eval(syntax.ParseTop(ifile), coms.DefContext).Com().Instantiate()
-	comI.InputType().Meets(hopefulInputType)
+	com := coms.Eval(syntax.ParseTop(ifile), coms.DefContext).Com()
+	com.InputType().Meets(hopefulInputType)
 
-	checkTypes(comI, hopefulInputType, hopefulOutputType)
+	checkTypes(com, hopefulInputType, hopefulOutputType)
 
-	runWithInputs(comI, 0, 0)
-	runWithInputs(comI, 2, 2)
-	runWithInputs(comI, 189, 55)
-	runWithInputs(comI, 255, 255)
+	runWithInputs(com, 0, 0)
+	runWithInputs(com, 2, 2)
+	runWithInputs(com, 189, 55)
+	runWithInputs(com, 255, 255)
 }

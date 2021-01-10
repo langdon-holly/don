@@ -2,25 +2,45 @@ package coms
 
 import . "don/core"
 
-type ForkCom struct{}
+func Fork() Com { return &ForkCom{outputType: FieldsType} }
 
-func (ForkCom) Instantiate() ComInstance { return &forkInstance{} }
-func (ForkCom) Inverse() Com             { return JoinCom{} }
-
-type forkInstance struct {
+type ForkCom struct {
 	inputType, outputType DType
 	underdefined          Error
 }
 
-func (fi *forkInstance) InputType() *DType  { return &fi.inputType }
-func (fi *forkInstance) OutputType() *DType { return &fi.outputType }
+func (fc *ForkCom) InputType() *DType  { return &fc.inputType }
+func (fc *ForkCom) OutputType() *DType { return &fc.outputType }
 
-func (fi *forkInstance) Types() {
-	fi.underdefined = FanAffineTypes(&fi.outputType, &fi.inputType)
+func (fc *ForkCom) Types() Com {
+	fc.underdefined = FanAffineTypes(&fc.outputType, &fc.inputType)
+	if fc.inputType.LTE(NullType) {
+		return Null
+	} else if fc.outputType.Positive && len(fc.outputType.Fields) == 1 {
+		for fieldName := range fc.outputType.Fields {
+			dc := Deselect(fieldName)
+			dc.InputType().Meets(fc.inputType)
+			dc.OutputType().Meets(fc.outputType)
+			return dc.Types()
+		}
+		panic("Unreachable")
+	} else {
+		return fc
+	}
 }
 
-func (fi forkInstance) Underdefined() Error {
-	return fi.underdefined.Context("in fork")
+func (fc ForkCom) Underdefined() Error {
+	return fc.underdefined.Context("in fork")
+}
+
+func (fc ForkCom) Copy() Com { fc.underdefined.Remake(); return &fc }
+
+func (fc ForkCom) Invert() Com {
+	return &JoinCom{
+		inputType:    fc.outputType,
+		outputType:   fc.inputType,
+		underdefined: fc.underdefined,
+	}
 }
 
 func runFork(input Input, outputs []Output) {
@@ -43,7 +63,7 @@ func runFork(input Input, outputs []Output) {
 	}
 }
 
-func (forkInstance) Run(input Input, output Output) {
+func (ForkCom) Run(input Input, output Output) {
 	outputs := make([]Output, len(output.Fields))
 	i := 0
 	for _, subOutput := range output.Fields {

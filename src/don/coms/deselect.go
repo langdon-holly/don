@@ -5,33 +5,42 @@ import (
 	"don/syntax"
 )
 
-type DeselectCom string
-
-func (dc DeselectCom) Instantiate() ComInstance {
-	return &deselectInstance{FieldName: string(dc)}
+func Deselect(fieldName string) Com {
+	outputType := MakeNFieldsType(1)
+	outputType.Fields[fieldName] = UnknownType
+	return &DeselectCom{FieldName: fieldName, outputType: outputType}
 }
 
-func (dc DeselectCom) Inverse() Com { return SelectCom(string(dc)) }
-
-type deselectInstance struct {
+type DeselectCom struct {
 	FieldName             string
 	inputType, outputType DType
 }
 
-func (di *deselectInstance) InputType() *DType  { return &di.inputType }
-func (di *deselectInstance) OutputType() *DType { return &di.outputType }
-func (di *deselectInstance) Types() {
-	di.inputType.Meets(di.outputType.Get(di.FieldName))
-	diOutputType := MakeNFieldsType(1)
-	diOutputType.Fields[di.FieldName] = di.inputType
-	di.outputType.Meets(diOutputType)
+func (dc *DeselectCom) InputType() *DType  { return &dc.inputType }
+func (dc *DeselectCom) OutputType() *DType { return &dc.outputType }
+func (dc *DeselectCom) Types() Com {
+	dc.inputType.Meets(dc.outputType.Get(dc.FieldName))
+	dc.outputType.Meets(dc.inputType.At(dc.FieldName))
+	if dc.inputType.LTE(NullType) {
+		return Null
+	} else {
+		return dc
+	}
 }
-func (di deselectInstance) Underdefined() Error {
-	return di.inputType.Underdefined().Context(
-		"in input to deselect field " + syntax.EscapeFieldName(di.FieldName))
+func (dc DeselectCom) Underdefined() Error {
+	return dc.inputType.Underdefined().Context(
+		"in input to deselect field " + syntax.EscapeFieldName(dc.FieldName))
 }
-func (di deselectInstance) Run(input Input, output Output) {
-	if len(di.outputType.Fields) > 0 {
-		RunI(di.inputType, input, output.Fields[di.FieldName])
+func (dc DeselectCom) Copy() Com { return &dc }
+func (dc DeselectCom) Invert() Com {
+	return &SelectCom{
+		FieldName:  dc.FieldName,
+		inputType:  dc.outputType,
+		outputType: dc.inputType,
+	}
+}
+func (dc DeselectCom) Run(input Input, output Output) {
+	if len(dc.outputType.Fields) > 0 {
+		RunI(dc.inputType, input, output.Fields[dc.FieldName])
 	}
 }

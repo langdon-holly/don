@@ -13,43 +13,44 @@ func (r EvalResult) Apply(param EvalResult) EvalResult {
 	return r.It.(func(EvalResult) EvalResult)(param)
 }
 
+// Context arg to macro may be shared
 type Context struct {
 	Com    Com
 	Macros map[string]func(Context) func(EvalResult) EvalResult
 }
 
 func entry(fieldName string, inner Com) Com {
-	return PipeCom([]Com{
-		SelectCom(fieldName),
+	return Pipe([]Com{
+		Select(fieldName),
 		inner,
-		DeselectCom(fieldName)})
+		Deselect(fieldName)})
 }
 
 var DefContext = Context{
-	Com: PipeCom([]Com{ScatterCom{}, ParCom([]Com{
-		entry("unit", ICom(UnitType)),
-		entry("fields", ICom(FieldsType)),
-		entry("<", GatherCom{}),
-		entry(">", ScatterCom{}),
-		entry("<|", MergeCom{}),
-		entry("|>", ChooseCom{}),
-		entry("<||", JoinCom{}),
-		entry("||>", ForkCom{}),
-		entry("prod", ProdCom{}),
-		entry("yet", YetCom{}),
-	}), GatherCom{}}),
+	Com: Pipe([]Com{Scatter(), Par([]Com{
+		entry("unit", I(UnitType)),
+		entry("fields", I(FieldsType)),
+		entry("<", Gather()),
+		entry(">", Scatter()),
+		entry("<|", Merge()),
+		entry("|>", Choose()),
+		entry("<||", Join()),
+		entry("||>", Fork()),
+		entry("prod", Prod()),
+		entry("yet", Yet()),
+	}), Gather()}),
 	Macros: make(map[string]func(Context) func(EvalResult) EvalResult)}
 
 func init() {
 	ms := DefContext.Macros
 	ms["map"] = func(_ Context) func(EvalResult) EvalResult {
 		return func(param EvalResult) EvalResult {
-			return EvalResult{MapCom{Com: param.Com()}}
+			return EvalResult{Map(param.Com())}
 		}
 	}
 	ms["~"] = func(_ Context) func(EvalResult) EvalResult {
 		return func(param EvalResult) EvalResult {
-			return EvalResult{param.Com().Inverse()}
+			return EvalResult{param.Com().Invert()}
 		}
 	}
 	ms["withoutField"] = func(_ Context) func(EvalResult) EvalResult {
@@ -57,7 +58,7 @@ func init() {
 			if name := param.Syntax(); name.Tag != NameSyntaxTag {
 				panic("Non-name parameter to withoutField: " + name.String())
 			} else if !name.LeftMarker && !name.RightMarker {
-				return EvalResult{ICom(NullType.At(name.Name))}
+				return EvalResult{I(NullType.At(name.Name))}
 			} else {
 				panic("Marked parameter to withoutField: " + name.String())
 			}
@@ -66,7 +67,9 @@ func init() {
 	ms["context"] = func(c Context) func(EvalResult) EvalResult {
 		return func(param EvalResult) EvalResult {
 			list := param.Syntax()
-			if list.Tag == ListSyntaxTag {
+			if list.Tag != ListSyntaxTag {
+				panic("Non-list parameter to context: " + list.String())
+			} else if len(list.Children) > 0 {
 				for _, listElem := range list.Children {
 					if listElem.Tag != EmptyLineSyntaxTag {
 						c.Com = Eval(listElem, c).Com()
@@ -74,18 +77,18 @@ func init() {
 				}
 				return EvalResult{c.Com}
 			} else {
-				panic("Non-list parameter to context: " + list.String())
+				return EvalResult{c.Com.Copy()}
 			}
 		}
 	}
 	ms["#"] = func(_ Context) func(EvalResult) EvalResult {
 		return func(_ EvalResult) EvalResult {
-			return EvalResult{NullCom{}}
+			return EvalResult{Null}
 		}
 	}
 	ms["##"] = func(c Context) func(EvalResult) EvalResult {
 		return func(_ EvalResult) EvalResult {
-			return EvalResult{c.Com}
+			return EvalResult{c.Com.Copy()}
 		}
 	}
 	ms["def"] = func(c Context) func(EvalResult) EvalResult {
@@ -95,17 +98,13 @@ func init() {
 				if name.Tag != NameSyntaxTag {
 					panic("Non-name name parameter to def: " + name.String())
 				} else if !name.LeftMarker && !name.RightMarker {
-					return EvalResult{PipeCom([]Com{
-						ScatterCom{},
-						ParCom([]Com{
-							PipeCom([]Com{c.Com, ICom(NullType.At(name.Name))}),
-							PipeCom([]Com{
-								SelectCom(name.Name),
-								param1.Com(),
-								DeselectCom(name.Name),
-							}),
+					return EvalResult{Pipe([]Com{
+						Scatter(),
+						Par([]Com{
+							Pipe([]Com{c.Com.Copy(), I(NullType.At(name.Name))}),
+							Pipe([]Com{Select(name.Name), param1.Com(), Deselect(name.Name)}),
 						}),
-						GatherCom{},
+						Gather(),
 					})}
 				} else {
 					panic("Marked name parameter to def: " + name.String())
@@ -116,8 +115,8 @@ func init() {
 	ms["sandwich"] = func(_ Context) func(EvalResult) EvalResult {
 		return func(param0 EvalResult) EvalResult {
 			return EvalResult{func(param1 EvalResult) EvalResult {
-				return EvalResult{PipeCom([]Com{
-					param0.Com().Inverse(),
+				return EvalResult{Pipe([]Com{
+					param0.Com().Copy().Invert(),
 					param1.Com(),
 					param0.Com()})}
 			}}
@@ -125,16 +124,17 @@ func init() {
 	}
 }
 
+// c may be shared
 func eval(s Syntax, c Context) interface{} {
 	switch s.Tag {
 	case ListSyntaxTag:
-		var parComs []Com
+		var factorComs []Com
 		for _, factor := range s.Children {
 			if factor.Tag != EmptyLineSyntaxTag {
-				parComs = append(parComs, Eval(factor, c).Com())
+				factorComs = append(factorComs, Eval(factor, c).Com())
 			}
 		}
-		return ParCom(parComs)
+		return Par(factorComs)
 	case EmptyLineSyntaxTag:
 		panic("Eval empty line")
 	case ApplicationSyntaxTag:
@@ -152,33 +152,35 @@ func eval(s Syntax, c Context) interface{} {
 				return param
 			}
 		} else {
-			pipeComs := make([]Com, len(factorResults))
+			factorComs := make([]Com, len(factorResults))
 			for i, factorResult := range factorResults {
-				pipeComs[i] = factorResult.Com()
+				factorComs[i] = factorResult.Com()
 			}
-			return PipeCom(pipeComs)
+			return Pipe(factorComs)
 		}
 	case NameSyntaxTag:
 		if s.LeftMarker {
 			if s.RightMarker {
 				panic("Doubly-marked variable: " + s.String())
 			} else {
-				return SelectCom(s.Name)
+				return Select(s.Name)
 			}
 		} else if s.RightMarker {
-			return DeselectCom(s.Name)
+			return Deselect(s.Name)
 		} else if macroEntry, ok := c.Macros[s.Name]; ok {
 			return macroEntry(c)
 		} else {
-			return PipeCom([]Com{DeselectCom(s.Name), c.Com, SelectCom(s.Name)})
+			return Pipe([]Com{Deselect(s.Name), c.Com.Copy(), Select(s.Name)})
 		}
 	case ISyntaxTag:
-		return ICom{}
+		return I(UnknownType)
 	case QuotationSyntaxTag:
 		return s.Children[0]
 	}
 	panic("Unreachable")
 }
+
+// c may be shared
 func Eval(s Syntax, c Context) EvalResult {
 	return EvalResult{eval(s, c)}
 }

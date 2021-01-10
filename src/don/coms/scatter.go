@@ -2,25 +2,45 @@ package coms
 
 import . "don/core"
 
-type ScatterCom struct{}
+func Scatter() Com { return &ScatterCom{outputType: FieldsType} }
 
-func (ScatterCom) Instantiate() ComInstance { return &scatterInstance{} }
-func (ScatterCom) Inverse() Com             { return GatherCom{} }
-
-type scatterInstance struct {
+type ScatterCom struct {
 	inputType, outputType DType
 	underdefined          Error
 }
 
-func (si *scatterInstance) InputType() *DType  { return &si.inputType }
-func (si *scatterInstance) OutputType() *DType { return &si.outputType }
+func (sc *ScatterCom) InputType() *DType  { return &sc.inputType }
+func (sc *ScatterCom) OutputType() *DType { return &sc.outputType }
 
-func (si *scatterInstance) Types() {
-	si.underdefined = FanLinearTypes(&si.outputType, &si.inputType)
+func (sc *ScatterCom) Types() Com {
+	sc.underdefined = FanLinearTypes(&sc.outputType, &sc.inputType)
+	if sc.inputType.LTE(NullType) {
+		return Null
+	} else if sc.outputType.Positive && len(sc.outputType.Fields) == 1 {
+		for fieldName := range sc.outputType.Fields {
+			dc := Deselect(fieldName)
+			dc.InputType().Meets(sc.inputType)
+			dc.OutputType().Meets(sc.outputType)
+			return dc.Types()
+		}
+		panic("Unreachable")
+	} else {
+		return sc
+	}
 }
 
-func (si scatterInstance) Underdefined() Error {
-	return si.underdefined.Context("in scatter")
+func (sc ScatterCom) Underdefined() Error {
+	return sc.underdefined.Context("in scatter")
+}
+
+func (sc ScatterCom) Copy() Com { sc.underdefined.Remake(); return &sc }
+
+func (sc ScatterCom) Invert() Com {
+	return &GatherCom{
+		inputType:    sc.outputType,
+		outputType:   sc.inputType,
+		underdefined: sc.underdefined,
+	}
 }
 
 func runScatter(input Input, outputs []Output) {
@@ -44,7 +64,7 @@ func runScatter(input Input, outputs []Output) {
 	}
 }
 
-func (scatterInstance) Run(input Input, output Output) {
+func (ScatterCom) Run(input Input, output Output) {
 	outputs := make([]Output, len(output.Fields))
 	i := 0
 	for _, subOutput := range output.Fields {
