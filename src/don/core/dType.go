@@ -1,10 +1,6 @@
 package core
 
-import (
-	"strings"
-)
-
-import "don/syntax"
+import . "don/syntax"
 
 // DType
 
@@ -148,37 +144,57 @@ func (t DType) Nonnull() Error {
 	return nil
 }
 
-func typeString(out *strings.Builder, t DType, indent []byte) {
-	subIndent := append(indent, byte('\t'))
-	out.WriteString("(\n")
+func (t DType) Syntax() Syntax {
+	if !t.NoUnit && !t.Positive && len(t.Fields) == 0 {
+		return Syntax{Tag: ISyntaxTag}
+	}
+
+	var children []Syntax
 	if !t.NoUnit {
-		out.Write(subIndent)
-		out.WriteString("unit\n")
+		children = append(children, Syntax{Tag: NameSyntaxTag, Name: "unit"})
 	}
 	if !t.Positive {
-		out.Write(subIndent)
-		out.WriteString("fields")
+		composed := []Syntax{{Tag: NameSyntaxTag, Name: "fields"}}
 		for fieldName := range t.Fields {
-			out.WriteString(" withoutField!")
-			out.WriteString(syntax.EscapeFieldName(fieldName))
+			composed = append(composed, Syntax{
+				Tag: ApplicationSyntaxTag,
+				Children: []Syntax{
+					{Tag: NameSyntaxTag, Name: "withoutField"},
+					{Tag: QuotationSyntaxTag, Children: []Syntax{{
+						Tag:  NameSyntaxTag,
+						Name: fieldName,
+					}}},
+				},
+			})
 		}
-		out.WriteString("\n")
+		if len(composed) > 1 {
+			children =
+				append(children, Syntax{Tag: CompositionSyntaxTag, Children: composed})
+		} else if children = append(children, composed[0]); true {
+		}
 	}
 	for fieldName, fieldType := range t.Fields {
-		out.Write(subIndent)
-		out.WriteString(syntax.EscapeFieldName(fieldName))
-		out.WriteString(":-")
-		typeString(out, fieldType, subIndent)
-		out.WriteString("\n")
+		children =
+			append(children, Syntax{Tag: CompositionSyntaxTag, Children: []Syntax{
+				{Tag: NameSyntaxTag, RightMarker: true, Name: fieldName},
+				fieldType.Syntax(),
+				{Tag: NameSyntaxTag, LeftMarker: true, Name: fieldName},
+			}})
 	}
-	out.Write(indent)
-	out.WriteString(")")
+	if len(children) == 0 {
+		return Syntax{Tag: ListSyntaxTag}
+	} else if len(children) == 1 {
+		return children[0]
+	} else {
+		return Syntax{Tag: CompositionSyntaxTag, Children: []Syntax{
+			{Tag: NameSyntaxTag, Name: "<"},
+			{Tag: ListSyntaxTag, Children: children},
+			{Tag: NameSyntaxTag, Name: ">"},
+		}}
+	}
 }
-func (t DType) String() string {
-	var b strings.Builder
-	typeString(&b, t, nil)
-	return b.String()
-}
+
+func (t DType) String() string { return t.Syntax().String() }
 
 func FanAffineTypes(many, one *DType) Error {
 	if one.LTE(NullType) {
