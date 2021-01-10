@@ -1,8 +1,10 @@
 * functions
 * dynamic computer creation/destruction
-* I/O
+* recursion
 * metaprogramming
 * translation
+* committed-choice nondeterminism
+* I/O
 * language server
 * editor
 * supervision
