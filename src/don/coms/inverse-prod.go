@@ -4,15 +4,15 @@ import "strconv"
 
 import . "don/core"
 
-func InverseProd() Com { return &InverseProdCom{Prod: Prod()} }
+func InverseProd() Com { return InverseProdCom{Prod: Prod()} }
 
 type InverseProdCom struct{ Prod Com }
 
-func (ipc InverseProdCom) InputType() *DType  { return ipc.Prod.OutputType() }
-func (ipc InverseProdCom) OutputType() *DType { return ipc.Prod.InputType() }
+func (ipc InverseProdCom) InputType() DType  { return ipc.Prod.OutputType() }
+func (ipc InverseProdCom) OutputType() DType { return ipc.Prod.InputType() }
 
-func (ipc InverseProdCom) Types() Com {
-	ipc.Prod = ipc.Prod.Types()
+func (ipc InverseProdCom) MeetTypes(inputType, outputType DType) Com {
+	ipc.Prod = ipc.Prod.MeetTypes(outputType, inputType)
 	if _, nullp := ipc.Prod.(NullCom); nullp {
 		return Null
 	} else {
@@ -27,51 +27,6 @@ func (ipc InverseProdCom) Underdefined() Error {
 func (ipc InverseProdCom) Copy() Com { ipc.Prod = ipc.Prod.Copy(); return ipc }
 
 func (ipc InverseProdCom) Invert() Com { return ipc.Prod }
-
-func runForks(
-	mergeInput Input, /* mutated */
-	mergeInputFieldName string,
-	outputType DType,
-	outputFieldIdx int,
-	outputFieldType DType, /* for outputFieldIdx < len(outputType.Fields) */
-	forkInput Input,
-	forkOutputType DType) {
-	if outputFieldIdx == len(outputType.Fields) {
-		fork := Fork()
-		fork.InputType().Meets(UnitType)
-		fork.OutputType().Meets(forkOutputType)
-		if underdefined := fork.Underdefined(); underdefined != nil {
-			panic("Unreachable underdefined:\n" + underdefined.String())
-		}
-		//theseMergeInput, forkOutput := MakeIO(forkOutputType)
-		//go fork.Run(forkInput, forkOutput)
-
-	} else {
-		for fieldName, subForkInput := range forkInput.Fields {
-			subMergeInputFieldName := mergeInputFieldName + "," + fieldName
-			subOutputFieldIdx := outputFieldIdx
-			var subOutputFieldType DType
-			if outputFieldType.NoUnit {
-				for _, subOutputFieldType = range outputFieldType.Fields {
-					break
-				}
-			} else {
-				subOutputFieldIdx++
-				if subOutputFieldIdx < len(outputType.Fields) {
-					subOutputFieldType = outputType.Fields[strconv.Itoa(subOutputFieldIdx)]
-				}
-			}
-			runForks(
-				mergeInput,
-				subMergeInputFieldName,
-				outputType,
-				subOutputFieldIdx,
-				subOutputFieldType,
-				subForkInput,
-				forkOutputType)
-		}
-	}
-}
 
 // leaf may be shared
 func mergeDeep(inputType DType, leaf Com) Com {
@@ -107,11 +62,11 @@ func mapDeep(inputType DType, leaf Com) Com {
 }
 
 func (ipc InverseProdCom) Run(input Input, output Output) {
-	outputType := *ipc.Prod.InputType()
+	outputType := ipc.Prod.InputType()
 	if len(outputType.Fields) == 0 {
 		return
 	}
-	inputType := *ipc.Prod.OutputType()
+	inputType := ipc.Prod.OutputType()
 
 	merges := make([]Com, len(outputType.Fields))
 	for i := 0; i < len(outputType.Fields); i++ {
@@ -124,15 +79,12 @@ func (ipc InverseProdCom) Run(input Input, output Output) {
 			merges[i] = mergeDeep(outputType.Fields[strconv.Itoa(j)], merges[i])
 		}
 	}
-	com := Pipe([]Com{Fork(), Par(merges)})
-	com.InputType().Meets(inputType)
-	com.OutputType().Meets(outputType)
-	com = com.Types()
+	com := Pipe([]Com{Fork(), Par(merges)}).MeetTypes(inputType, outputType)
 	if underdefined := com.Underdefined(); underdefined != nil {
 		panic("Unreachable underdefined:\n" + underdefined.String())
-	} else if !inputType.LTE(*com.InputType()) {
+	} else if !inputType.LTE(com.InputType()) {
 		panic("Unreachable")
-	} else if !outputType.LTE(*com.OutputType()) {
+	} else if !outputType.LTE(com.OutputType()) {
 		panic("Unreachable:\n" + com.OutputType().String() + "\nnot\n" + outputType.String())
 	}
 	com.Run(input, output)

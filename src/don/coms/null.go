@@ -6,10 +6,10 @@ var Null = NullCom{}
 
 type NullCom struct{}
 
-func (NullCom) InputType() *DType              { return NullPtr() }
-func (NullCom) OutputType() *DType             { return NullPtr() }
-func (NullCom) Types() Com                     { return NullCom{} }
-func (NullCom) Underdefined() Error            { return nil }
-func (NullCom) Copy() Com                      { return NullCom{} }
-func (NullCom) Invert() Com                    { return NullCom{} }
-func (NullCom) Run(input Input, output Output) {}
+func (NullCom) InputType() DType           { return NullType }
+func (NullCom) OutputType() DType          { return NullType }
+func (NullCom) MeetTypes(DType, DType) Com { return NullCom{} }
+func (NullCom) Underdefined() Error        { return nil }
+func (NullCom) Copy() Com                  { return NullCom{} }
+func (NullCom) Invert() Com                { return NullCom{} }
+func (NullCom) Run(Input, Output)          {}

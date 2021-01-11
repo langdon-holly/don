@@ -4,12 +4,12 @@ import "strconv"
 
 import . "don/core"
 
-func Prod() Com { return &ProdCom{inputType: FieldsType} }
+func Prod() Com { return ProdCom{inputType: FieldsType} }
 
 type ProdCom struct{ inputType, outputType DType }
 
-func (pc *ProdCom) InputType() *DType  { return &pc.inputType }
-func (pc *ProdCom) OutputType() *DType { return &pc.outputType }
+func (pc ProdCom) InputType() DType  { return pc.inputType }
+func (pc ProdCom) OutputType() DType { return pc.outputType }
 
 func strToNat(s string) (nat int, err bool) {
 	if s == "" {
@@ -136,7 +136,9 @@ func (typesPath path) Type() (t DType) {
 	return
 }
 
-func (pc *ProdCom) Types() Com {
+func (pc ProdCom) MeetTypes(inputType, outputType DType) Com {
+	pc.inputType.Meets(inputType)
+	pc.outputType.Meets(outputType)
 	if pc.outputType.LTE(NullType) {
 		return Null
 	} else if !pc.inputType.Positive {
@@ -210,9 +212,9 @@ func (pc ProdCom) Underdefined() Error {
 	return pc.inputType.Underdefined().Context("in input to prod")
 }
 
-func (pc ProdCom) Copy() Com { return &pc }
+func (pc ProdCom) Copy() Com { return pc }
 
-func (pc *ProdCom) Invert() Com { return &InverseProdCom{Prod: pc} }
+func (pc ProdCom) Invert() Com { return InverseProdCom{Prod: pc} }
 
 func getFieldPath(pathChan chan<- []string, fieldPath []string, unitChan <-chan Unit) {
 	<-unitChan

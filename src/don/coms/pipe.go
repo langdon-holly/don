@@ -16,14 +16,12 @@ func Pipe(inners []Com) Com {
 		}
 		delete(toType, i)
 
-		inners[i] = inners[i].Types()
-
-		if i < len(inners)-1 && !inners[i+1].InputType().LTE(*inners[i].OutputType()) {
-			inners[i+1].InputType().Meets(*inners[i].OutputType())
+		if i < len(inners)-1 && !inners[i+1].InputType().LTE(inners[i].OutputType()) {
+			inners[i+1] = inners[i+1].MeetTypes(inners[i].OutputType(), UnknownType)
 			toType[i+1] = struct{}{}
 		}
-		if i > 0 && !inners[i-1].OutputType().LTE(*inners[i].InputType()) {
-			inners[i-1].OutputType().Meets(*inners[i].InputType())
+		if i > 0 && !inners[i-1].OutputType().LTE(inners[i].InputType()) {
+			inners[i-1] = inners[i-1].MeetTypes(UnknownType, inners[i].InputType())
 			toType[i-1] = struct{}{}
 		}
 	}
@@ -51,30 +49,27 @@ func Pipe(inners []Com) Com {
 	if len(inners) == 1 {
 		return inners[0]
 	} else {
-		inputType := *inners[0].InputType()
-		outputType := *inners[len(inners)-1].OutputType()
-		return &PipeCom{Inners: inners, inputType: inputType, outputType: outputType}
+		return PipeCom{Inners: inners}
 	}
 }
 
 /* Nonempty Inners */
-type PipeCom struct {
-	Inners                []Com
-	inputType, outputType DType
-}
+type PipeCom struct{ Inners []Com }
 
-func (pc *PipeCom) InputType() *DType  { return &pc.inputType }
-func (pc *PipeCom) OutputType() *DType { return &pc.outputType }
+func (pc PipeCom) InputType() DType  { return pc.Inners[0].InputType() }
+func (pc PipeCom) OutputType() DType { return pc.Inners[len(pc.Inners)-1].OutputType() }
 
-func (pc *PipeCom) Types() Com {
+func (pc PipeCom) MeetTypes(inputType, outputType DType) Com {
 	toType := make(map[int]struct{})
-	if !pc.Inners[0].InputType().LTE(pc.inputType) {
-		pc.Inners[0].InputType().Meets(pc.inputType)
+	inputType.Meets(pc.InputType())
+	if !pc.InputType().LTE(inputType) {
+		pc.Inners[0] = pc.Inners[0].MeetTypes(inputType, UnknownType)
 		toType[0] = struct{}{}
 	}
 	lastIdx := len(pc.Inners) - 1
-	if !pc.Inners[lastIdx].OutputType().LTE(pc.outputType) {
-		pc.Inners[lastIdx].OutputType().Meets(pc.outputType)
+	outputType.Meets(pc.OutputType())
+	if !pc.OutputType().LTE(outputType) {
+		pc.Inners[lastIdx] = pc.Inners[lastIdx].MeetTypes(UnknownType, outputType)
 		toType[lastIdx] = struct{}{}
 	}
 	for i := 0; len(toType) > 0; {
@@ -83,14 +78,12 @@ func (pc *PipeCom) Types() Com {
 		}
 		delete(toType, i)
 
-		pc.Inners[i] = pc.Inners[i].Types()
-
-		if i < lastIdx && !pc.Inners[i+1].InputType().LTE(*pc.Inners[i].OutputType()) {
-			pc.Inners[i+1].InputType().Meets(*pc.Inners[i].OutputType())
+		if i < lastIdx && !pc.Inners[i+1].InputType().LTE(pc.Inners[i].OutputType()) {
+			pc.Inners[i+1] = pc.Inners[i+1].MeetTypes(pc.Inners[i].OutputType(), UnknownType)
 			toType[i+1] = struct{}{}
 		}
-		if i > 0 && !pc.Inners[i-1].OutputType().LTE(*pc.Inners[i].InputType()) {
-			pc.Inners[i-1].OutputType().Meets(*pc.Inners[i].InputType())
+		if i > 0 && !pc.Inners[i-1].OutputType().LTE(pc.Inners[i].InputType()) {
+			pc.Inners[i-1] = pc.Inners[i-1].MeetTypes(UnknownType, pc.Inners[i].InputType())
 			toType[i-1] = struct{}{}
 		}
 	}
@@ -118,8 +111,6 @@ func (pc *PipeCom) Types() Com {
 	if len(pc.Inners) == 1 {
 		return pc.Inners[0]
 	} else {
-		pc.inputType = *pc.Inners[0].InputType()
-		pc.outputType = *pc.Inners[len(pc.Inners)-1].OutputType()
 		return pc
 	}
 }
@@ -136,25 +127,21 @@ func (pc PipeCom) Copy() Com {
 	for i, inner := range pc.Inners {
 		inners[i] = inner.Copy()
 	}
-	pc.Inners = inners
-	return &pc
+	return PipeCom{Inners: inners}
 }
 
-func (pc *PipeCom) Invert() Com {
+func (pc PipeCom) Invert() Com {
 	innerInverses := make([]Com, len(pc.Inners))
 	for i, inner := range pc.Inners {
 		innerInverses[len(pc.Inners)-1-i] = inner.Invert()
 	}
-	pc.Inners = innerInverses
-
-	pc.inputType, pc.outputType = pc.outputType, pc.inputType
-	return pc
+	return PipeCom{Inners: innerInverses}
 }
 
 func (pc PipeCom) Run(input Input, output Output) {
 	currOutput := output
 	for i := len(pc.Inners) - 1; i > 0; i-- {
-		currInput, nextOutput := MakeIO(*pc.Inners[i].InputType())
+		currInput, nextOutput := MakeIO(pc.Inners[i].InputType())
 		go pc.Inners[i].Run(currInput, currOutput)
 		currOutput = nextOutput
 	}

@@ -12,33 +12,28 @@ func init() {
 	yetComInputType.Fields["?"] = UnitType
 }
 
-func Yet() Com {
-	return &YetCom{inputType: yetComInputType, outputType: types.BoolType}
-}
+func Yet() Com { return YetCom{} }
 
-type YetCom struct{ inputType, outputType DType }
+type YetCom struct{}
 
-func (yc *YetCom) InputType() *DType  { return &yc.inputType }
-func (yc *YetCom) OutputType() *DType { return &yc.outputType }
+func (YetCom) InputType() DType  { return yetComInputType }
+func (YetCom) OutputType() DType { return types.BoolType }
 
-func (yc *YetCom) Types() Com {
-	if !yetComInputType.LTE(yc.inputType) || !types.BoolType.LTE(yc.outputType) {
+func (YetCom) MeetTypes(inputType, outputType DType) Com {
+	if !yetComInputType.LTE(inputType) || !types.BoolType.LTE(outputType) {
 		return Null
 	} else {
-		return yc
+		return YetCom{}
 	}
 }
 
-func (yc YetCom) Underdefined() Error { return nil }
+func (YetCom) Underdefined() Error { return nil }
 
-func (yc YetCom) Copy() Com { return &yc }
+func (YetCom) Copy() Com { return YetCom{} }
 
-func (yc *YetCom) Invert() Com { return InverseYetCom{Yet: yc} }
+func (YetCom) Invert() Com { return InverseYetCom{} }
 
-func (yc YetCom) Run(input Input, output Output) {
-	if !yetComInputType.LTE(yc.inputType) || !types.BoolType.LTE(yc.outputType) {
-		return
-	}
+func (YetCom) Run(input Input, output Output) {
 	<-input.Fields["?"].Unit
 	select {
 	case <-input.Fields[""].Unit:

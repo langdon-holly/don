@@ -9,12 +9,12 @@ func InverseYet() Com { return InverseYetCom{Yet: Yet()} }
 
 type InverseYetCom struct{ Yet Com }
 
-func (iyc InverseYetCom) InputType() *DType { return iyc.Yet.OutputType() }
+func (iyc InverseYetCom) InputType() DType { return iyc.Yet.OutputType() }
 
-func (iyc InverseYetCom) OutputType() *DType { return iyc.Yet.InputType() }
+func (iyc InverseYetCom) OutputType() DType { return iyc.Yet.InputType() }
 
-func (iyc InverseYetCom) Types() Com {
-	iyc.Yet = iyc.Yet.Types()
+func (iyc InverseYetCom) MeetTypes(inputType, outputType DType) Com {
+	iyc.Yet = iyc.Yet.MeetTypes(outputType, inputType)
 	if _, nullp := iyc.Yet.(NullCom); nullp {
 		return Null
 	} else {
@@ -31,8 +31,8 @@ func (iyc InverseYetCom) Copy() Com { iyc.Yet = iyc.Yet.Copy(); return iyc }
 func (iyc InverseYetCom) Invert() Com { return iyc.Yet }
 
 func (iyc InverseYetCom) Run(input Input, output Output) {
-	inputType := *iyc.Yet.OutputType()
-	outputType := *iyc.Yet.InputType()
+	inputType := iyc.Yet.OutputType()
+	outputType := iyc.Yet.InputType()
 	if !types.BoolType.LTE(inputType) || !yetComInputType.LTE(outputType) {
 		return
 	}
@@ -44,15 +44,12 @@ func (iyc InverseYetCom) Run(input Input, output Output) {
 			Pipe([]Com{Select("F"), Deselect("?")})},
 		),
 		Merge(),
-	})
-	com.InputType().Meets(inputType)
-	com.OutputType().Meets(outputType)
-	com = com.Types()
+	}).MeetTypes(inputType, outputType)
 	if underdefined := com.Underdefined(); underdefined != nil {
 		panic("Unreachable underdefined:\n" + underdefined.String())
-	} else if !inputType.LTE(*com.InputType()) {
+	} else if !inputType.LTE(com.InputType()) {
 		panic("Unreachable")
-	} else if !outputType.LTE(*com.OutputType()) {
+	} else if !outputType.LTE(com.OutputType()) {
 		panic("Unreachable")
 	}
 	com.Run(input, output)

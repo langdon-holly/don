@@ -17,24 +17,23 @@ func printUint9(input Input) {
 }
 
 func checkTypes(com Com, hopefulInputType, hopefulOutputType DType) {
-	com = com.Types()
 	if underdefined := com.Underdefined(); underdefined != nil {
 		fmt.Println(underdefined)
 		panic("Underdefined types")
 	} else if !com.InputType().Equal(hopefulInputType) {
 		fmt.Println("Input type:")
-		fmt.Println(*com.InputType())
+		fmt.Println(com.InputType())
 		panic("Bad input type")
 	} else if !com.OutputType().Equal(hopefulOutputType) {
 		fmt.Println("Output type:")
-		fmt.Println(*com.OutputType())
+		fmt.Println(com.OutputType())
 		panic("Bad output type")
 	}
 }
 
 func runWithInputs(com Com, arg0, arg1 int) {
-	inputR, input := MakeIO(*com.InputType())
-	output, outputW := MakeIO(*com.OutputType())
+	inputR, input := MakeIO(com.InputType())
+	output, outputW := MakeIO(com.OutputType())
 	go com.Run(inputR, outputW)
 
 	types.WriteUint8(input.Fields["0"], arg0)
@@ -51,8 +50,10 @@ func main() {
 
 	hopefulOutputType := types.Uint9Type
 
-	com := coms.Eval(syntax.ParseTop(ifile), coms.DefContext).Com()
-	com.InputType().Meets(hopefulInputType)
+	com := coms.Eval(syntax.ParseTop(ifile), coms.DefContext).Com().MeetTypes(
+		hopefulInputType,
+		UnknownType,
+	)
 
 	checkTypes(com, hopefulInputType, hopefulOutputType)
 

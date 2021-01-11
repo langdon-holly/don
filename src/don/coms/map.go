@@ -3,7 +3,7 @@ package coms
 import . "don/core"
 
 func Map(com Com) Com {
-	return &MapCom{Com: com, inputType: FieldsType, outputType: FieldsType}
+	return MapCom{Com: com, inputType: FieldsType, outputType: FieldsType}
 }
 
 type MapCom struct {
@@ -11,10 +11,12 @@ type MapCom struct {
 	inputType, outputType DType
 }
 
-func (mc *MapCom) InputType() *DType  { return &mc.inputType }
-func (mc *MapCom) OutputType() *DType { return &mc.outputType }
+func (mc MapCom) InputType() DType  { return mc.inputType }
+func (mc MapCom) OutputType() DType { return mc.outputType }
 
-func (mc *MapCom) Types() Com {
+func (mc MapCom) MeetTypes(inputType, outputType DType) Com {
+	mc.inputType.Meets(inputType)
+	mc.outputType.Meets(outputType)
 	if mc.inputType.Positive || mc.outputType.Positive {
 		fieldNames := mc.outputType.Fields
 		if mc.inputType.Positive {
@@ -27,9 +29,7 @@ func (mc *MapCom) Types() Com {
 			i++
 		}
 		inner := Pipe([]Com{Scatter(), Par(pipes), Gather()})
-		inner.InputType().Meets(mc.inputType)
-		inner.OutputType().Meets(mc.outputType)
-		return inner.Types()
+		return inner.MeetTypes(mc.inputType, mc.outputType)
 	} else {
 		return mc
 	}
@@ -39,9 +39,9 @@ func (mc MapCom) Underdefined() Error {
 	return NewError("Negative fields in input/output to map")
 }
 
-func (mc MapCom) Copy() Com { mc.Com = mc.Com.Copy(); return &mc }
+func (mc MapCom) Copy() Com { mc.Com = mc.Com.Copy(); return mc }
 
-func (mc *MapCom) Invert() Com {
+func (mc MapCom) Invert() Com {
 	mc.Com = mc.Com.Invert()
 	mc.inputType, mc.outputType = mc.outputType, mc.inputType
 	return mc

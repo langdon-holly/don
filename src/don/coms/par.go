@@ -13,12 +13,12 @@ func Par(coms []Com) Com {
 	for i, com := range coms {
 		if _, nullp := com.(NullCom); !nullp {
 			inners[i] = com
-			inputType.Fields[strconv.Itoa(i)] = *com.InputType()
-			outputType.Fields[strconv.Itoa(i)] = *com.OutputType()
+			inputType.Fields[strconv.Itoa(i)] = com.InputType()
+			outputType.Fields[strconv.Itoa(i)] = com.OutputType()
 		}
 	}
 	if len(inners) > 0 {
-		return &ParCom{Inners: inners, inputType: inputType, outputType: outputType}
+		return ParCom{Inners: inners, inputType: inputType, outputType: outputType}
 	} else {
 		return Null
 	}
@@ -29,19 +29,19 @@ type ParCom struct {
 	inputType, outputType DType
 }
 
-func (pc *ParCom) InputType() *DType  { return &pc.inputType }
-func (pc *ParCom) OutputType() *DType { return &pc.outputType }
+func (pc ParCom) InputType() DType  { return pc.inputType }
+func (pc ParCom) OutputType() DType { return pc.outputType }
 
-func (pc *ParCom) Types() Com {
+func (pc ParCom) MeetTypes(inputType, outputType DType) Com {
+	pc.inputType.Meets(inputType)
+	pc.outputType.Meets(outputType)
 	for i, inner := range pc.Inners {
 		idxStr := strconv.Itoa(i)
 		newInputType := pc.inputType.Get(idxStr)
 		newOutputType := pc.outputType.Get(idxStr)
 		if !inner.InputType().LTE(newInputType) ||
 			!inner.OutputType().LTE(newOutputType) {
-			inner.InputType().Meets(newInputType)
-			inner.OutputType().Meets(newOutputType)
-			inner = inner.Types()
+			inner = inner.MeetTypes(newInputType, newOutputType)
 			pc.inputType.Meets(inner.InputType().At(idxStr))
 			pc.outputType.Meets(inner.OutputType().At(idxStr))
 			if _, nullp := inner.(NullCom); nullp {
@@ -76,10 +76,10 @@ func (pc ParCom) Copy() Com {
 		inners[i] = inner.Copy()
 	}
 	pc.Inners = inners
-	return &pc
+	return pc
 }
 
-func (pc *ParCom) Invert() Com {
+func (pc ParCom) Invert() Com {
 	for i, inner := range pc.Inners {
 		pc.Inners[i] = inner.Invert()
 	}
