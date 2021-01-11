@@ -146,50 +146,44 @@ func (t DType) Nonnull() Error {
 
 func (t DType) Syntax() Syntax {
 	if !t.NoUnit && !t.Positive && len(t.Fields) == 0 {
-		return Syntax{Tag: ISyntaxTag}
+		return ISyntax{}
 	}
 
-	var children []Syntax
+	var lFactors []Syntax
 	if !t.NoUnit {
-		children = append(children, Syntax{Tag: NameSyntaxTag, Name: "unit"})
+		lFactors = append(lFactors, Named{Name: "unit"})
 	}
 	if !t.Positive {
-		composed := []Syntax{{Tag: NameSyntaxTag, Name: "fields"}}
+		cFactors := []Syntax{Named{Name: "fields"}}
 		for fieldName := range t.Fields {
-			composed = append(composed, Syntax{
-				Tag: ApplicationSyntaxTag,
-				Children: []Syntax{
-					{Tag: NameSyntaxTag, Name: "withoutField"},
-					{Tag: QuotationSyntaxTag, Children: []Syntax{{
-						Tag:  NameSyntaxTag,
-						Name: fieldName,
-					}}},
-				},
+			cFactors = append(cFactors, Application{
+				Com: Named{Name: "withoutField"},
+				Arg: Quote{Named{Name: fieldName}},
 			})
 		}
-		if len(composed) > 1 {
-			children =
-				append(children, Syntax{Tag: CompositionSyntaxTag, Children: composed})
-		} else if children = append(children, composed[0]); true {
+		if len(cFactors) > 1 {
+			lFactors =
+				append(lFactors, Composition{cFactors})
+		} else if lFactors = append(lFactors, cFactors[0]); true {
 		}
 	}
 	for fieldName, fieldType := range t.Fields {
-		children =
-			append(children, Syntax{Tag: CompositionSyntaxTag, Children: []Syntax{
-				{Tag: NameSyntaxTag, RightMarker: true, Name: fieldName},
+		lFactors =
+			append(lFactors, Composition{[]Syntax{
+				Named{RightMarker: true, Name: fieldName},
 				fieldType.Syntax(),
-				{Tag: NameSyntaxTag, LeftMarker: true, Name: fieldName},
+				Named{LeftMarker: true, Name: fieldName},
 			}})
 	}
-	if len(children) == 0 {
-		return Syntax{Tag: ListSyntaxTag}
-	} else if len(children) == 1 {
-		return children[0]
+	if len(lFactors) == 0 {
+		return List{}
+	} else if len(lFactors) == 1 {
+		return lFactors[0]
 	} else {
-		return Syntax{Tag: CompositionSyntaxTag, Children: []Syntax{
-			{Tag: NameSyntaxTag, Name: "<"},
-			{Tag: ListSyntaxTag, Children: children},
-			{Tag: NameSyntaxTag, Name: ">"},
+		return Composition{[]Syntax{
+			Named{Name: "<"},
+			List{lFactors},
+			Named{Name: ">"},
 		}}
 	}
 }

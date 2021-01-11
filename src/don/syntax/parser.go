@@ -25,6 +25,11 @@ type token struct {
 
 func (t token) IsByte(b byte) bool { return t.Bp && t.B == b }
 
+func isEmptyComposition(s Syntax) bool {
+	composition, compositionp := s.(Composition)
+	return compositionp && len(composition.Factors) == 0
+}
+
 // Used in spirit
 // Discard after bad != nil or Done is called
 type parser interface {
@@ -41,10 +46,9 @@ func (state *composition) Next(e token) (bad []string) {
 	}
 	return
 }
-func (state *composition) Done() (syntax Syntax, bad []string) {
-	syntax = Syntax{Tag: CompositionSyntaxTag, Children: *state}
-	if len(syntax.Children) == 1 {
-		syntax = syntax.Children[0]
+func (state composition) Done() (syntax Syntax, bad []string) {
+	if syntax = (Composition{state}); len(state) == 1 {
+		syntax = state[0]
 	}
 	return
 }
@@ -64,14 +68,13 @@ func (state *application) maybeInParam(bad *[]string /* mutated */) {
 // impl parser
 func (state *application) Next(e token) (bad []string) {
 	if e.IsByte(bang) {
-		subS := &state.Com
+		var subS Syntax
+		subS, bad = state.Sub.Done()
 		if state.Comp {
-			state.Com =
-				Syntax{Tag: ApplicationSyntaxTag, Children: []Syntax{state.Com, {}}}
-			subS = &state.Com.Children[1]
+			state.Com = Application{Com: state.Com, Arg: subS}
+		} else if state.Com = subS; true {
 		}
-		*subS, bad = state.Sub.Done()
-		if bad == nil && subS.Tag == CompositionSyntaxTag && len(subS.Children) == 0 {
+		if bad == nil && isEmptyComposition(subS) {
 			bad = []string{"Nothing"}
 		}
 		if bad != nil {
@@ -88,12 +91,13 @@ func (state *application) Next(e token) (bad []string) {
 	return
 }
 func (state *application) Done() (syntax Syntax, bad []string) {
+	var subS Syntax
+	subS, bad = state.Sub.Done()
 	if state.Comp {
-		syntax = Syntax{Tag: ApplicationSyntaxTag, Children: []Syntax{state.Com, {}}}
-		subS := &syntax.Children[1]
-		if *subS, bad = state.Sub.Done(); bad != nil {
+		syntax = Application{Com: state.Com, Arg: subS}
+		if bad != nil {
 			bad = append(bad, "in application parameter")
-		} else if subS.Tag == CompositionSyntaxTag && len(subS.Children) == 0 {
+		} else if isEmptyComposition(subS) {
 			bad = []string{"Nothing", "in application parameter"}
 		}
 	} else if syntax, bad = state.Sub.Done(); true {
@@ -101,14 +105,14 @@ func (state *application) Done() (syntax Syntax, bad []string) {
 	return
 }
 
-// Children for !Listp
+// Factors for !Listp
 type list struct {
 	Sub           application
 	Listp         bool
 	Midfactor     bool
 	EmptyLine     bool
 	EmptyLineNext bool
-	Children      []Syntax
+	Factors       []Syntax
 }
 
 // impl parser
@@ -116,11 +120,11 @@ func (state *list) Next(e token) (bad []string) {
 	if e.IsByte(asterisk) {
 		if factorS, factorBad := state.Sub.Done(); factorBad != nil {
 			bad = append(factorBad, "in list")
-		} else if factorS.Tag != CompositionSyntaxTag || len(factorS.Children) > 0 {
-			if state.EmptyLine && len(state.Children) > 0 {
-				state.Children = append(state.Children, Syntax{Tag: EmptyLineSyntaxTag})
+		} else if !isEmptyComposition(factorS) {
+			if state.EmptyLine && len(state.Factors) > 0 {
+				state.Factors = append(state.Factors, EmptyLine{})
 			}
-			state.Children = append(state.Children, factorS)
+			state.Factors = append(state.Factors, factorS)
 		} else if state.Listp {
 			bad = []string{"Nothing", "in list"}
 		}
@@ -129,7 +133,7 @@ func (state *list) Next(e token) (bad []string) {
 		state.Midfactor = false
 		state.EmptyLine = state.EmptyLineNext
 		state.EmptyLineNext = false
-	} else if e.Bp || e.Syntax.Tag != EmptyLineSyntaxTag {
+	} else if _, emptyp := e.Syntax.(EmptyLine); !emptyp {
 		state.Midfactor = true
 		state.EmptyLineNext = false
 		if bad = state.Sub.Next(e); bad != nil && state.Listp {
@@ -143,13 +147,11 @@ func (state *list) Next(e token) (bad []string) {
 }
 func (state *list) Done() (syntax Syntax, bad []string) {
 	if syntax, bad = state.Sub.Done(); !state.Listp {
-	} else if syntax.Tag != CompositionSyntaxTag || len(syntax.Children) > 0 {
-		if state.EmptyLine && len(state.Children) > 0 {
-			state.Children = append(state.Children, Syntax{Tag: EmptyLineSyntaxTag})
-		}
-		syntax = Syntax{Tag: ListSyntaxTag, Children: append(state.Children, syntax)}
-	} else {
-		syntax = Syntax{Tag: ListSyntaxTag, Children: state.Children}
+	} else if isEmptyComposition(syntax) {
+		syntax = List{state.Factors}
+	} else if state.EmptyLine && len(state.Factors) > 0 {
+		syntax = List{append(state.Factors, EmptyLine{}, syntax)}
+	} else if syntax = (List{append(state.Factors, syntax)}); true {
 	}
 	return
 }
@@ -173,8 +175,8 @@ func (state *circumfix) Next(e token) (bad []string) {
 		} else if state.Quotes[len(state.Quotes)-1] {
 			bad = []string{"Brace starts, paren ends"}
 		} else if subS, bad = state.Sub.Done(); bad == nil {
-			if subS.Tag == CompositionSyntaxTag && len(subS.Children) == 0 {
-				subS = Syntax{Tag: ISyntaxTag}
+			if isEmptyComposition(subS) {
+				subS = ISyntax{}
 			}
 			state.Sub = state.Subs[len(state.Subs)-1]
 			state.Subs = state.Subs[:len(state.Subs)-1]
@@ -191,12 +193,11 @@ func (state *circumfix) Next(e token) (bad []string) {
 		} else if !state.Quotes[len(state.Quotes)-1] {
 			bad = []string{"Paren starts, brace ends"}
 		} else if subS, bad = state.Sub.Done(); bad == nil {
-			if subS.Tag != CompositionSyntaxTag || len(subS.Children) > 0 {
+			if !isEmptyComposition(subS) {
 				state.Sub = state.Subs[len(state.Subs)-1]
 				state.Subs = state.Subs[:len(state.Subs)-1]
 				state.Quotes = state.Quotes[:len(state.Quotes)-1]
-				bad = state.Sub.Next(
-					token{Syntax: Syntax{Tag: QuotationSyntaxTag, Children: []Syntax{subS}}})
+				bad = state.Sub.Next(token{Syntax: Quote{subS}})
 			} else if bad = []string{"Nothing"}; true {
 			}
 		}
@@ -206,7 +207,7 @@ func (state *circumfix) Next(e token) (bad []string) {
 	if bad != nil {
 		for i := len(state.Quotes) - 1; i >= 0; i-- {
 			if state.Quotes[i] {
-				bad = append(bad, "in quotation")
+				bad = append(bad, "in quote")
 			} else if bad = append(bad, "in parentheses"); true {
 			}
 		}
@@ -218,102 +219,93 @@ func (state *circumfix) Done() (syntax Syntax, bad []string) {
 		bad = []string{"Not enough right delimiters"}
 		for i := len(state.Quotes) - 1; i >= 0; i-- {
 			if state.Quotes[i] {
-				bad = append(bad, "in quotation")
+				bad = append(bad, "in quote")
 			} else if bad = append(bad, "in parentheses"); true {
 			}
 		}
-	} else if syntax, bad = state.Sub.Done(); true {
-		s := syntax
-		if bad == nil && s.Tag == CompositionSyntaxTag && len(s.Children) == 0 {
-			bad = []string{"Nothing"}
-		}
+	} else if syntax, bad = state.Sub.Done(); false {
+	} else if bad == nil && isEmptyComposition(syntax) {
+		bad = []string{"Nothing"}
 	}
 	return
 }
 
-type name struct {
+type named struct {
 	Escaped      bool
-	NameProgress int /* 0: ready 1: left marked, 2: in name, 3: not ready */
+	Progress     int /* 0: ready 1: left marked, 2: in named, 3: not ready */
 	LeftMarker   bool
 	Name         strings.Builder
 	Sub          circumfix
 	NonemptyLine bool
 }
 
-func (state *name) Next(b byte) (bad []string) {
+func (state *named) Next(b byte) (bad []string) {
 	nonemptyLineNext := true
-	if isSpecial := byteIsSpecial(b); !isSpecial && state.NameProgress == 3 {
-		bad = []string{"Unseparated names"}
+	if isSpecial := byteIsSpecial(b); !isSpecial && state.Progress == 3 {
+		bad = []string{"Unseparated nameds"}
 	} else if state.Escaped || !isSpecial {
 		state.Escaped = false
-		state.NameProgress = 2
+		state.Progress = 2
 		state.Name.WriteByte(b)
 	} else if b == underscore {
-		if state.NameProgress == 3 {
-			bad = []string{"Unseparated names"}
-		} else if state.NameProgress = 2; true {
+		if state.Progress == 3 {
+			bad = []string{"Unseparated nameds"}
+		} else if state.Progress = 2; true {
 		}
 	} else if b == backslash {
-		if state.NameProgress == 3 {
-			bad = []string{"Unseparated names"}
+		if state.Progress == 3 {
+			bad = []string{"Unseparated nameds"}
 		} else if state.Escaped = true; true {
 		}
 	} else if b == colon {
-		if state.NameProgress == 0 {
+		if state.Progress == 0 {
 			state.LeftMarker = true
-		} else if state.NameProgress == 1 {
+		} else if state.Progress == 1 {
 			bad = []string{"Double left colon"}
-		} else if state.NameProgress == 2 {
-			bad = state.Sub.Next(token{Syntax: Syntax{
-				Tag:         NameSyntaxTag,
+		} else if state.Progress == 2 {
+			bad = state.Sub.Next(token{Syntax: Named{
 				LeftMarker:  state.LeftMarker,
 				RightMarker: true,
 				Name:        state.Name.String()}})
 			state.LeftMarker = false
-			state.NameProgress = 3
+			state.Progress = 3
 			state.Name = strings.Builder{}
-		} else if bad = []string{"Unseparated names"}; true {
+		} else if bad = []string{"Unseparated nameds"}; true {
 		}
 	} else {
-		if state.NameProgress == 1 {
+		if state.Progress == 1 {
 			bad = []string{"Lone colon"}
-		} else if state.NameProgress == 2 {
-			bad = state.Sub.Next(token{Syntax: Syntax{
-				Tag:        NameSyntaxTag,
+		} else if state.Progress == 2 {
+			bad = state.Sub.Next(token{Syntax: Named{
 				LeftMarker: state.LeftMarker,
 				Name:       state.Name.String()}})
 			state.LeftMarker = false
 			state.Name = strings.Builder{}
 		}
-		if state.NameProgress = 0; bad != nil {
+		if state.Progress = 0; bad != nil {
 		} else if b != tab && b != lf && b != space {
 			bad = state.Sub.Next(token{Bp: true, B: b})
 		} else if nonemptyLineNext = state.NonemptyLine && b != lf; false {
 		} else if !state.NonemptyLine && b == lf {
-			bad = state.Sub.Next(token{Syntax: Syntax{Tag: EmptyLineSyntaxTag}})
+			bad = state.Sub.Next(token{Syntax: EmptyLine{}})
 		}
 	}
 	state.NonemptyLine = nonemptyLineNext
 	return
 }
-func (state *name) Done() (syntax Syntax, bad []string) {
+func (state *named) Done() (syntax Syntax, bad []string) {
 	if state.Escaped {
 		bad = []string{"Unending escape"}
-	} else if state.NameProgress == 1 {
+	} else if state.Progress == 1 {
 		bad = []string{"Lone colon"}
-	} else if state.NameProgress == 2 {
-		bad = state.Sub.Next(token{Syntax: Syntax{
-			Tag:        NameSyntaxTag,
+	} else if state.Progress == 2 {
+		bad = state.Sub.Next(token{Syntax: Named{
 			LeftMarker: state.LeftMarker,
 			Name:       state.Name.String()}})
 	}
 	if bad == nil {
 		syntax, bad = state.Sub.Done()
-		syntax = Syntax{
-			Tag: ApplicationSyntaxTag,
-			Children: []Syntax{
-				{Tag: NameSyntaxTag, Name: "context"},
-				{Tag: QuotationSyntaxTag, Children: []Syntax{syntax}}}}
+		syntax = Application{Com: Named{Name: "context"}, Arg: Quote{syntax}}
 	}
 	return
 }
@@ -328,7 +320,7 @@ func doBad(bad []string) {
 }
 
 func ParseTop(inReader io.Reader) Syntax {
-	var topParser name
+	var topParser named
 	for b, ok := readByte(inReader); ok; b, ok = readByte(inReader) {
 		doBad(topParser.Next(b))
 	}

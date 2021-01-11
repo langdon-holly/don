@@ -1,30 +1,32 @@
 package syntax
 
-type SyntaxTag int
+import "strings"
 
-const ( /* Order matters, for printing */
-	ListSyntaxTag      = SyntaxTag(iota)
-	EmptyLineSyntaxTag /* child only of list; neither first nor last child */
-	ApplicationSyntaxTag
-	CompositionSyntaxTag
-	NameSyntaxTag
-	ISyntaxTag
-	QuotationSyntaxTag
+const ( /* Order matters */
+	ListPrecedence = iota
+	EmptyLinePrecedence
+	ApplicationPrecedence
+	CompositionPrecedence
+	NamedPrecedence
+	ISyntaxPrecedence
+	QuotePrecedence
 )
 
-type Syntax struct {
-	Tag SyntaxTag
+type Syntax interface {
+	precedence() int
+	layout() (l layoutInfo, writeString func(out *strings.Builder, indent []byte))
+	String() string
+}
 
-	// for Tag == ListSyntaxTag ||
-	//  Tag == ApplicationSyntaxTag ||
-	//  Tag == QuotationSyntaxTag ||
-	//  Tag == CompositionSyntaxTag ||
-	// 2 elements for ApplicationSyntaxTag
-	// 1 element for QuotationSyntaxTag
-	// Nonempty for CompositionSyntaxTag
-	Children []Syntax
-
-	// for Tag == NameSyntaxTag
+type List struct{ Factors []Syntax }
+type EmptyLine struct{} /* Only in list; neither first nor last factor */
+type Application struct{ Com, Arg Syntax }
+type Composition struct {
+	Factors []Syntax /* Nonempty */
+}
+type Named struct {
 	LeftMarker, RightMarker bool
 	Name                    string
 }
+type ISyntax struct{}
+type Quote struct{ Syntax Syntax }

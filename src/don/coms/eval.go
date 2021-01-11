@@ -55,24 +55,19 @@ func init() {
 	}
 	ms["withoutField"] = func(_ Context) func(EvalResult) EvalResult {
 		return func(param EvalResult) EvalResult {
-			if name := param.Syntax(); name.Tag != NameSyntaxTag {
-				panic("Non-name parameter to withoutField: " + name.String())
-			} else if !name.LeftMarker && !name.RightMarker {
-				return EvalResult{I(NullType.At(name.Name))}
+			if named := param.Syntax().(Named); !named.LeftMarker && !named.RightMarker {
+				return EvalResult{I(NullType.At(named.Name))}
 			} else {
-				panic("Marked parameter to withoutField: " + name.String())
+				panic("Marked parameter to withoutField: " + named.String())
 			}
 		}
 	}
 	ms["context"] = func(c Context) func(EvalResult) EvalResult {
 		return func(param EvalResult) EvalResult {
-			list := param.Syntax()
-			if list.Tag != ListSyntaxTag {
-				panic("Non-list parameter to context: " + list.String())
-			} else if len(list.Children) > 0 {
-				for _, listElem := range list.Children {
-					if listElem.Tag != EmptyLineSyntaxTag {
-						c.Com = Eval(listElem, c).Com()
+			if list := param.Syntax().(List); len(list.Factors) > 0 {
+				for _, factor := range list.Factors {
+					if _, emptyp := factor.(EmptyLine); !emptyp {
+						c.Com = Eval(factor, c).Com()
 					}
 				}
 				return EvalResult{c.Com}
@@ -94,20 +89,18 @@ func init() {
 	ms["def"] = func(c Context) func(EvalResult) EvalResult {
 		return func(param0 EvalResult) EvalResult {
 			return EvalResult{func(param1 EvalResult) EvalResult {
-				name := param0.Syntax()
-				if name.Tag != NameSyntaxTag {
-					panic("Non-name name parameter to def: " + name.String())
-				} else if !name.LeftMarker && !name.RightMarker {
+				named := param0.Syntax().(Named)
+				if !named.LeftMarker && !named.RightMarker {
 					return EvalResult{Pipe([]Com{
 						Scatter(),
 						Par([]Com{
-							Pipe([]Com{c.Com.Copy(), I(NullType.At(name.Name))}),
-							Pipe([]Com{Select(name.Name), param1.Com(), Deselect(name.Name)}),
+							Pipe([]Com{c.Com.Copy(), I(NullType.At(named.Name))}),
+							Pipe([]Com{Select(named.Name), param1.Com(), Deselect(named.Name)}),
 						}),
 						Gather(),
 					})}
 				} else {
-					panic("Marked name parameter to def: " + name.String())
+					panic("Marked named parameter to def: " + named.String())
 				}
 			}}
 		}
@@ -125,24 +118,24 @@ func init() {
 }
 
 // c may be shared
-func eval(s Syntax, c Context) interface{} {
-	switch s.Tag {
-	case ListSyntaxTag:
+func eval(ss Syntax, c Context) interface{} {
+	switch s := ss.(type) {
+	case List:
 		var factorComs []Com
-		for _, factor := range s.Children {
-			if factor.Tag != EmptyLineSyntaxTag {
+		for _, factor := range s.Factors {
+			if _, emptyp := factor.(EmptyLine); !emptyp {
 				factorComs = append(factorComs, Eval(factor, c).Com())
 			}
 		}
 		return Par(factorComs)
-	case EmptyLineSyntaxTag:
+	case EmptyLine:
 		panic("Eval empty line")
-	case ApplicationSyntaxTag:
-		return Eval(s.Children[0], c).Apply(Eval(s.Children[1], c)).It
-	case CompositionSyntaxTag:
-		factorResults := make([]EvalResult, len(s.Children))
-		for i, factor := range s.Children {
-			factorResults[len(s.Children)-1-i] = Eval(factor, c)
+	case Application:
+		return Eval(s.Com, c).Apply(Eval(s.Arg, c)).It
+	case Composition:
+		factorResults := make([]EvalResult, len(s.Factors))
+		for i, factor := range s.Factors {
+			factorResults[len(s.Factors)-1-i] = Eval(factor, c)
 		}
 		if _, macrosp := factorResults[0].It.(func(EvalResult) EvalResult); macrosp {
 			return func(param EvalResult) EvalResult {
@@ -158,7 +151,7 @@ func eval(s Syntax, c Context) interface{} {
 			}
 			return Pipe(factorComs)
 		}
-	case NameSyntaxTag:
+	case Named:
 		if s.LeftMarker {
 			if s.RightMarker {
 				panic("Doubly-marked variable: " + s.String())
@@ -172,10 +165,10 @@ func eval(s Syntax, c Context) interface{} {
 		} else {
 			return Pipe([]Com{Deselect(s.Name), c.Com.Copy(), Select(s.Name)})
 		}
-	case ISyntaxTag:
+	case ISyntax:
 		return I(UnknownType)
-	case QuotationSyntaxTag:
-		return s.Children[0]
+	case Quote:
+		return s.Syntax
 	}
 	panic("Unreachable")
 }
