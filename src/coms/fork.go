@@ -42,32 +42,10 @@ func (fc ForkCom) Invert() Com {
 	}
 }
 
-func runFork(input Input, outputs []Output) {
-	for fieldName, subInput := range input.Fields {
-		var subOutputs []Output
-		for _, output := range outputs {
-			if subOutput, ok := output.Fields[fieldName]; ok {
-				subOutputs = append(subOutputs, subOutput)
-			}
+func (ForkCom) TypedCom(tcb TypedComBuilder /* mutated */, inputMap, outputMap TypeMap) {
+	inputMap.ForEachWith(outputMap, func(inputVar Var, outputVars []Var) {
+		for _, outputVar := range outputVars {
+			tcb.Equate(inputVar, outputVar)
 		}
-		go runFork(subInput, subOutputs)
-	}
-	if input.Unit != nil {
-		<-input.Unit
-		for _, output := range outputs {
-			if output.Unit != nil {
-				output.Unit <- Unit{}
-			}
-		}
-	}
-}
-
-func (ForkCom) Run(input Input, output Output) {
-	outputs := make([]Output, len(output.Fields))
-	i := 0
-	for _, subOutput := range output.Fields {
-		outputs[i] = subOutput
-		i++
-	}
-	runFork(input, outputs)
+	})
 }

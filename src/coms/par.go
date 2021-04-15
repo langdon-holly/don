@@ -87,9 +87,9 @@ func (pc ParCom) Invert() Com {
 	return pc
 }
 
-func (pc ParCom) Run(input Input, output Output) {
+func (pc ParCom) TypedCom(tcb TypedComBuilder /* mutated */, inputMap, outputMap TypeMap) {
 	for i, inner := range pc.Inners {
 		idxStr := strconv.Itoa(i)
-		go inner.Run(input.Fields[idxStr], output.Fields[idxStr])
+		inner.TypedCom(tcb, inputMap.Fields[idxStr], outputMap.Fields[idxStr])
 	}
 }

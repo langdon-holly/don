@@ -28,19 +28,14 @@ func (ic ICom) Copy() Com { return ic }
 
 func (ic ICom) Invert() Com { return ic }
 
-func PipeUnit(outputChan chan<- Unit, inputChan <-chan Unit) {
-	outputChan <- <-inputChan
-}
-
-func RunI(theType DType, input Input, output Output) {
-	if !theType.NoUnit {
-		go PipeUnit(output.Unit, input.Unit)
+func SetEq(tcb TypedComBuilder /* mutated */, inputMap, outputMap TypeMap) {
+	if inputMap.Unit != nil {
+		tcb.Equate(inputMap.Unit, outputMap.Unit)
 	}
-	for fieldName, fieldType := range theType.Fields {
-		go RunI(fieldType, input.Fields[fieldName], output.Fields[fieldName])
+	for fieldName, subInputMap := range inputMap.Fields {
+		SetEq(tcb, subInputMap, outputMap.Fields[fieldName])
 	}
 }
-
-func (ic ICom) Run(input Input, output Output) {
-	RunI(DType(ic), input, output)
+func (ICom) TypedCom(tcb TypedComBuilder /* mutated */, inputMap, outputMap TypeMap) {
+	SetEq(tcb, inputMap, outputMap)
 }

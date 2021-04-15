@@ -42,29 +42,12 @@ func (mc MergeCom) Invert() Com {
 	}
 }
 
-func runMerge(inputs []Input, output Output) {
-	for fieldName, subOutput := range output.Fields {
-		var subInputs []Input
-		for _, input := range inputs {
-			if subInput, ok := input.Fields[fieldName]; ok {
-				subInputs = append(subInputs, subInput)
-			}
+func (MergeCom) TypedCom(tcb TypedComBuilder /* mutated */, inputMap, outputMap TypeMap) {
+	outputMap.ForEachWith(inputMap, func(outputVar Var, inputVars []Var) {
+		if len(inputVars) == 1 {
+			tcb.Equate(outputVar, inputVars[0])
+		} else {
+			tcb.Add(&MergeNode{In: inputVars, Out: outputVar})
 		}
-		go runMerge(subInputs, subOutput)
-	}
-	for _, input := range inputs {
-		if input.Unit != nil {
-			go PipeUnit(output.Unit, input.Unit)
-		}
-	}
-}
-
-func (mc MergeCom) Run(input Input, output Output) {
-	inputs := make([]Input, len(mc.inputType.Fields))
-	i := 0
-	for _, subInput := range input.Fields {
-		inputs[i] = subInput
-		i++
-	}
-	runMerge(inputs, output)
+	})
 }

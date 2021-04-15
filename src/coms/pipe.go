@@ -138,12 +138,11 @@ func (pc PipeCom) Invert() Com {
 	return PipeCom{Inners: innerInverses}
 }
 
-func (pc PipeCom) Run(input Input, output Output) {
-	currOutput := output
+func (pc PipeCom) TypedCom(tcb TypedComBuilder /* mutated */, inputMap, outputMap TypeMap) {
 	for i := len(pc.Inners) - 1; i > 0; i-- {
-		currInput, nextOutput := MakeIO(pc.Inners[i].InputType())
-		go pc.Inners[i].Run(currInput, currOutput)
-		currOutput = nextOutput
+		inputMap := MakeTypeMap(pc.Inners[i].InputType())
+		pc.Inners[i].TypedCom(tcb, inputMap, outputMap)
+		outputMap = inputMap
 	}
-	go pc.Inners[0].Run(input, currOutput)
+	pc.Inners[0].TypedCom(tcb, inputMap, outputMap)
 }

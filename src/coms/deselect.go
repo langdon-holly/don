@@ -40,8 +40,6 @@ func (dc DeselectCom) Invert() Com {
 		inputType: dc.outputType,
 	}
 }
-func (dc DeselectCom) Run(input Input, output Output) {
-	if len(dc.outputType.Fields) > 0 {
-		RunI(dc.outputType.Get(dc.FieldName), input, output.Fields[dc.FieldName])
-	}
+func (dc DeselectCom) TypedCom(tcb TypedComBuilder /* mutated */, inputMap, outputMap TypeMap) {
+	SetEq(tcb, inputMap, outputMap.Fields[dc.FieldName])
 }

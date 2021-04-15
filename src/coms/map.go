@@ -35,7 +35,7 @@ func (mc MapCom) MeetTypes(inputType, outputType DType) Com {
 	}
 }
 
-func (mc MapCom) Underdefined() Error {
+func (MapCom) Underdefined() Error {
 	return NewError("Negative fields in input/output to map")
 }
 
@@ -47,6 +47,6 @@ func (mc MapCom) Invert() Com {
 	return mc
 }
 
-func (mc MapCom) Run(input Input, output Output) {
+func (MapCom) TypedCom(TypedComBuilder, TypeMap, TypeMap) {
 	panic("Negative fields in input/output to map")
 }

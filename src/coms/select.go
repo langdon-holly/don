@@ -38,8 +38,6 @@ func (sc SelectCom) Invert() Com {
 		outputType: sc.inputType,
 	}
 }
-func (sc SelectCom) Run(input Input, output Output) {
-	if len(sc.inputType.Fields) > 0 {
-		RunI(sc.inputType.Get(sc.FieldName), input.Fields[sc.FieldName], output)
-	}
+func (sc SelectCom) TypedCom(tcb TypedComBuilder /* mutated */, inputMap, outputMap TypeMap) {
+	SetEq(tcb, inputMap.Fields[sc.FieldName], outputMap)
 }

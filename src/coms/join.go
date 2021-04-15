@@ -42,32 +42,10 @@ func (jc JoinCom) Invert() Com {
 	}
 }
 
-func runJoin(inputs []Input, output Output) {
-	for fieldName, subOutput := range output.Fields {
-		var subInputs []Input
-		for _, input := range inputs {
-			if subInput, ok := input.Fields[fieldName]; ok {
-				subInputs = append(subInputs, subInput)
-			}
+func (JoinCom) TypedCom(tcb TypedComBuilder /* mutated */, inputMap, outputMap TypeMap) {
+	outputMap.ForEachWith(inputMap, func(outputVar Var, inputVars []Var) {
+		for _, inputVar := range inputVars {
+			tcb.Equate(outputVar, inputVar)
 		}
-		go runJoin(subInputs, subOutput)
-	}
-	if output.Unit != nil {
-		for _, input := range inputs {
-			if input.Unit != nil {
-				<-input.Unit
-			}
-		}
-		output.Converge()
-	}
-}
-
-func (jc JoinCom) Run(input Input, output Output) {
-	inputs := make([]Input, len(jc.inputType.Fields))
-	i := 0
-	for _, subInput := range input.Fields {
-		inputs[i] = subInput
-		i++
-	}
-	runJoin(inputs, output)
+	})
 }

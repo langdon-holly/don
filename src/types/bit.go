@@ -9,10 +9,10 @@ func init() {
 	BitType.Fields["1"] = UnitType
 }
 
-func WriteBit(output Output, val int) {
+func WriteBit(wMap WriteMap, val int) {
 	if val == 0 {
-		output.Fields["0"].Converge()
+		wMap.Fields["0"].Unit <- struct{}{}
 	} else {
-		output.Fields["1"].Converge()
+		wMap.Fields["1"].Unit <- struct{}{}
 	}
 }

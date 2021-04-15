@@ -36,10 +36,9 @@ var DefContext = Context{
 		entry("|>", Choose()),
 		entry("<||", Join()),
 		entry("||>", Fork()),
-		entry("prod", Prod()),
-		entry("yet", Yet()),
 	}), Gather()}),
-	Macros: make(map[string]func(Context) func(EvalResult) EvalResult)}
+	Macros: make(map[string]func(Context) func(EvalResult) EvalResult),
+}
 
 func init() {
 	ms := DefContext.Macros

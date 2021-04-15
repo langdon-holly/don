@@ -9,19 +9,19 @@ func init() {
 	BoolType.Fields["F"] = UnitType
 }
 
-func WriteBool(output Output, val bool) {
+func WriteBool(wMap WriteMap, val bool) {
 	if val {
-		output.Fields["T"].Converge()
+		wMap.Fields["T"].Unit <- struct{}{}
 	} else {
-		output.Fields["F"].Converge()
+		wMap.Fields["F"].Unit <- struct{}{}
 	}
 }
 
-func ReadBool(input Input) bool {
+func ReadBool(rMap ReadMap) bool {
 	select {
-	case <-input.Fields["T"].Unit:
+	case <-rMap.Fields["T"].Unit:
 		return true
-	case <-input.Fields["F"].Unit:
+	case <-rMap.Fields["F"].Unit:
 		return false
 	}
 }

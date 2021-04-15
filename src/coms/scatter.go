@@ -42,33 +42,8 @@ func (sc ScatterCom) Invert() Com {
 	}
 }
 
-func runScatter(input Input, outputs []Output) {
-	for fieldName, subInput := range input.Fields {
-		var subOutputs []Output
-		for _, output := range outputs {
-			if subOutput, ok := output.Fields[fieldName]; ok {
-				subOutputs = append(subOutputs, subOutput)
-			}
-		}
-		go runScatter(subInput, subOutputs)
-	}
-	if input.Unit != nil {
-		var unitChan chan<- Unit
-		for _, output := range outputs {
-			if output.Unit != nil {
-				unitChan = output.Unit
-			}
-		}
-		PipeUnit(unitChan, input.Unit)
-	}
-}
-
-func (ScatterCom) Run(input Input, output Output) {
-	outputs := make([]Output, len(output.Fields))
-	i := 0
-	for _, subOutput := range output.Fields {
-		outputs[i] = subOutput
-		i++
-	}
-	runScatter(input, outputs)
+func (ScatterCom) TypedCom(tcb TypedComBuilder /* mutated */, inputMap, outputMap TypeMap) {
+	inputMap.ForEachWith(outputMap, func(inputVar Var, outputVars []Var) {
+		tcb.Equate(inputVar, outputVars[0])
+	})
 }

@@ -16,23 +16,23 @@ func init() {
 	Uint9Type.Fields["8"] = BitType
 }
 
-func ReadUint9(input Input) (val int) {
+func ReadUint9(rMap ReadMap) (val int) {
 	for i, fieldName := range []string{"0", "1", "2", "3", "4", "5", "6", "7", "8"} {
 		select {
-		case <-input.Fields[fieldName].Fields["0"].Unit:
-		case <-input.Fields[fieldName].Fields["1"].Unit:
+		case <-rMap.Fields[fieldName].Fields["0"].Unit:
+		case <-rMap.Fields[fieldName].Fields["1"].Unit:
 			val += 1 << i
 		}
 	}
 	return
 }
 
-func WriteUint9(output Output, val int) {
+func WriteUint9(wMap WriteMap, val int) {
 	for _, fieldName := range []string{"0", "1", "2", "3", "4", "5", "6", "7", "8"} {
 		if val%2 == 0 {
-			output.Fields[fieldName].Fields["0"].Converge()
+			wMap.Fields[fieldName].Fields["0"].Unit <- struct{}{}
 		} else {
-			output.Fields[fieldName].Fields["1"].Converge()
+			wMap.Fields[fieldName].Fields["1"].Unit <- struct{}{}
 		}
 		val /= 2
 	}

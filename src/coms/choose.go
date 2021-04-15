@@ -42,36 +42,12 @@ func (cc ChooseCom) Invert() Com {
 	}
 }
 
-func runChoose(input Input, outputs []Output) {
-	for fieldName, subInput := range input.Fields {
-		var subOutputs []Output
-		for _, output := range outputs {
-			if subOutput, ok := output.Fields[fieldName]; ok {
-				subOutputs = append(subOutputs, subOutput)
-			}
+func (ChooseCom) TypedCom(tcb TypedComBuilder /* mutated */, inputMap, outputMap TypeMap) {
+	inputMap.ForEachWith(outputMap, func(inputVar Var, outputVars []Var) {
+		if len(outputVars) == 1 {
+			tcb.Equate(inputVar, outputVars[0])
+		} else {
+			tcb.Add(&ChooseNode{In: inputVar, Out: outputVars})
 		}
-		go runChoose(subInput, subOutputs)
-	}
-	var onlyOutput chan<- Unit
-	for _, output := range outputs {
-		if output.Unit != nil {
-			if onlyOutput != nil {
-				panic("Unimplemented")
-			} else if onlyOutput = output.Unit; true {
-			}
-		}
-	}
-	if onlyOutput != nil {
-		PipeUnit(onlyOutput, input.Unit)
-	}
-}
-
-func (ChooseCom) Run(input Input, output Output) {
-	outputs := make([]Output, len(output.Fields))
-	i := 0
-	for _, subOutput := range output.Fields {
-		outputs[i] = subOutput
-		i++
-	}
-	runChoose(input, outputs)
+	})
 }

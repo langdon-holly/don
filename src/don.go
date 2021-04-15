@@ -12,9 +12,7 @@ import (
 	"don/types"
 )
 
-func printUint9(input Input) {
-	fmt.Println(types.ReadUint9(input))
-}
+func printUint9(rMap ReadMap) { fmt.Println(types.ReadUint9(rMap)) }
 
 func checkTypes(com Com, hopefulInputType, hopefulOutputType DType) {
 	if underdefined := com.Underdefined(); underdefined != nil {
@@ -31,14 +29,11 @@ func checkTypes(com Com, hopefulInputType, hopefulOutputType DType) {
 	}
 }
 
-func runWithInputs(com Com, arg0, arg1 int) {
-	inputR, input := MakeIO(com.InputType())
-	output, outputW := MakeIO(com.OutputType())
-	go com.Run(inputR, outputW)
-
-	types.WriteUint8(input.Fields["0"], arg0)
-	types.WriteUint8(input.Fields["1"], arg1)
-	printUint9(output)
+func runWithInputs(tc TypedCom, arg0, arg1 int) {
+	wMap, rMap := tc.Run()
+	types.WriteUint8(wMap.Fields["0"], arg0)
+	types.WriteUint8(wMap.Fields["1"], arg1)
+	printUint9(rMap)
 }
 
 func main() {
@@ -57,8 +52,11 @@ func main() {
 
 	checkTypes(com, hopefulInputType, hopefulOutputType)
 
-	runWithInputs(com, 0, 0)
-	runWithInputs(com, 2, 2)
-	runWithInputs(com, 189, 55)
-	runWithInputs(com, 255, 255)
+	tc := MakeTypedCom(com)
+	tc.Determinate()
+
+	runWithInputs(tc, 0, 0)
+	runWithInputs(tc, 2, 2)
+	runWithInputs(tc, 189, 55)
+	runWithInputs(tc, 255, 255)
 }

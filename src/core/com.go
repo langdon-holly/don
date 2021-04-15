@@ -7,5 +7,5 @@ type Com interface {
 	Underdefined() Error
 	Copy() Com
 	Invert() Com /* Invalidates */
-	Run(input Input, output Output)
+	TypedCom(tcb TypedComBuilder /* mutated */, inputMap, outputMap TypeMap)
 }
