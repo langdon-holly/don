@@ -5,6 +5,7 @@ import . "don/syntax"
 // DType
 
 // DTypes form a Boolean algebra
+// Conceptually, a DType is a set of []string
 type DType struct {
 	NoUnit   bool
 	Positive bool
@@ -32,6 +33,27 @@ func (t DType) Get(fieldName string) DType {
 	} else {
 		return UnknownType
 	}
+}
+
+func (t DType) againstPath(pathType DType) DType {
+	fields := make(map[string]DType, len(t.Fields))
+	for fieldName, fieldType := range t.Fields {
+		fields[fieldName] = fieldType.againstPath(pathType)
+	}
+	u := DType{NoUnit: true, Positive: t.Positive, Fields: fields}
+	if !t.NoUnit {
+		u.Joins(pathType)
+	}
+	return u
+}
+
+// If there are negative fields, returns upper bound
+func (t DType) AgainstPath(path []string) DType {
+	pathType := UnitType
+	for i := len(path) - 1; i >= 0; i-- {
+		pathType = pathType.AtLow(path[i])
+	}
+	return t.againstPath(pathType)
 }
 
 // Other
@@ -106,10 +128,15 @@ func (t0 *DType) Meets(t1 DType) {
 	return
 }
 
-func (t DType) At(fieldName string) DType {
+func (t DType) AtHigh(fieldName string) DType {
 	fields := make(map[string]DType, 1)
 	fields[fieldName] = t
 	return DType{Fields: fields}
+}
+func (t DType) AtLow(fieldName string) DType {
+	u := MakeNFieldsType(1)
+	u.Fields[fieldName] = t
+	return u
 }
 
 func (t0 *DType) Joins(t1 DType) {

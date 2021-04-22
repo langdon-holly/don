@@ -16,16 +16,23 @@ func init() {
 	Uint9Type.Fields["8"] = BitType
 }
 
-func ReadUint9(rMap ReadMap) (val int) {
+func ReadUint9At(rMap ReadMap, path []string) (val int) {
 	for i, fieldName := range []string{"0", "1", "2", "3", "4", "5", "6", "7", "8"} {
+		digit0 := rMap.Fields[fieldName].Fields["0"]
+		digit1 := rMap.Fields[fieldName].Fields["1"]
+		for _, fieldName := range path {
+			digit0 = digit0.Fields[fieldName]
+			digit1 = digit1.Fields[fieldName]
+		}
 		select {
-		case <-rMap.Fields[fieldName].Fields["0"].Unit:
-		case <-rMap.Fields[fieldName].Fields["1"].Unit:
+		case <-digit0.Unit:
+		case <-digit1.Unit:
 			val += 1 << i
 		}
 	}
 	return
 }
+func ReadUint9(rMap ReadMap) (val int) { return ReadUint9At(rMap, nil) }
 
 func WriteUint9(wMap WriteMap, val int) {
 	for _, fieldName := range []string{"0", "1", "2", "3", "4", "5", "6", "7", "8"} {

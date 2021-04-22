@@ -42,8 +42,8 @@ func (pc ParCom) MeetTypes(inputType, outputType DType) Com {
 		if !inner.InputType().LTE(newInputType) ||
 			!inner.OutputType().LTE(newOutputType) {
 			inner = inner.MeetTypes(newInputType, newOutputType)
-			pc.inputType.Meets(inner.InputType().At(idxStr))
-			pc.outputType.Meets(inner.OutputType().At(idxStr))
+			pc.inputType.Meets(inner.InputType().AtHigh(idxStr))
+			pc.outputType.Meets(inner.OutputType().AtHigh(idxStr))
 			if _, nullp := inner.(NullCom); nullp {
 				delete(pc.Inners, i)
 			} else {

@@ -20,7 +20,7 @@ func (sc SelectCom) InputType() DType  { return sc.inputType }
 func (sc SelectCom) OutputType() DType { return sc.inputType.Get(sc.FieldName) }
 func (sc SelectCom) MeetTypes(inputType, outputType DType) Com {
 	sc.inputType.Meets(inputType)
-	sc.inputType.Meets(outputType.At(sc.FieldName))
+	sc.inputType.Meets(outputType.AtHigh(sc.FieldName))
 	if sc.inputType.LTE(NullType) {
 		return Null
 	} else {

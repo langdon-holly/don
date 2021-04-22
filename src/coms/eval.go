@@ -55,7 +55,7 @@ func init() {
 	ms["withoutField"] = func(_ Context) func(EvalResult) EvalResult {
 		return func(param EvalResult) EvalResult {
 			if named := param.Syntax().(Named); !named.LeftMarker && !named.RightMarker {
-				return EvalResult{I(NullType.At(named.Name))}
+				return EvalResult{I(NullType.AtHigh(named.Name))}
 			} else {
 				panic("Marked parameter to withoutField: " + named.String())
 			}
@@ -93,7 +93,7 @@ func init() {
 					return EvalResult{Pipe([]Com{
 						Scatter(),
 						Par([]Com{
-							Pipe([]Com{c.Com.Copy(), I(NullType.At(named.Name))}),
+							Pipe([]Com{c.Com.Copy(), I(NullType.AtHigh(named.Name))}),
 							Pipe([]Com{Select(named.Name), param1.Com(), Deselect(named.Name)}),
 						}),
 						Gather(),

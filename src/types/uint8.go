@@ -26,13 +26,19 @@ func ReadUint8(rMap ReadMap) (val int) {
 	return
 }
 
-func WriteUint8(wMap WriteMap, val int) {
+func WriteUint8At(wMap WriteMap, val int, path []string) {
 	for _, fieldName := range []string{"0", "1", "2", "3", "4", "5", "6", "7"} {
+		var digit WriteMap
 		if val%2 == 0 {
-			wMap.Fields[fieldName].Fields["0"].Unit <- struct{}{}
+			digit = wMap.Fields[fieldName].Fields["0"]
 		} else {
-			wMap.Fields[fieldName].Fields["1"].Unit <- struct{}{}
+			digit = wMap.Fields[fieldName].Fields["1"]
 		}
+		for _, fieldName := range path {
+			digit = digit.Fields[fieldName]
+		}
+		digit.Unit <- struct{}{}
 		val /= 2
 	}
 }
+func WriteUint8(wMap WriteMap, val int) { WriteUint8At(wMap, val, nil) }

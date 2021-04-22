@@ -21,7 +21,7 @@ func (dc DeselectCom) InputType() DType {
 }
 func (dc DeselectCom) OutputType() DType { return dc.outputType }
 func (dc DeselectCom) MeetTypes(inputType, outputType DType) Com {
-	dc.outputType.Meets(inputType.At(dc.FieldName))
+	dc.outputType.Meets(inputType.AtHigh(dc.FieldName))
 	dc.outputType.Meets(outputType)
 	if dc.outputType.LTE(NullType) {
 		return Null
