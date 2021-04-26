@@ -32,7 +32,8 @@ func (l0 layoutInfo) Compose(tokens int, l1 layoutInfo) layoutInfo {
 
 func (List) precedence() int        { return ListPrecedence }
 func (EmptyLine) precedence() int   { return EmptyLinePrecedence }
-func (Application) precedence() int { return ApplicationPrecedence }
+func (Application) precedence() int { return ApplicationOrBindPrecedence }
+func (Bind) precedence() int        { return ApplicationOrBindPrecedence }
 func (Composition) precedence() int { return CompositionPrecedence }
 func (Named) precedence() int       { return NamedPrecedence }
 func (ISyntax) precedence() int     { return ISyntaxPrecedence }
@@ -124,13 +125,24 @@ func (EmptyLine) layout() (l layoutInfo, writeString func(out *strings.Builder, 
 	return
 }
 func (a Application) layout() (l layoutInfo, writeString func(out *strings.Builder, indent []byte)) {
-	comL, comWriteString := subLayout(a.Com, ApplicationPrecedence)
-	argL, argWriteString := subLayout(a.Arg, ApplicationPrecedence+1)
+	comL, comWriteString := subLayout(a.Com, ApplicationOrBindPrecedence)
+	argL, argWriteString := subLayout(a.Arg, ApplicationOrBindPrecedence+1)
 	l = comL.Compose(1, argL)
 	writeString = func(out *strings.Builder, indent []byte) {
 		comWriteString(out, indent)
 		out.WriteString(" ! ")
 		argWriteString(out, indent)
+	}
+	return
+}
+func (a Bind) layout() (l layoutInfo, writeString func(out *strings.Builder, indent []byte)) {
+	bodyL, bodyWriteString := subLayout(a.Body, ApplicationOrBindPrecedence)
+	varL, varWriteString := subLayout(a.Var, ApplicationOrBindPrecedence+1)
+	l = bodyL.Compose(1, varL)
+	writeString = func(out *strings.Builder, indent []byte) {
+		bodyWriteString(out, indent)
+		out.WriteString(" ? ")
+		varWriteString(out, indent)
 	}
 	return
 }
@@ -207,6 +219,7 @@ func (q Quote) layout() (l layoutInfo, writeString func(out *strings.Builder, in
 func (s List) String() string        { return toString(s) }
 func (s EmptyLine) String() string   { return toString(s) }
 func (s Application) String() string { return toString(s) }
+func (s Bind) String() string        { return toString(s) }
 func (s Composition) String() string { return toString(s) }
 func (s Named) String() string       { return toString(s) }
 func (s ISyntax) String() string     { return toString(s) }
@@ -220,7 +233,7 @@ func toString(s Syntax) string {
 }
 
 func TopString(s Syntax) string {
-	_, writeString := s.(Application).Arg.(Quote).Syntax.layout()
+	_, writeString := s.layout()
 	var b strings.Builder
 	writeString(&b, nil)
 	return b.String()

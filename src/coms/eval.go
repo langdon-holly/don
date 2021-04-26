@@ -10,13 +10,12 @@ type EvalResult struct{ It interface{} }
 func (r EvalResult) Com() Com       { return r.It.(Com) }
 func (r EvalResult) Syntax() Syntax { return r.It.(Syntax) }
 func (r EvalResult) Apply(param EvalResult) EvalResult {
-	return r.It.(func(EvalResult) EvalResult)(param)
+	return EvalResult{r.It.(func(EvalResult) interface{})(param)}
 }
 
-// Context arg to macro may be shared
-type Context struct {
-	Com    Com
-	Macros map[string]func(Context) func(EvalResult) EvalResult
+type Context *struct {
+	Entries map[string]interface{}
+	Parent  Context
 }
 
 func entry(fieldName string, inner Com) Com {
@@ -26,92 +25,40 @@ func entry(fieldName string, inner Com) Com {
 		Deselect(fieldName)})
 }
 
-var DefContext = Context{
-	Com: Pipe([]Com{Scatter(), Par([]Com{
-		entry("unit", I(UnitType)),
-		entry("fields", I(FieldsType)),
-		entry("<", Gather()),
-		entry(">", Scatter()),
-		entry("<|", Merge()),
-		entry("|>", Choose()),
-		entry("<||", Join()),
-		entry("||>", Fork()),
-	}), Gather()}),
-	Macros: make(map[string]func(Context) func(EvalResult) EvalResult),
-}
+var DefContext = new(struct {
+	Entries map[string]interface{}
+	Parent  Context
+})
 
 func init() {
-	ms := DefContext.Macros
-	ms["map"] = func(_ Context) func(EvalResult) EvalResult {
-		return func(param EvalResult) EvalResult {
-			return EvalResult{Map(param.Com())}
+	DefContext.Entries = make(map[string]interface{})
+
+	DefContext.Entries["unit"] = I(UnitType)
+	DefContext.Entries["fields"] = I(FieldsType)
+	DefContext.Entries["<"] = Gather()
+	DefContext.Entries[">"] = Scatter()
+	DefContext.Entries["<|"] = Merge()
+	DefContext.Entries["|>"] = Choose()
+	DefContext.Entries["<||"] = Join()
+	DefContext.Entries["||>"] = Fork()
+
+	DefContext.Entries["map"] = func(param EvalResult) interface{} {
+		return Map(param.Com())
+	}
+	DefContext.Entries["~"] = func(param EvalResult) interface{} {
+		return param.Com().Invert()
+	}
+	DefContext.Entries["withoutField"] = func(param EvalResult) interface{} {
+		if named := param.Syntax().(Named); !named.LeftMarker && !named.RightMarker {
+			return I(NullType.AtHigh(named.Name))
+		} else {
+			panic("Marked parameter to withoutField: " + named.String())
 		}
 	}
-	ms["~"] = func(_ Context) func(EvalResult) EvalResult {
-		return func(param EvalResult) EvalResult {
-			return EvalResult{param.Com().Invert()}
-		}
-	}
-	ms["withoutField"] = func(_ Context) func(EvalResult) EvalResult {
-		return func(param EvalResult) EvalResult {
-			if named := param.Syntax().(Named); !named.LeftMarker && !named.RightMarker {
-				return EvalResult{I(NullType.AtHigh(named.Name))}
-			} else {
-				panic("Marked parameter to withoutField: " + named.String())
-			}
-		}
-	}
-	ms["context"] = func(c Context) func(EvalResult) EvalResult {
-		return func(param EvalResult) EvalResult {
-			if list := param.Syntax().(List); len(list.Factors) > 0 {
-				for _, factor := range list.Factors {
-					if _, emptyp := factor.(EmptyLine); !emptyp {
-						c.Com = Eval(factor, c).Com()
-					}
-				}
-				return EvalResult{c.Com}
-			} else {
-				return EvalResult{c.Com.Copy()}
-			}
-		}
-	}
-	ms["#"] = func(_ Context) func(EvalResult) EvalResult {
-		return func(_ EvalResult) EvalResult {
-			return EvalResult{Null}
-		}
-	}
-	ms["##"] = func(c Context) func(EvalResult) EvalResult {
-		return func(_ EvalResult) EvalResult {
-			return EvalResult{c.Com.Copy()}
-		}
-	}
-	ms["def"] = func(c Context) func(EvalResult) EvalResult {
-		return func(param0 EvalResult) EvalResult {
-			return EvalResult{func(param1 EvalResult) EvalResult {
-				named := param0.Syntax().(Named)
-				if !named.LeftMarker && !named.RightMarker {
-					return EvalResult{Pipe([]Com{
-						Scatter(),
-						Par([]Com{
-							Pipe([]Com{c.Com.Copy(), I(NullType.AtHigh(named.Name))}),
-							Pipe([]Com{Select(named.Name), param1.Com(), Deselect(named.Name)}),
-						}),
-						Gather(),
-					})}
-				} else {
-					panic("Marked named parameter to def: " + named.String())
-				}
-			}}
-		}
-	}
-	ms["sandwich"] = func(_ Context) func(EvalResult) EvalResult {
-		return func(param0 EvalResult) EvalResult {
-			return EvalResult{func(param1 EvalResult) EvalResult {
-				return EvalResult{Pipe([]Com{
-					param0.Com().Copy().Invert(),
-					param1.Com(),
-					param0.Com()})}
-			}}
+	DefContext.Entries["#"] = func(EvalResult) interface{} { return Null }
+	DefContext.Entries["sandwich"] = func(param0 EvalResult) interface{} {
+		return func(param1 EvalResult) interface{} {
+			return Pipe([]Com{param0.Com().Copy().Invert(), param1.Com(), param0.Com()})
 		}
 	}
 }
@@ -131,13 +78,26 @@ func eval(ss Syntax, c Context) interface{} {
 		panic("Eval empty line")
 	case Application:
 		return Eval(s.Com, c).Apply(Eval(s.Arg, c)).It
+	case Bind:
+		named := s.Var.(Named)
+		if named.LeftMarker || named.RightMarker {
+			panic("Marked variable as bind variable: " + named.String())
+		}
+		return func(arg EvalResult) interface{} {
+			subC := &struct {
+				Entries map[string]interface{}
+				Parent  Context
+			}{Entries: make(map[string]interface{}, 1), Parent: c}
+			subC.Entries[named.Name] = arg.It
+			return Eval(s.Body, subC).It
+		}
 	case Composition:
 		factorResults := make([]EvalResult, len(s.Factors))
 		for i, factor := range s.Factors {
 			factorResults[len(s.Factors)-1-i] = Eval(factor, c)
 		}
-		if _, macrosp := factorResults[0].It.(func(EvalResult) EvalResult); macrosp {
-			return func(param EvalResult) EvalResult {
+		if _, macrosp := factorResults[0].It.(func(EvalResult) interface{}); macrosp {
+			return func(param EvalResult) interface{} {
 				for _, factorResult := range factorResults {
 					param = factorResult.Apply(param)
 				}
@@ -159,10 +119,16 @@ func eval(ss Syntax, c Context) interface{} {
 			}
 		} else if s.RightMarker {
 			return Deselect(s.Name)
-		} else if macroEntry, ok := c.Macros[s.Name]; ok {
-			return macroEntry(c)
 		} else {
-			return Pipe([]Com{Deselect(s.Name), c.Com.Copy(), Select(s.Name)})
+			for ; c != nil; c = c.Parent {
+				if entry, ok := c.Entries[s.Name]; !ok {
+				} else if com, isCom := entry.(Com); isCom {
+					return com.Copy()
+				} else {
+					return entry
+				}
+			}
+			return Null
 		}
 	case ISyntax:
 		return I(UnknownType)
@@ -173,6 +139,4 @@ func eval(ss Syntax, c Context) interface{} {
 }
 
 // c may be shared
-func Eval(s Syntax, c Context) EvalResult {
-	return EvalResult{eval(s, c)}
-}
+func Eval(s Syntax, c Context) EvalResult { return EvalResult{eval(s, c)} }

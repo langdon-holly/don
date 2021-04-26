@@ -5,7 +5,7 @@ import "strings"
 const ( /* Order matters */
 	ListPrecedence = iota
 	EmptyLinePrecedence
-	ApplicationPrecedence
+	ApplicationOrBindPrecedence
 	CompositionPrecedence
 	NamedPrecedence
 	ISyntaxPrecedence
@@ -21,6 +21,7 @@ type Syntax interface {
 type List struct{ Factors []Syntax }
 type EmptyLine struct{} /* Only in list; neither first nor last factor */
 type Application struct{ Com, Arg Syntax }
+type Bind struct{ Body, Var Syntax }
 type Composition struct {
 	Factors []Syntax /* Nonempty */
 }

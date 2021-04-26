@@ -1,4 +1,5 @@
 sy match Operator "!"
+sy match Operator "?"
 sy match Operator "\*"
 sy match Operator "("
 sy match Operator ")"

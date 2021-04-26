@@ -53,52 +53,65 @@ func (state composition) Done() (syntax Syntax, bad []string) {
 	return
 }
 
-type application struct {
-	Sub  composition
-	Comp bool
-	Com  Syntax
-}
-
-func (state *application) maybeInParam(bad *[]string /* mutated */) {
-	if state.Comp {
-		*bad = append(*bad, "in application parameter")
-	}
+type leftAssociative struct {
+	Sub                   composition
+	InApplication, InBind bool /* Exclusive */
+	Com                   Syntax
 }
 
 // impl parser
-func (state *application) Next(e token) (bad []string) {
-	if e.IsByte(bang) {
+func (state *leftAssociative) Next(e token) (bad []string) {
+	if banged, questioned := e.IsByte(bang), e.IsByte(question); banged || questioned {
 		var subS Syntax
 		subS, bad = state.Sub.Done()
-		if state.Comp {
+		if state.InApplication {
 			state.Com = Application{Com: state.Com, Arg: subS}
+		} else if state.InBind {
+			state.Com = Bind{Body: state.Com, Var: subS}
 		} else if state.Com = subS; true {
 		}
 		if bad == nil && isEmptyComposition(subS) {
 			bad = []string{"Nothing"}
 		}
 		if bad != nil {
-			if state.Comp {
+			if state.InApplication {
 				bad = append(bad, "in application parameter")
+			} else if state.InBind {
+				bad = append(bad, "in bind variable")
 			}
-			bad = append(bad, "in application computer")
+			if banged {
+				bad = append(bad, "in application computer")
+			} else /* questioned */ {
+				bad = append(bad, "in bind body")
+			}
 		}
-		state.Sub = application{}.Sub
-		state.Comp = true
-	} else if bad = state.Sub.Next(e); bad != nil && state.Comp {
+		state.Sub = leftAssociative{}.Sub
+		state.InApplication = banged
+		state.InBind = questioned
+	} else if bad = state.Sub.Next(e); bad == nil {
+	} else if state.InApplication {
 		bad = append(bad, "in application parameter")
+	} else if state.InBind {
+		bad = append(bad, "in bind variable")
 	}
 	return
 }
-func (state *application) Done() (syntax Syntax, bad []string) {
+func (state *leftAssociative) Done() (syntax Syntax, bad []string) {
 	var subS Syntax
 	subS, bad = state.Sub.Done()
-	if state.Comp {
+	if state.InApplication {
 		syntax = Application{Com: state.Com, Arg: subS}
 		if bad != nil {
 			bad = append(bad, "in application parameter")
 		} else if isEmptyComposition(subS) {
 			bad = []string{"Nothing", "in application parameter"}
+		}
+	} else if state.InBind {
+		syntax = Bind{Body: state.Com, Var: subS}
+		if bad != nil {
+			bad = append(bad, "in bind variable")
+		} else if isEmptyComposition(subS) {
+			bad = []string{"Nothing", "in bind variable"}
 		}
 	} else if syntax, bad = state.Sub.Done(); true {
 	}
@@ -107,7 +120,7 @@ func (state *application) Done() (syntax Syntax, bad []string) {
 
 // Factors for !Listp
 type list struct {
-	Sub           application
+	Sub           leftAssociative
 	Listp         bool
 	Midfactor     bool
 	EmptyLine     bool
@@ -305,7 +318,6 @@ func (state *named) Done() (syntax Syntax, bad []string) {
 	}
 	if bad == nil {
 		syntax, bad = state.Sub.Done()
-		syntax = Application{Com: Named{Name: "context"}, Arg: Quote{syntax}}
 	}
 	return
 }
