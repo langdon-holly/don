@@ -11,9 +11,10 @@ type IOVar struct {
 type IO map[Var]IOVar
 
 type TypedComNode interface {
-	Substitute(subs map[Var]Var)         /* Mutates */
-	Vars(vars /* mutated */ map[Var]int) /* The int is the number of writers */
-	Run(io IO)                           /* Call with go */
+	Substitute(subs map[Var]Var) /* Mutates */
+	InVars(vars /* mutated */ map[Var]int, addend int)
+	OutVars(vars /* mutated */ map[Var]int) /* The int is the number of writers */
+	Run(io IO)                              /* Call with go */
 }
 
 func substituteVar(subs map[Var]Var, varA *Var) {
@@ -28,15 +29,21 @@ type ChooseNode struct {
 }
 
 // Mutates
-func (cc *ChooseNode) Substitute(subs map[Var]Var) {
-	substituteVar(subs, &cc.In)
-	for i := range cc.Out {
-		substituteVar(subs, &cc.Out[i])
+func (cn *ChooseNode) Substitute(subs map[Var]Var) {
+	substituteVar(subs, &cn.In)
+	for i := range cn.Out {
+		substituteVar(subs, &cn.Out[i])
 	}
 }
 
-func (ChooseNode) Vars(map[Var]int) { panic("Unimplemented") }
-func (ChooseNode) Run(IO)           { panic("Unimplemented") }
+func (cn ChooseNode) InVars(vars /* mutated */ map[Var]int, addend int) { vars[cn.In] += addend }
+func (cn ChooseNode) OutVars(vars map[Var]int) {
+	for _, outVar := range cn.Out {
+		vars[outVar]++
+	}
+}
+
+func (ChooseNode) Run(IO) { panic("Unimplemented") }
 
 type MergeNode struct {
 	In  []Var
@@ -44,27 +51,27 @@ type MergeNode struct {
 }
 
 // Mutates
-func (mc *MergeNode) Substitute(subs map[Var]Var) {
-	for i := range mc.In {
-		substituteVar(subs, &mc.In[i])
+func (mn *MergeNode) Substitute(subs map[Var]Var) {
+	for i := range mn.In {
+		substituteVar(subs, &mn.In[i])
 	}
-	substituteVar(subs, &mc.Out)
+	substituteVar(subs, &mn.Out)
 }
 
-func (mc MergeNode) Vars(vars /* mutated */ map[Var]int) {
-	for _, inVar := range mc.In {
-		vars[inVar] = vars[inVar]
+func (mn MergeNode) InVars(vars /* mutated */ map[Var]int, addend int) {
+	for _, inVar := range mn.In {
+		vars[inVar] += addend
 	}
-	vars[mc.Out]++
 }
+func (mn MergeNode) OutVars(vars /* mutated */ map[Var]int) { vars[mn.Out]++ }
 
 func pipeUnit(outChan chan<- struct{}, inChan <-chan struct{}) {
 	outChan <- <-inChan
 }
 
-func (mc MergeNode) Run(io IO) {
-	outChan := io[mc.Out].Output
-	for _, inVar := range mc.In {
+func (mn MergeNode) Run(io IO) {
+	outChan := io[mn.Out].Output
+	for _, inVar := range mn.In {
 		go pipeUnit(outChan, io[inVar].Input)
 	}
 }
@@ -84,24 +91,26 @@ type ProdNode struct {
 }
 
 // Mutates
-func (pc *ProdNode) Substitute(subs map[Var]Var) {
-	for _, factor := range pc.In {
+func (pn *ProdNode) Substitute(subs map[Var]Var) {
+	for _, factor := range pn.In {
 		for j := range factor {
 			substituteVar(subs, &factor[j])
 		}
 	}
-	for i := range pc.Out {
-		substituteVar(subs, &pc.Out[i])
+	for i := range pn.Out {
+		substituteVar(subs, &pn.Out[i])
 	}
 }
 
-func (pc ProdNode) Vars(vars /* mutated */ map[Var]int) {
-	for _, factorVars := range pc.In {
+func (pn ProdNode) InVars(vars /* mutated */ map[Var]int, addend int) {
+	for _, factorVars := range pn.In {
 		for _, inVar := range factorVars {
-			vars[inVar] = vars[inVar]
+			vars[inVar] += addend
 		}
 	}
-	for _, outVar := range pc.Out {
+}
+func (pn ProdNode) OutVars(vars /* mutated */ map[Var]int) {
+	for _, outVar := range pn.Out {
 		vars[outVar]++
 	}
 }
@@ -111,16 +120,16 @@ func notifyIndex(indexChan chan<- int, inChan <-chan struct{}, index int) {
 	indexChan <- index
 }
 
-func (pc ProdNode) Run(io IO) {
+func (pn ProdNode) Run(io IO) {
 	outIdx := 0
-	for factor, factorVars := range pc.In {
+	for factor, factorVars := range pn.In {
 		indexChan := make(chan int)
 		for index, factorVar := range factorVars {
 			go notifyIndex(indexChan, io[factorVar].Input, index)
 		}
-		outIdx += <-indexChan * pc.OutStrides[factor]
+		outIdx += <-indexChan * pn.OutStrides[factor]
 	}
-	io[pc.Out[outIdx]].Output <- struct{}{}
+	io[pn.Out[outIdx]].Output <- struct{}{}
 }
 
 type TypeMap struct {
@@ -297,41 +306,23 @@ func collectProdParts(
 	}
 }
 
-// Mutates
-func (tc TypedCom) Determinate() {
+func determinateNodes(nodes map[TypedComNode]struct{} /* mutated */) {
 	chooses := make(map[Var]map[Var]struct{})
 	choices := make(map[Var]map[Var]struct{})
 	uses := make(map[Var]int)
-	for node := range tc.Nodes {
-		switch n := node.(type) {
-		case *ChooseNode:
-			delete(tc.Nodes, node)
+	for node := range nodes {
+		node.InVars(uses, 1)
+		node.OutVars(uses)
+		if n, ok := node.(*ChooseNode); ok {
+			delete(nodes, node)
 			chooses[n.In] = make(map[Var]struct{}, len(n.Out))
-			uses[n.In]++
 			for _, choiceVar := range n.Out {
 				chooses[n.In][choiceVar] = struct{}{}
 				if choices[choiceVar] == nil {
 					choices[choiceVar] = make(map[Var]struct{})
 				}
 				choices[choiceVar][n.In] = struct{}{}
-				uses[choiceVar]++
 			}
-		case *MergeNode:
-			for _, inVar := range n.In {
-				uses[inVar]++
-			}
-			uses[n.Out]++
-		case *ProdNode:
-			for _, factor := range n.In {
-				for _, inVar := range factor {
-					uses[inVar]++
-				}
-			}
-			for _, outVar := range n.Out {
-				uses[outVar]++
-			}
-		default:
-			panic("Unreachable")
 		}
 	}
 	for choose := range chooses {
@@ -403,13 +394,16 @@ func (tc TypedCom) Determinate() {
 			}
 			prod.Out[outIdx] = choiceVar
 		}
-		tc.Nodes[&prod] = struct{}{}
+		nodes[&prod] = struct{}{}
 	}
 	if len(chooses) > 0 {
 		panic("Uh oh")
 	}
 	return
 }
+
+// Mutates
+func (tc TypedCom) Determinate() { determinateNodes(tc.Nodes) }
 
 type WriteMap struct {
 	Unit   chan<- struct{}
@@ -460,7 +454,8 @@ func runIOVar(output <-chan struct{}, input chan<- struct{}, nWriters int) {
 func (tc TypedCom) Run() (wMap WriteMap, rMap ReadMap) {
 	vars := make(map[Var]int)
 	for node := range tc.Nodes {
-		node.Vars(vars)
+		node.InVars(vars, 0)
+		node.OutVars(vars)
 	}
 	inputMapVars(vars, tc.InputMap)
 	io := make(IO)
