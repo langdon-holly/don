@@ -94,7 +94,7 @@ func (list List) layout() (l layoutInfo, writeString func(out *strings.Builder, 
 		if multiline || tokens > MAX_TOKENS_PER_LINE {
 			l.Tokens = []int{
 				factorLs[0].Top() + 1,
-				factorLs[len(factorLs)-1].Bot() + 1,
+				layoutInfo{Tokens: []int{1}}.Compose(0, factorLs[len(factorLs)-1]).Bot(),
 			}
 			writeString = func(out *strings.Builder, indent []byte) {
 				out.WriteString("* ")
@@ -205,6 +205,7 @@ func (n Named) layout() (l layoutInfo, writeString func(out *strings.Builder, in
 	return
 }
 func (ISyntax) layout() (l layoutInfo, writeString func(out *strings.Builder, indent []byte)) {
+	l.Circumfix = true
 	l.Tokens = []int{2}
 	writeString = func(out *strings.Builder, _ []byte) { out.WriteString("()") }
 	return
