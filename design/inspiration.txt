@@ -1,0 +1,12 @@
+* Lisp
+	* Simple, hierarchical, syntax
+* Haskell
+	* Unary functions
+* F#
+	* Generic functions without type annotation
+* VHDL
+	* Hierarchy of communicating subcomputers
+* Notes on structured concurrency, or: Go statement considered harmful
+	* Modularity
+* Prolog
+	* Conjunctions and disjunctions
