@@ -30,11 +30,10 @@ func isEmptyComposition(s Syntax) bool {
 	return compositionp && len(composition.Factors) == 0
 }
 
-// Used in spirit
 // Discard after bad != nil or Done is called
 type parser interface {
 	Next(e token) (bad []string)         /* mutates */
-	Done() (syntax Syntax, bad []string) /* mutates; syntax for bad != nil */
+	Done() (syntax Syntax, bad []string) /* mutates; syntax for bad == nil */
 }
 
 type composition []Syntax
@@ -118,61 +117,125 @@ func (state *leftAssociative) Done() (syntax Syntax, bad []string) {
 	return
 }
 
-// Factors for !Listp
-type list struct {
-	Sub           leftAssociative
+// Items for !Listp
+type listAssociative struct {
 	Listp         bool
-	Midfactor     bool
+	Miditem       bool
 	EmptyLine     bool
 	EmptyLineNext bool
-	Factors       []Syntax
+	Items         []Syntax
 }
 
-// impl parser
-func (state *list) Next(e token) (bad []string) {
-	if e.IsByte(asterisk) {
-		if factorS, factorBad := state.Sub.Done(); factorBad != nil {
-			bad = append(factorBad, "in list")
-		} else if !isEmptyComposition(factorS) {
-			if state.EmptyLine && len(state.Factors) > 0 {
-				state.Factors = append(state.Factors, EmptyLine{})
+// Mutates
+func (state *listAssociative) Next(
+	sub parser, /* mutated */
+	e token,
+	opToken byte,
+	badMsg string,
+) (zeroSub bool, bad []string) {
+	if e.IsByte(opToken) {
+		if itemS, itemBad := sub.Done(); itemBad != nil {
+			bad = append(itemBad, badMsg)
+		} else if !isEmptyComposition(itemS) {
+			if state.EmptyLine && len(state.Items) > 0 {
+				state.Items = append(state.Items, EmptyLine{})
 			}
-			state.Factors = append(state.Factors, factorS)
+			state.Items = append(state.Items, itemS)
 		} else if state.Listp {
-			bad = []string{"Nothing", "in list"}
+			bad = []string{"Nothing", badMsg}
 		}
-		state.Sub = list{}.Sub
+		zeroSub = true
 		state.Listp = true
-		state.Midfactor = false
+		state.Miditem = false
 		state.EmptyLine = state.EmptyLineNext
 		state.EmptyLineNext = false
 	} else if _, emptyp := e.Syntax.(EmptyLine); !emptyp {
-		state.Midfactor = true
+		state.Miditem = true
 		state.EmptyLineNext = false
-		if bad = state.Sub.Next(e); bad != nil && state.Listp {
-			bad = append(bad, "in list")
+		if bad = sub.Next(e); bad != nil && state.Listp {
+			bad = append(bad, badMsg)
 		}
-	} else if state.Midfactor {
+	} else if state.Miditem {
 		state.EmptyLineNext = true
 	} else if state.EmptyLine = true; true {
 	}
 	return
 }
-func (state *list) Done() (syntax Syntax, bad []string) {
-	if syntax, bad = state.Sub.Done(); !state.Listp {
-	} else if isEmptyComposition(syntax) {
-		syntax = List{state.Factors}
-	} else if state.EmptyLine && len(state.Factors) > 0 {
-		syntax = List{append(state.Factors, EmptyLine{}, syntax)}
-	} else if syntax = (List{append(state.Factors, syntax)}); true {
+
+// Mutates
+// listp for bad == nil
+// items for listp
+// syntax for !listp
+func (state *listAssociative) Done(sub parser /* mutated */, badMsg string) (
+	items []Syntax,
+	syntax Syntax,
+	listp bool,
+	bad []string,
+) {
+	if syntax, bad = sub.Done(); !state.Listp {
+	} else if bad != nil {
+		bad = append(bad, badMsg)
+	} else if listp = true; isEmptyComposition(syntax) {
+		items = state.Items
+	} else if state.EmptyLine && len(state.Items) > 0 {
+		items = append(state.Items, EmptyLine{}, syntax)
+	} else if items = append(state.Items, syntax); true {
+	}
+	return
+}
+
+type conjunction struct {
+	Sub leftAssociative
+	listAssociative
+}
+
+// impl parser
+func (state *conjunction) Next(e token) (bad []string) {
+	var zeroSub bool
+	zeroSub, bad = state.listAssociative.Next(&state.Sub, e, comma, "in conjunction")
+	if zeroSub {
+		state.Sub = conjunction{}.Sub
+	}
+	return
+}
+func (state *conjunction) Done() (syntax Syntax, bad []string) {
+	var items []Syntax
+	var listp bool
+	items, syntax, listp, bad = state.listAssociative.Done(&state.Sub, "in conjunction")
+	if listp {
+		syntax = Conjunction{items}
+	}
+	return
+}
+
+type disjunction struct {
+	Sub conjunction
+	listAssociative
+}
+
+// impl parser
+func (state *disjunction) Next(e token) (bad []string) {
+	var zeroSub bool
+	zeroSub, bad = state.listAssociative.Next(&state.Sub, e, semicolon, "in disjunction")
+	if zeroSub {
+		state.Sub = disjunction{}.Sub
+	}
+	return
+}
+func (state *disjunction) Done() (syntax Syntax, bad []string) {
+	var items []Syntax
+	var listp bool
+	items, syntax, listp, bad = state.listAssociative.Done(&state.Sub, "in disjunction")
+	if listp {
+		syntax = Disjunction{items}
 	}
 	return
 }
 
 type circumfix struct {
-	Subs   []list
+	Subs   []disjunction
 	Quotes []bool
-	Sub    list
+	Sub    disjunction
 }
 
 // impl parser

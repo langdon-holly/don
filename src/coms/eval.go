@@ -66,14 +66,22 @@ func init() {
 // c may be shared
 func eval(ss Syntax, c Context) interface{} {
 	switch s := ss.(type) {
-	case List:
-		var factorComs []Com
-		for _, factor := range s.Factors {
-			if _, emptyp := factor.(EmptyLine); !emptyp {
-				factorComs = append(factorComs, Eval(factor, c).Com())
+	case Disjunction:
+		var disjunctComs []Com
+		for _, disjunct := range s.Disjuncts {
+			if _, emptyp := disjunct.(EmptyLine); !emptyp {
+				disjunctComs = append(disjunctComs, Eval(disjunct, c).Com())
 			}
 		}
-		return Par(factorComs)
+		return Pipe([]Com{Choose(), Par(disjunctComs), Merge()})
+	case Conjunction:
+		var conjunctComs []Com
+		for _, conjunct := range s.Conjuncts {
+			if _, emptyp := conjunct.(EmptyLine); !emptyp {
+				conjunctComs = append(conjunctComs, Eval(conjunct, c).Com())
+			}
+		}
+		return Pipe([]Com{Fork(), Par(conjunctComs), Join()})
 	case EmptyLine:
 		panic("Eval empty line")
 	case Application:

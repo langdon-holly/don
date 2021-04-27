@@ -13,7 +13,7 @@ $	unused
 %	unused
 ^	unused
 &	unused
-*	  used : list
+*	unused
 (	  used : start
 )	  used : end
 _	  used : empty identifier
@@ -26,11 +26,11 @@ _	  used : empty identifier
 }	  used : end quotation
 \	  used : escape byte
 |	unused
-;	unused
+;	  used : disjunction
 :	  used : field (de)selection
 '	unused
 "	unused
-,	unused
+,	  used : conjunction
 <	unused
 .	unused
 >	unused

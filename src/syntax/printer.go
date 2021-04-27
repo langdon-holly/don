@@ -30,23 +30,26 @@ func (l0 layoutInfo) Compose(tokens int, l1 layoutInfo) layoutInfo {
 	}
 }
 
-func (List) precedence() int        { return ListPrecedence }
+type writeString func(out *strings.Builder, indent []byte)
+
+func (Disjunction) precedence() int { return DisjunctionPrecedence }
+func (Conjunction) precedence() int { return ConjunctionPrecedence }
 func (EmptyLine) precedence() int   { return EmptyLinePrecedence }
-func (Application) precedence() int { return ApplicationOrBindPrecedence }
-func (Bind) precedence() int        { return ApplicationOrBindPrecedence }
+func (Application) precedence() int { return LeftAssociativePrecedence }
+func (Bind) precedence() int        { return LeftAssociativePrecedence }
 func (Composition) precedence() int { return CompositionPrecedence }
 func (Named) precedence() int       { return NamedPrecedence }
 func (ISyntax) precedence() int     { return ISyntaxPrecedence }
 func (Quote) precedence() int       { return QuotePrecedence }
 
-func subLayout(s Syntax, precedence int) (l layoutInfo, writeString func(out *strings.Builder, indent []byte)) {
+func subLayout(s Syntax, precedence int) (l layoutInfo, ws writeString) {
 	if subL, subWriteString := s.layout(); s.precedence() >= precedence {
-		l, writeString = subL, subWriteString
+		l, ws = subL, subWriteString
 	} else if len(subL.Tokens) == 2 ||
 		subL.Circumfix ||
 		subL.Top()+1 > MAX_TOKENS_PER_LINE {
 		l = layoutInfo{Circumfix: true, Tokens: []int{1, 1}}
-		writeString = func(out *strings.Builder, indent []byte) {
+		ws = func(out *strings.Builder, indent []byte) {
 			subIndent := append(indent, "\t"...)
 			out.WriteString("(")
 			out.WriteString("\n")
@@ -58,7 +61,7 @@ func subLayout(s Syntax, precedence int) (l layoutInfo, writeString func(out *st
 		}
 	} else {
 		l = layoutInfo{Circumfix: true, Tokens: []int{subL.Top() + 2}}
-		writeString = func(out *strings.Builder, indent []byte) {
+		ws = func(out *strings.Builder, indent []byte) {
 			out.WriteString("(")
 			subWriteString(out, indent)
 			out.WriteString(")")
@@ -66,107 +69,98 @@ func subLayout(s Syntax, precedence int) (l layoutInfo, writeString func(out *st
 	}
 	return
 }
-func (list List) layout() (l layoutInfo, writeString func(out *strings.Builder, indent []byte)) {
-	if len(list.Factors) == 0 {
+func layoutListAssociative(items []Syntax, opToken string) (l layoutInfo, ws writeString) {
+	if len(items) == 0 {
 		l.Tokens = []int{1}
-		writeString = func(out *strings.Builder, _ []byte) { out.WriteString("*") }
-	} else if len(list.Factors) == 1 {
-		var factorWriteString func(*strings.Builder, []byte)
-		l, factorWriteString = subLayout(list.Factors[0], ApplicationOrBindPrecedence+1)
+		ws = func(out *strings.Builder, _ []byte) { out.WriteString(opToken) }
+	} else if len(items) == 1 {
+		var itemWriteString func(*strings.Builder, []byte)
+		l, itemWriteString = subLayout(items[0], LeftAssociativePrecedence+1)
 		l.Tokens[0]++
-		writeString = func(out *strings.Builder, indent []byte) {
-			out.WriteString("* ")
-			factorWriteString(out, indent)
+		ws = func(out *strings.Builder, indent []byte) {
+			out.WriteString(opToken + " ")
+			itemWriteString(out, indent)
 		}
-	} else if factorEmptyLines := make([]bool, len(list.Factors)); true {
-		factorLs := make([]layoutInfo, len(list.Factors))
-		factorWriteStrings := make([]func(*strings.Builder, []byte), len(list.Factors))
+	} else if itemEmptyLines := make([]bool, len(items)); true {
+		itemLs := make([]layoutInfo, len(items))
+		itemWriteStrings := make([]func(*strings.Builder, []byte), len(items))
 		multiline := false
 		tokens := 0
-		for i, factor := range list.Factors {
-			_, factorEmptyLines[i] = factor.(EmptyLine)
-			factorLs[i], factorWriteStrings[i] = subLayout(factor, ApplicationOrBindPrecedence+1)
-			multiline = multiline || len(factorLs[i].Tokens) == 2
-			l.Circumfix = l.Circumfix || factorLs[i].Circumfix
-			tokens += factorLs[i].Top() + 1
+		for i, item := range items {
+			_, itemEmptyLines[i] = item.(EmptyLine)
+			itemLs[i], itemWriteStrings[i] = subLayout(item, LeftAssociativePrecedence+1)
+			multiline = multiline || len(itemLs[i].Tokens) == 2
+			l.Circumfix = l.Circumfix || itemLs[i].Circumfix
+			tokens += itemLs[i].Top() + 1
 		}
 		tokens--
 		if multiline || tokens > MAX_TOKENS_PER_LINE {
 			l.Tokens = []int{
-				factorLs[0].Top() + 1,
-				layoutInfo{Tokens: []int{1}}.Compose(0, factorLs[len(factorLs)-1]).Bot(),
+				itemLs[0].Top() + 1,
+				layoutInfo{Tokens: []int{1}}.Compose(0, itemLs[len(itemLs)-1]).Bot(),
 			}
-			writeString = func(out *strings.Builder, indent []byte) {
-				out.WriteString("* ")
-				factorWriteStrings[0](out, indent)
-				for i := 1; i < len(factorWriteStrings); i++ {
-					if out.WriteString("\n"); !factorEmptyLines[i] {
+			ws = func(out *strings.Builder, indent []byte) {
+				out.WriteString(opToken + " ")
+				itemWriteStrings[0](out, indent)
+				for i := 1; i < len(itemWriteStrings); i++ {
+					if out.WriteString("\n"); !itemEmptyLines[i] {
 						out.Write(indent)
-						out.WriteString("* ")
-						factorWriteStrings[i](out, indent)
+						out.WriteString(opToken + " ")
+						itemWriteStrings[i](out, indent)
 					}
 				}
 			}
 		} else if l.Tokens = []int{tokens}; true {
-			writeString = func(out *strings.Builder, indent []byte) {
-				factorWriteStrings[0](out, indent)
-				for i := 1; i < len(factorWriteStrings); i++ {
-					out.WriteString(" * ")
-					factorWriteStrings[i](out, indent)
+			ws = func(out *strings.Builder, indent []byte) {
+				itemWriteStrings[0](out, indent)
+				for i := 1; i < len(itemWriteStrings); i++ {
+					out.WriteString(" " + opToken + " ")
+					itemWriteStrings[i](out, indent)
 				}
 			}
 		}
 	}
 	return
 }
-func (EmptyLine) layout() (l layoutInfo, writeString func(out *strings.Builder, indent []byte)) {
+func (d Disjunction) layout() (layoutInfo, writeString) {
+	return layoutListAssociative(d.Disjuncts, ";")
+}
+func (c Conjunction) layout() (layoutInfo, writeString) {
+	return layoutListAssociative(c.Conjuncts, ",")
+}
+func (EmptyLine) layout() (l layoutInfo, ws writeString) {
 	l.Tokens = []int{0, 0}
-	writeString = func(*strings.Builder, []byte) { panic("Unreachable") }
+	ws = func(*strings.Builder, []byte) { panic("Unreachable") }
 	return
 }
-func (a Application) layout() (l layoutInfo, writeString func(out *strings.Builder, indent []byte)) {
-	comL, comWriteString := subLayout(a.Com, ApplicationOrBindPrecedence)
-	argL, argWriteString := subLayout(a.Arg, ApplicationOrBindPrecedence+1)
-	if len(comL.Tokens) == 2 || comL.Bot()+1+argL.Top() > MAX_TOKENS_PER_LINE {
-		l = comL.Compose(0, layoutInfo{Tokens: []int{0, 1}}).Compose(0, argL)
-		writeString = func(out *strings.Builder, indent []byte) {
-			comWriteString(out, indent)
+func layoutLeftAssociative(left, right Syntax, opToken string) (l layoutInfo, ws writeString) {
+	leftL, leftWriteString := subLayout(left, LeftAssociativePrecedence)
+	rightL, rightWriteString := subLayout(right, LeftAssociativePrecedence+1)
+	if len(leftL.Tokens) == 2 || leftL.Bot()+1+rightL.Top() > MAX_TOKENS_PER_LINE {
+		l = leftL.Compose(0, layoutInfo{Tokens: []int{0, 1}}).Compose(0, rightL)
+		ws = func(out *strings.Builder, indent []byte) {
+			leftWriteString(out, indent)
 			out.WriteString("\n")
 			out.Write(indent)
-			out.WriteString("! ")
-			argWriteString(out, indent)
+			out.WriteString(opToken + " ")
+			rightWriteString(out, indent)
 		}
-	} else if l = comL.Compose(1, argL); true {
-		writeString = func(out *strings.Builder, indent []byte) {
-			comWriteString(out, indent)
-			out.WriteString(" ! ")
-			argWriteString(out, indent)
+	} else if l = leftL.Compose(1, rightL); true {
+		ws = func(out *strings.Builder, indent []byte) {
+			leftWriteString(out, indent)
+			out.WriteString(" " + opToken + " ")
+			rightWriteString(out, indent)
 		}
 	}
 	return
 }
-func (a Bind) layout() (l layoutInfo, writeString func(out *strings.Builder, indent []byte)) {
-	bodyL, bodyWriteString := subLayout(a.Body, ApplicationOrBindPrecedence)
-	varL, varWriteString := subLayout(a.Var, ApplicationOrBindPrecedence+1)
-	if len(bodyL.Tokens) == 2 || bodyL.Bot()+1+varL.Top() > MAX_TOKENS_PER_LINE {
-		l = bodyL.Compose(0, layoutInfo{Tokens: []int{0, 1}}).Compose(0, varL)
-		writeString = func(out *strings.Builder, indent []byte) {
-			bodyWriteString(out, indent)
-			out.WriteString("\n")
-			out.Write(indent)
-			out.WriteString("? ")
-			varWriteString(out, indent)
-		}
-	} else if l = bodyL.Compose(1, varL); true {
-		writeString = func(out *strings.Builder, indent []byte) {
-			bodyWriteString(out, indent)
-			out.WriteString(" ? ")
-			varWriteString(out, indent)
-		}
-	}
-	return
+func (a Application) layout() (layoutInfo, writeString) {
+	return layoutLeftAssociative(a.Com, a.Arg, "!")
 }
-func (c Composition) layout() (l layoutInfo, writeString func(out *strings.Builder, indent []byte)) {
+func (b Bind) layout() (layoutInfo, writeString) {
+	return layoutLeftAssociative(b.Body, b.Var, "?")
+}
+func (c Composition) layout() (l layoutInfo, ws writeString) {
 	l.Tokens = []int{0}
 	factorWriteStrings := make([]func(*strings.Builder, []byte), len(c.Factors))
 	for i, factor := range c.Factors {
@@ -174,7 +168,7 @@ func (c Composition) layout() (l layoutInfo, writeString func(out *strings.Build
 		factorL, factorWriteStrings[i] = subLayout(factor, CompositionPrecedence+1)
 		l = l.Compose(0, factorL)
 	}
-	writeString = func(out *strings.Builder, indent []byte) {
+	ws = func(out *strings.Builder, indent []byte) {
 		factorWriteStrings[0](out, indent)
 		for i := 1; i < len(factorWriteStrings); i++ {
 			out.WriteString(" ")
@@ -183,9 +177,9 @@ func (c Composition) layout() (l layoutInfo, writeString func(out *strings.Build
 	}
 	return
 }
-func (n Named) layout() (l layoutInfo, writeString func(out *strings.Builder, indent []byte)) {
+func (n Named) layout() (l layoutInfo, ws writeString) {
 	l.Tokens = []int{1}
-	writeString = func(out *strings.Builder, _ []byte) {
+	ws = func(out *strings.Builder, _ []byte) {
 		if n.LeftMarker {
 			out.WriteString(":")
 		}
@@ -204,19 +198,19 @@ func (n Named) layout() (l layoutInfo, writeString func(out *strings.Builder, in
 	}
 	return
 }
-func (ISyntax) layout() (l layoutInfo, writeString func(out *strings.Builder, indent []byte)) {
+func (ISyntax) layout() (l layoutInfo, ws writeString) {
 	l.Circumfix = true
 	l.Tokens = []int{2}
-	writeString = func(out *strings.Builder, _ []byte) { out.WriteString("()") }
+	ws = func(out *strings.Builder, _ []byte) { out.WriteString("()") }
 	return
 }
-func (q Quote) layout() (l layoutInfo, writeString func(out *strings.Builder, indent []byte)) {
+func (q Quote) layout() (l layoutInfo, ws writeString) {
 	subL, subWriteString := subLayout(q.Syntax, 0)
 	if len(subL.Tokens) == 2 ||
 		subL.Circumfix ||
 		subL.Top()+1 > MAX_TOKENS_PER_LINE {
 		l = layoutInfo{Circumfix: true, Tokens: []int{1, 1}}
-		writeString = func(out *strings.Builder, indent []byte) {
+		ws = func(out *strings.Builder, indent []byte) {
 			subIndent := append(indent, "\t"...)
 			out.WriteString("{")
 			out.WriteString("\n")
@@ -228,7 +222,7 @@ func (q Quote) layout() (l layoutInfo, writeString func(out *strings.Builder, in
 		}
 	} else {
 		l = layoutInfo{Circumfix: true, Tokens: []int{subL.Top() + 2}}
-		writeString = func(out *strings.Builder, indent []byte) {
+		ws = func(out *strings.Builder, indent []byte) {
 			out.WriteString("{")
 			subWriteString(out, indent)
 			out.WriteString("}")
@@ -237,7 +231,8 @@ func (q Quote) layout() (l layoutInfo, writeString func(out *strings.Builder, in
 	return
 }
 
-func (s List) String() string        { return toString(s) }
+func (s Disjunction) String() string { return toString(s) }
+func (s Conjunction) String() string { return toString(s) }
 func (s EmptyLine) String() string   { return toString(s) }
 func (s Application) String() string { return toString(s) }
 func (s Bind) String() string        { return toString(s) }
@@ -247,16 +242,16 @@ func (s ISyntax) String() string     { return toString(s) }
 func (s Quote) String() string       { return toString(s) }
 
 func toString(s Syntax) string {
-	_, writeString := subLayout(s, ApplicationOrBindPrecedence+1)
+	_, ws := subLayout(s, LeftAssociativePrecedence+1)
 	var b strings.Builder
-	writeString(&b, nil)
+	ws(&b, nil)
 	return b.String()
 }
 
 func TopString(s Syntax) string {
-	_, writeString := s.layout()
+	_, ws := s.layout()
 	var b strings.Builder
-	writeString(&b, nil)
+	ws(&b, nil)
 	return b.String()
 }
 

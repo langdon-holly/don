@@ -202,16 +202,10 @@ func (t DType) Syntax() Syntax {
 				Named{LeftMarker: true, Name: fieldName},
 			}})
 	}
-	if len(lFactors) == 0 {
-		return List{}
-	} else if len(lFactors) == 1 {
+	if len(lFactors) == 1 {
 		return lFactors[0]
 	} else {
-		return Composition{[]Syntax{
-			Named{Name: "<"},
-			List{lFactors},
-			Named{Name: ">"},
-		}}
+		return Conjunction{lFactors}
 	}
 }
 

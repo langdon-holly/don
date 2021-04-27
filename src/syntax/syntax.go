@@ -1,11 +1,10 @@
 package syntax
 
-import "strings"
-
 const ( /* Order matters */
-	ListPrecedence = iota
+	DisjunctionPrecedence = iota
+	ConjunctionPrecedence
 	EmptyLinePrecedence
-	ApplicationOrBindPrecedence
+	LeftAssociativePrecedence
 	CompositionPrecedence
 	NamedPrecedence
 	ISyntaxPrecedence
@@ -14,12 +13,13 @@ const ( /* Order matters */
 
 type Syntax interface {
 	precedence() int
-	layout() (l layoutInfo, writeString func(out *strings.Builder, indent []byte))
+	layout() (l layoutInfo, ws writeString)
 	String() string
 }
 
-type List struct{ Factors []Syntax }
-type EmptyLine struct{} /* Only in list; neither first nor last factor */
+type Disjunction struct{ Disjuncts []Syntax }
+type Conjunction struct{ Conjuncts []Syntax }
+type EmptyLine struct{} /* Only in disjunction or conjunction; neither first nor last */
 type Application struct{ Com, Arg Syntax }
 type Bind struct{ Body, Var Syntax }
 type Composition struct {
