@@ -72,7 +72,7 @@ func (list List) layout() (l layoutInfo, writeString func(out *strings.Builder, 
 		writeString = func(out *strings.Builder, _ []byte) { out.WriteString("*") }
 	} else if len(list.Factors) == 1 {
 		var factorWriteString func(*strings.Builder, []byte)
-		l, factorWriteString = subLayout(list.Factors[0], ListPrecedence+1)
+		l, factorWriteString = subLayout(list.Factors[0], ApplicationOrBindPrecedence+1)
 		l.Tokens[0]++
 		writeString = func(out *strings.Builder, indent []byte) {
 			out.WriteString("* ")
@@ -85,7 +85,7 @@ func (list List) layout() (l layoutInfo, writeString func(out *strings.Builder, 
 		tokens := 0
 		for i, factor := range list.Factors {
 			_, factorEmptyLines[i] = factor.(EmptyLine)
-			factorLs[i], factorWriteStrings[i] = subLayout(factor, ListPrecedence+1)
+			factorLs[i], factorWriteStrings[i] = subLayout(factor, ApplicationOrBindPrecedence+1)
 			multiline = multiline || len(factorLs[i].Tokens) == 2
 			l.Circumfix = l.Circumfix || factorLs[i].Circumfix
 			tokens += factorLs[i].Top() + 1
@@ -247,7 +247,7 @@ func (s ISyntax) String() string     { return toString(s) }
 func (s Quote) String() string       { return toString(s) }
 
 func toString(s Syntax) string {
-	_, writeString := subLayout(s, ListPrecedence+1)
+	_, writeString := subLayout(s, ApplicationOrBindPrecedence+1)
 	var b strings.Builder
 	writeString(&b, nil)
 	return b.String()
