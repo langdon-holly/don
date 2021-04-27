@@ -127,22 +127,42 @@ func (EmptyLine) layout() (l layoutInfo, writeString func(out *strings.Builder, 
 func (a Application) layout() (l layoutInfo, writeString func(out *strings.Builder, indent []byte)) {
 	comL, comWriteString := subLayout(a.Com, ApplicationOrBindPrecedence)
 	argL, argWriteString := subLayout(a.Arg, ApplicationOrBindPrecedence+1)
-	l = comL.Compose(1, argL)
-	writeString = func(out *strings.Builder, indent []byte) {
-		comWriteString(out, indent)
-		out.WriteString(" ! ")
-		argWriteString(out, indent)
+	if len(comL.Tokens) == 2 || comL.Bot()+1+argL.Top() > MAX_TOKENS_PER_LINE {
+		l = comL.Compose(0, layoutInfo{Tokens: []int{0, 1}}).Compose(0, argL)
+		writeString = func(out *strings.Builder, indent []byte) {
+			comWriteString(out, indent)
+			out.WriteString("\n")
+			out.Write(indent)
+			out.WriteString("! ")
+			argWriteString(out, indent)
+		}
+	} else if l = comL.Compose(1, argL); true {
+		writeString = func(out *strings.Builder, indent []byte) {
+			comWriteString(out, indent)
+			out.WriteString(" ! ")
+			argWriteString(out, indent)
+		}
 	}
 	return
 }
 func (a Bind) layout() (l layoutInfo, writeString func(out *strings.Builder, indent []byte)) {
 	bodyL, bodyWriteString := subLayout(a.Body, ApplicationOrBindPrecedence)
 	varL, varWriteString := subLayout(a.Var, ApplicationOrBindPrecedence+1)
-	l = bodyL.Compose(1, varL)
-	writeString = func(out *strings.Builder, indent []byte) {
-		bodyWriteString(out, indent)
-		out.WriteString(" ? ")
-		varWriteString(out, indent)
+	if len(bodyL.Tokens) == 2 || bodyL.Bot()+1+varL.Top() > MAX_TOKENS_PER_LINE {
+		l = bodyL.Compose(0, layoutInfo{Tokens: []int{0, 1}}).Compose(0, varL)
+		writeString = func(out *strings.Builder, indent []byte) {
+			bodyWriteString(out, indent)
+			out.WriteString("\n")
+			out.Write(indent)
+			out.WriteString("? ")
+			varWriteString(out, indent)
+		}
+	} else if l = bodyL.Compose(1, varL); true {
+		writeString = func(out *strings.Builder, indent []byte) {
+			bodyWriteString(out, indent)
+			out.WriteString(" ? ")
+			varWriteString(out, indent)
+		}
 	}
 	return
 }
