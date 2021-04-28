@@ -157,20 +157,6 @@ func (t DType) Underdefined() Error {
 	return nil
 }
 
-func (t DType) Nonnull() Error {
-	if !t.NoUnit {
-		return NewError("Unit")
-	} else if !t.Positive {
-		return NewError("Negative fields")
-	}
-	for fieldName, fieldType := range t.Fields {
-		if subNonnull := fieldType.Nonnull(); subNonnull != nil {
-			return subNonnull.InField(fieldName)
-		}
-	}
-	return nil
-}
-
 func (t DType) Syntax() Syntax {
 	if !t.NoUnit && !t.Positive && len(t.Fields) == 0 {
 		return ISyntax{}
@@ -210,55 +196,3 @@ func (t DType) Syntax() Syntax {
 }
 
 func (t DType) String() string { return t.Syntax().String() }
-
-func FanAffineTypes(many, one *DType) Error {
-	if one.LTE(NullType) {
-		*many = NullType
-	} else {
-		many.RemakeFields()
-		if many.Meets(FieldsType); many.Positive {
-			join := NullType
-			for fieldName, fieldType := range many.Fields {
-				fieldType.Meets(*one)
-				many.Fields[fieldName] = fieldType
-				join.Joins(fieldType)
-			}
-			*one = join
-		} else {
-			for fieldName, fieldType := range many.Fields {
-				fieldType.Meets(*one)
-				many.Fields[fieldName] = fieldType
-			}
-		}
-	}
-	return many.Underdefined().Context("in many")
-}
-
-func FanLinearTypes(many, one *DType) (underdefined Error) {
-	if underdefined = FanAffineTypes(many, one); underdefined == nil {
-		joinSoFar := NullType
-		fieldsSoFar := make([]string, 0, len(many.Fields))
-		for fieldName, fieldType := range many.Fields {
-			meet := joinSoFar
-			meet.Meets(fieldType)
-			if meet.Nonnull() != nil {
-				for _, prevFieldName := range fieldsSoFar {
-					meet := many.Fields[prevFieldName]
-					meet.Meets(fieldType)
-					if nonnull := meet.Nonnull(); nonnull != nil {
-						underdefined = nonnull.Context(
-							"in meet of fields " +
-								prevFieldName +
-								" and " +
-								fieldName +
-								" in many (double use)")
-						return
-					}
-				}
-			}
-			joinSoFar.Joins(fieldType)
-			fieldsSoFar = append(fieldsSoFar, fieldName)
-		}
-	}
-	return
-}

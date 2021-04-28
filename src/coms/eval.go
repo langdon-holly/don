@@ -2,13 +2,13 @@ package coms
 
 import (
 	. "don/core"
-	. "don/syntax"
+	"don/syntax"
 )
 
 type EvalResult struct{ It interface{} }
 
-func (r EvalResult) Com() Com       { return r.It.(Com) }
-func (r EvalResult) Syntax() Syntax { return r.It.(Syntax) }
+func (r EvalResult) Com() Com              { return r.It.(Com) }
+func (r EvalResult) Syntax() syntax.Syntax { return r.It.(syntax.Syntax) }
 func (r EvalResult) Apply(param EvalResult) EvalResult {
 	return EvalResult{r.It.(func(EvalResult) interface{})(param)}
 }
@@ -16,13 +16,6 @@ func (r EvalResult) Apply(param EvalResult) EvalResult {
 type Context *struct {
 	Entries map[string]interface{}
 	Parent  Context
-}
-
-func entry(fieldName string, inner Com) Com {
-	return Pipe([]Com{
-		Select(fieldName),
-		inner,
-		Deselect(fieldName)})
 }
 
 var DefContext = new(struct {
@@ -35,12 +28,6 @@ func init() {
 
 	DefContext.Entries["unit"] = I(UnitType)
 	DefContext.Entries["fields"] = I(FieldsType)
-	DefContext.Entries["<"] = Gather()
-	DefContext.Entries[">"] = Scatter()
-	DefContext.Entries["<|"] = Merge()
-	DefContext.Entries["|>"] = Choose()
-	DefContext.Entries["<||"] = Join()
-	DefContext.Entries["||>"] = Fork()
 
 	DefContext.Entries["map"] = func(param EvalResult) interface{} {
 		return Map(param.Com())
@@ -49,7 +36,7 @@ func init() {
 		return param.Com().Invert()
 	}
 	DefContext.Entries["withoutField"] = func(param EvalResult) interface{} {
-		if named := param.Syntax().(Named); !named.LeftMarker && !named.RightMarker {
+		if named := param.Syntax().(syntax.Named); !named.LeftMarker && !named.RightMarker {
 			return I(NullType.AtHigh(named.Name))
 		} else {
 			panic("Marked parameter to withoutField: " + named.String())
@@ -64,30 +51,30 @@ func init() {
 }
 
 // c may be shared
-func eval(ss Syntax, c Context) interface{} {
+func eval(ss syntax.Syntax, c Context) interface{} {
 	switch s := ss.(type) {
-	case Disjunction:
+	case syntax.Disjunction:
 		var disjunctComs []Com
 		for _, disjunct := range s.Disjuncts {
-			if _, emptyp := disjunct.(EmptyLine); !emptyp {
+			if _, emptyp := disjunct.(syntax.EmptyLine); !emptyp {
 				disjunctComs = append(disjunctComs, Eval(disjunct, c).Com())
 			}
 		}
-		return Pipe([]Com{Choose(), Par(disjunctComs), Merge()})
-	case Conjunction:
+		return Disjunction(disjunctComs)
+	case syntax.Conjunction:
 		var conjunctComs []Com
 		for _, conjunct := range s.Conjuncts {
-			if _, emptyp := conjunct.(EmptyLine); !emptyp {
+			if _, emptyp := conjunct.(syntax.EmptyLine); !emptyp {
 				conjunctComs = append(conjunctComs, Eval(conjunct, c).Com())
 			}
 		}
-		return Pipe([]Com{Fork(), Par(conjunctComs), Join()})
-	case EmptyLine:
+		return Conjunction(conjunctComs)
+	case syntax.EmptyLine:
 		panic("Eval empty line")
-	case Application:
+	case syntax.Application:
 		return Eval(s.Com, c).Apply(Eval(s.Arg, c)).It
-	case Bind:
-		named := s.Var.(Named)
+	case syntax.Bind:
+		named := s.Var.(syntax.Named)
 		if named.LeftMarker || named.RightMarker {
 			panic("Marked variable as bind variable: " + named.String())
 		}
@@ -99,7 +86,7 @@ func eval(ss Syntax, c Context) interface{} {
 			subC.Entries[named.Name] = arg.It
 			return Eval(s.Body, subC).It
 		}
-	case Composition:
+	case syntax.Composition:
 		factorResults := make([]EvalResult, len(s.Factors))
 		for i, factor := range s.Factors {
 			factorResults[len(s.Factors)-1-i] = Eval(factor, c)
@@ -118,7 +105,7 @@ func eval(ss Syntax, c Context) interface{} {
 			}
 			return Pipe(factorComs)
 		}
-	case Named:
+	case syntax.Named:
 		if s.LeftMarker {
 			if s.RightMarker {
 				panic("Doubly-marked variable: " + s.String())
@@ -138,13 +125,13 @@ func eval(ss Syntax, c Context) interface{} {
 			}
 			return Null
 		}
-	case ISyntax:
+	case syntax.ISyntax:
 		return I(UnknownType)
-	case Quote:
+	case syntax.Quote:
 		return s.Syntax
 	}
 	panic("Unreachable")
 }
 
 // c may be shared
-func Eval(s Syntax, c Context) EvalResult { return EvalResult{eval(s, c)} }
+func Eval(s syntax.Syntax, c Context) EvalResult { return EvalResult{eval(s, c)} }

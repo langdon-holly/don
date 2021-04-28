@@ -28,8 +28,7 @@ func (mc MapCom) MeetTypes(inputType, outputType DType) Com {
 			pipes[i] = Pipe([]Com{Select(fieldName), mc.Com.Copy(), Deselect(fieldName)})
 			i++
 		}
-		inner := Pipe([]Com{Scatter(), Par(pipes), Gather()})
-		return inner.MeetTypes(mc.inputType, mc.outputType)
+		return Conjunction(pipes).MeetTypes(mc.inputType, mc.outputType)
 	} else {
 		return mc
 	}

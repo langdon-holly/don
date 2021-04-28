@@ -12,9 +12,7 @@ import (
 	"don/types"
 )
 
-func printUint9At(rMap ReadMap, path []string) {
-	fmt.Println(types.ReadUint9At(rMap, path))
-}
+func printUint9(rMap ReadMap) { fmt.Println(types.ReadUint9(rMap)) }
 
 func checkTypes(com Com, hopefulInputType, hopefulOutputType DType) {
 	if underdefined := com.Underdefined(); underdefined != nil {
@@ -31,33 +29,25 @@ func checkTypes(com Com, hopefulInputType, hopefulOutputType DType) {
 	}
 }
 
-func runWithInputs(tc TypedCom, arg0, arg1, arg2, arg3 int) {
+func runWithInputs(tc TypedCom, arg0, arg1 int) {
 	wMap, rMap := tc.Run()
-
-	types.WriteUint8At(wMap.Fields["0"], arg0, []string{"0"})
-	types.WriteUint8At(wMap.Fields["1"], arg1, []string{"0"})
-	printUint9At(rMap, []string{"0"})
-
-	types.WriteUint8At(wMap.Fields["0"], arg2, []string{"1"})
-	types.WriteUint8At(wMap.Fields["1"], arg3, []string{"1"})
-	printUint9At(rMap, []string{"1"})
+	types.WriteUint8(wMap.Fields["0"], arg0)
+	types.WriteUint8(wMap.Fields["1"], arg1)
+	printUint9(rMap)
 }
 
 func main() {
 	ifile := os.Stdin
 
-	singleInputType := MakeNFieldsType(2)
-	singleInputType.Fields["0"] = types.Uint8Type
-	singleInputType.Fields["1"] = types.Uint8Type
-	hopefulInputType := singleInputType.AgainstPath([]string{"0"})
-	hopefulInputType.Joins(singleInputType.AgainstPath([]string{"1"}))
+	hopefulInputType := MakeNFieldsType(2)
+	hopefulInputType.Fields["0"] = types.Uint8Type
+	hopefulInputType.Fields["1"] = types.Uint8Type
 
-	hopefulOutputType := types.Uint9Type.AgainstPath([]string{"0"})
-	hopefulOutputType.Joins(types.Uint9Type.AgainstPath([]string{"1"}))
+	hopefulOutputType := types.Uint9Type
 
 	com := coms.Eval(syntax.ParseTop(ifile), coms.DefContext).Com().MeetTypes(
-		hopefulInputType,
 		UnknownType,
+		hopefulOutputType,
 	)
 
 	checkTypes(com, hopefulInputType, hopefulOutputType)
@@ -65,6 +55,8 @@ func main() {
 	tc := MakeTypedCom(com)
 	tc.Determinate()
 
-	runWithInputs(tc, 0, 0, 2, 2)
-	runWithInputs(tc, 189, 55, 255, 255)
+	runWithInputs(tc, 0, 0)
+	runWithInputs(tc, 2, 2)
+	runWithInputs(tc, 189, 55)
+	runWithInputs(tc, 255, 255)
 }

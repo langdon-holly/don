@@ -148,38 +148,6 @@ func MakeTypeMap(t DType) (tm TypeMap) {
 	return
 }
 
-func (one TypeMap) forEachWith(many []TypeMap, fn func(one Var, many []Var)) {
-	for fieldName, subOne := range one.Fields {
-		var subMany []TypeMap
-		for _, manyElem := range many {
-			if manyElemField, ok := manyElem.Fields[fieldName]; ok {
-				subMany = append(subMany, manyElemField)
-			}
-		}
-		subOne.forEachWith(subMany, fn)
-	}
-	if one.Unit != nil {
-		var manyVars []Var
-		for _, manyElem := range many {
-			if manyElem.Unit != nil {
-				manyVars = append(manyVars, manyElem.Unit)
-			}
-		}
-		fn(one.Unit, manyVars)
-	}
-}
-func (one TypeMap) ForEachWith(many TypeMap, fn func(one Var, many []Var)) {
-	fields := make([]TypeMap, len(many.Fields))
-	{
-		i := 0
-		for _, field := range many.Fields {
-			fields[i] = field
-			i++
-		}
-	}
-	one.forEachWith(fields, fn)
-}
-
 // Mutates
 func (tm *TypeMap) Substitute(subs map[Var]Var) {
 	if subs[tm.Unit] != nil {

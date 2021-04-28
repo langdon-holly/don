@@ -4,73 +4,67 @@ import "strconv"
 
 import . "don/core"
 
-func Par(coms []Com) Com {
-	inners := make(map[int]Com, len(coms))
-	inputType :=
-		DType{NoUnit: true, Positive: true, Fields: make(map[string]DType)}
-	outputType :=
-		DType{NoUnit: true, Positive: true, Fields: make(map[string]DType)}
+func Par(coms []Com) (pc ParCom) {
+	pc.Inners = make(map[int]Com)
+	pc.InputType = NullType
+	pc.OutputType = NullType
 	for i, com := range coms {
 		if _, nullp := com.(NullCom); !nullp {
-			inners[i] = com
-			inputType.Fields[strconv.Itoa(i)] = com.InputType()
-			outputType.Fields[strconv.Itoa(i)] = com.OutputType()
+			pc.Inners[i] = com
+			pc.InputType.Joins(com.InputType())
+			pc.OutputType.Joins(com.OutputType())
 		}
 	}
-	if len(inners) > 0 {
-		return ParCom{Inners: inners, inputType: inputType, outputType: outputType}
-	} else {
-		return Null
-	}
+	pc.meetTypes()
+	return
 }
 
 type ParCom struct {
 	Inners                map[int]Com
-	inputType, outputType DType
+	InputType, OutputType DType
 }
 
-func (pc ParCom) InputType() DType  { return pc.inputType }
-func (pc ParCom) OutputType() DType { return pc.outputType }
-
-func (pc ParCom) MeetTypes(inputType, outputType DType) Com {
-	pc.inputType.Meets(inputType)
-	pc.outputType.Meets(outputType)
-	for i, inner := range pc.Inners {
-		idxStr := strconv.Itoa(i)
-		newInputType := pc.inputType.Get(idxStr)
-		newOutputType := pc.outputType.Get(idxStr)
-		if !inner.InputType().LTE(newInputType) ||
-			!inner.OutputType().LTE(newOutputType) {
-			inner = inner.MeetTypes(newInputType, newOutputType)
-			pc.inputType.Meets(inner.InputType().AtHigh(idxStr))
-			pc.outputType.Meets(inner.OutputType().AtHigh(idxStr))
-			if _, nullp := inner.(NullCom); nullp {
-				delete(pc.Inners, i)
-			} else {
-				pc.Inners[i] = inner
-			}
-		}
-	}
-	if len(pc.Inners) == 0 {
-		return Null
-	} else if len(pc.Inners) == 1 {
+// Mutates
+func (pc *ParCom) meetTypes() {
+	for {
+		inputJoin, outputJoin := NullType, NullType
 		for i, inner := range pc.Inners {
-			return Pipe([]Com{Select(strconv.Itoa(i)), inner, Deselect(strconv.Itoa(i))})
+			if !inner.InputType().LTE(pc.InputType) || !inner.OutputType().LTE(pc.OutputType) {
+				inner = inner.MeetTypes(pc.InputType, pc.OutputType)
+				if _, nullp := inner.(NullCom); nullp {
+					delete(pc.Inners, i)
+				} else {
+					pc.Inners[i] = inner
+				}
+			}
+			inputJoin.Joins(inner.InputType())
+			outputJoin.Joins(inner.OutputType())
 		}
-		panic("Unreachable")
-	} else {
-		return pc
+		if pc.InputType.LTE(inputJoin) && pc.OutputType.LTE(outputJoin) {
+			break
+		}
+		pc.InputType.Meets(inputJoin)
+		pc.OutputType.Meets(outputJoin)
 	}
 }
 
-func (pc ParCom) Underdefined() (underdefined Error) {
+// Mutates
+func (pc *ParCom) MeetTypes(inputType, outputType DType) {
+	pc.InputType.Meets(inputType)
+	pc.OutputType.Meets(outputType)
+	pc.meetTypes()
+}
+
+func (pc ParCom) Underdefined(parName string) (underdefined Error) {
 	for i, inner := range pc.Inners {
-		underdefined.Ors(inner.Underdefined().Context("in " + strconv.Itoa(i) + "'th computer in par"))
+		underdefined.Ors(
+			inner.Underdefined().Context("in " + strconv.Itoa(i) + "'th computer in " + parName),
+		)
 	}
 	return
 }
 
-func (pc ParCom) Copy() Com {
+func (pc ParCom) Copy() ParCom {
 	inners := make(map[int]Com, len(pc.Inners))
 	for i, inner := range pc.Inners {
 		inners[i] = inner.Copy()
@@ -79,17 +73,47 @@ func (pc ParCom) Copy() Com {
 	return pc
 }
 
-func (pc ParCom) Invert() Com {
+// Mutates
+func (pc *ParCom) Invert() {
 	for i, inner := range pc.Inners {
 		pc.Inners[i] = inner.Invert()
 	}
-	pc.inputType, pc.outputType = pc.outputType, pc.inputType
-	return pc
+	pc.InputType, pc.OutputType = pc.OutputType, pc.InputType
 }
 
-func (pc ParCom) TypedCom(tcb TypedComBuilder /* mutated */, inputMap, outputMap TypeMap) {
-	for i, inner := range pc.Inners {
-		idxStr := strconv.Itoa(i)
-		inner.TypedCom(tcb, inputMap.Fields[idxStr], outputMap.Fields[idxStr])
+func foreachWith(one TypeMap, many map[int]TypeMap, fn func(one Var, many []Var)) {
+	for fieldName, subOne := range one.Fields {
+		subMany := make(map[int]TypeMap)
+		for i, manyElem := range many {
+			if manyElemField, ok := manyElem.Fields[fieldName]; ok {
+				subMany[i] = manyElemField
+			}
+		}
+		foreachWith(subOne, subMany, fn)
 	}
+	if one.Unit != nil {
+		var manyVars []Var
+		for _, manyElem := range many {
+			if manyElem.Unit != nil {
+				manyVars = append(manyVars, manyElem.Unit)
+			}
+		}
+		fn(one.Unit, manyVars)
+	}
+}
+
+func (pc ParCom) TypedCom(
+	tcb TypedComBuilder, /* mutated */
+	inputMap, outputMap TypeMap,
+	inputFn, outputFn func(Var, []Var),
+) {
+	innerInputMaps := make(map[int]TypeMap, len(pc.Inners))
+	innerOutputMaps := make(map[int]TypeMap, len(pc.Inners))
+	for i, inner := range pc.Inners {
+		innerInputMaps[i] = MakeTypeMap(inner.InputType())
+		innerOutputMaps[i] = MakeTypeMap(inner.OutputType())
+		inner.TypedCom(tcb, innerInputMaps[i], innerOutputMaps[i])
+	}
+	foreachWith(inputMap, innerInputMaps, inputFn)
+	foreachWith(outputMap, innerOutputMaps, outputFn)
 }
