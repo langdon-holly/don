@@ -9,4 +9,4 @@
 * Notes on structured concurrency, or: Go statement considered harmful
 	* Modularity
 * Prolog
-	* Conjunctions and disjunctions
+	* Relations

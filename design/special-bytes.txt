@@ -8,7 +8,7 @@ space	  used : separator
 ~	unused
 !	  used : application
 @	unused
-#	unused
+#	  used : comment
 $	unused
 %	unused
 ^	unused
@@ -16,23 +16,23 @@ $	unused
 *	unused
 (	  used : start
 )	  used : end
-_	  used : empty identifier
+_	unused : empty identifier
 -	unused
 =	unused
 +	unused
-[	unused
-]	unused
+[	unused : start delimitation
+]	unused : end delimitation
 {	  used : start quotation
 }	  used : end quotation
-\	  used : escape byte
+\	unused
 |	unused
 ;	  used : disjunction
-:	  used : field (de)selection
+:	  used : disjunct selection/collection
 '	unused
 "	unused
 ,	  used : conjunction
 <	unused
-.	unused
+.	  used : conjunct selection/collection
 >	unused
 /	unused
-?	  used : bind
+?	unused : bind

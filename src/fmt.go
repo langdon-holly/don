@@ -7,4 +7,4 @@ import (
 
 import "don/syntax"
 
-func main() { fmt.Println(syntax.TopString(syntax.ParseTop(os.Stdin))) }
+func main() { fmt.Println(syntax.Parse(os.Stdin)) }
