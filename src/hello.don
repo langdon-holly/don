@@ -1,5 +1,6 @@
 out. swap (
-	, (sandwich ! .8 ! .out 2.)
+	, (sandwich ! .8 ! .out #nothing 2.)
+	#, (, .8 0. , .9 1.) full-adder 8.
 	, (, .7 0. , .8 1.) full-adder 7.
 	, (, .6 0. , .7 1.) full-adder 6.
 	, (, .5 0. , .6 1.) full-adder 5.

@@ -39,6 +39,19 @@ func (delim MaybeDelim) writeRightString(out *strings.Builder) {
 	}
 }
 
+func (delim MaybeDelim) String() string {
+	switch delim {
+	case MaybeDelimNone:
+		return "none"
+	case MaybeDelimParen:
+		return "paren"
+	case MaybeDelimBrace:
+		return "brace"
+	default:
+		panic("Unreachable")
+	}
+}
+
 type WordSpecial interface {
 	layout() (tokens int, ws writeString)
 }
@@ -116,6 +129,10 @@ func (_ WordSpecialApplication) layout() (tokens int, ws writeString) {
 type Word struct {
 	Strings  []string
 	Specials []WordSpecial
+}
+
+func (w Word) String() string {
+	return Words{Compositions: [][]Word{{w}}}.String()
 }
 
 //func (w Word) HasOperator() (hasOperator bool) {
