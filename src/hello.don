@@ -1,20 +1,55 @@
-out. swap (
-	, (sandwich ! .8 ! .out #nothing 2.)
-	#, (, .8 0. , .9 1.) full-adder 8.
-	, (, .7 0. , .8 1.) full-adder 7.
-	, (, .6 0. , .7 1.) full-adder 6.
-	, (, .5 0. , .6 1.) full-adder 5.
-	, (, .4 0. , .5 1.) full-adder 4.
-	, (, .3 0. , .4 1.) full-adder 3.
-	, (, .2 0. , .3 1.) full-adder 2.
-	, (, .1 0. , .2 1.) full-adder 1.
-	, (, .0 .out 0. , .1 .2 1.) (
+out. (
+	#, true 0. 0: 0. out.
+	#, (, .out .8 0. , .out .9 1.) full-adder (
+		, .0 8. 0. in.
+		, .1 8. 1. in.
+		, .2 7. carry.
+	)
+	, (, .out .7 0. , #nothing .out .8 1.) full-adder (
+		, .0 7. 0. in.
+		, .1 7. 1. in.
+		, .2 6. carry.
+	)
+	, (, .out .6 0. , .carry .6 1.) full-adder (
+		, .0 6. 0. in.
+		, .1 6. 1. in.
+		, .2 5. carry.
+	)
+	, (, .out .5 0. , .carry .5 1.) full-adder (
+		, .0 5. 0. in.
+		, .1 5. 1. in.
+		, .2 4. carry.
+	)
+	, (, .out .4 0. , .carry .4 1.) full-adder (
+		, .0 4. 0. in.
+		, .1 4. 1. in.
+		, .2 3. carry.
+	)
+	, (, .out .3 0. , .carry .3 1.) full-adder (
+		, .0 3. 0. in.
+		, .1 3. 1. in.
+		, .2 2. carry.
+	)
+	, (, .out .2 0. , .carry .2 1.) full-adder (
+		, .0 2. 0. in.
+		, .1 2. 1. in.
+		, .2 1. carry.
+	)
+	, (, .out .1 0. , .carry .1 1.) full-adder (
+		, .0 1. 0. in.
+		, .1 1. 1. in.
+		, .2 0. carry.
+	)
+	, (, .out .0 0. , .carry .0 1.) (
 		; (, .0 :0 , .1 :0) (, 0: 0. , 0: 1.)
 		; (, .0 :1 , .1 :0) (
 			; (, 0: 0. , 1: 1.)
 			; (, 1: 0. , 0: 1.)
 		)
 		; (, .0 :0 , .1 :1) (, 1: 0. , 1: 1.)
-	) 0.
+	) (
+		, .0 0. 0. in.
+		, .1 0. 1. in.
+	)
 	, I
-) swap (, .0 0. , .1 1.)
+) .in
