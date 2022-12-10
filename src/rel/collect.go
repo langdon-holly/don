@@ -1,33 +1,33 @@
-package com
+package rel
 
 import (
 	. "don/junctive"
 	"don/syntax"
 )
 
-func Collect(junctive Junctive, fieldName string) Com {
+func Collect(junctive Junctive, fieldName string) Rel {
 	t := PairTypePtr()
 	UnifyTypePtrs(GetLeft(t), TypePtrAt(junctive, fieldName, GetRight(t)))
-	return CollectCom{
+	return CollectRel{
 		FieldName: fieldName,
 		Junctive:  junctive,
 		T:         t,
 	}
 }
 
-type CollectCom struct {
+type CollectRel struct {
 	FieldName string
 	Junctive
 	T *TypePtr
 }
 
-func (cc CollectCom) Type() *TypePtr { return cc.T }
-func (cc CollectCom) Copy(mapping map[*TypePtr]*TypePtr) Com {
+func (cc CollectRel) Type() *TypePtr { return cc.T }
+func (cc CollectRel) Copy(mapping map[*TypePtr]*TypePtr) Rel {
 	cc.T = CopyTypePtr(cc.T, mapping)
 	return cc
 }
-func (cc CollectCom) Convert() Com {
-	return CollectCom{
+func (cc CollectRel) Convert() Rel {
+	return CollectRel{
 		FieldName: cc.FieldName,
 		Junctive:  cc.Junctive,
 		T:         ConvertTypePtr(cc.T),
@@ -39,7 +39,7 @@ func CollectSyntax(fieldName string, junctive Junctive) syntax.Word {
 		Specials: []syntax.WordSpecial{syntax.WordSpecialJunct(junctive)},
 	}
 }
-func (cc CollectCom) Syntax() Syntax {
+func (cc CollectRel) Syntax() Syntax {
 	return SyntaxWord(CollectSyntax(cc.FieldName, cc.Junctive))
 }
-func (cc CollectCom) String() string { return cc.Syntax().String() }
+func (cc CollectRel) String() string { return cc.Syntax().String() }

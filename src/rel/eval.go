@@ -1,4 +1,4 @@
-package com
+package rel
 
 import (
 	"os"
@@ -13,7 +13,7 @@ import (
 type Comment struct{}
 type EvalResult struct{ It interface{} }
 
-func (r EvalResult) Com() Com             { return r.It.(Com) }
+func (r EvalResult) Rel() Rel             { return r.It.(Rel) }
 func (r EvalResult) Syntax() syntax.Words { return r.It.(syntax.Words) }
 func (r EvalResult) Apply(param EvalResult) EvalResult {
 	return EvalResult{r.It.(func(EvalResult) interface{})(param)}
@@ -39,7 +39,7 @@ func init() {
 	defContext.Entries["false"] = Junction(ConJunctive, nil)
 	defContext.Entries["true"] = Junction(DisJunctive, nil)
 	defContext.Entries["~"] = func(param EvalResult) interface{} {
-		return param.Com().Convert()
+		return param.Rel().Convert()
 	}
 }
 
@@ -51,8 +51,8 @@ func evalWord(w syntax.Word, c context) interface{} {
 		name := w.Strings[0]
 		for cNow := c; cNow != nil; cNow = cNow.Parent {
 			if entry, ok := cNow.Entries[name]; !ok {
-			} else if com, isCom := entry.(Com); isCom {
-				return com.Copy(make(map[*TypePtr]*TypePtr))
+			} else if rel, isRel := entry.(Rel); isRel {
+				return rel.Copy(make(map[*TypePtr]*TypePtr))
 			} else {
 				return entry
 			}
@@ -70,8 +70,8 @@ func evalWord(w syntax.Word, c context) interface{} {
 			c.Entries = make(map[string]interface{}, 1)
 		}
 		c.Entries[name] = val
-		if com, isCom := val.(Com); isCom {
-			return com.Copy(make(map[*TypePtr]*TypePtr))
+		if rel, isRel := val.(Rel); isRel {
+			return rel.Copy(make(map[*TypePtr]*TypePtr))
 		} else {
 			return val
 		}
@@ -151,11 +151,11 @@ func evalComposition(composition []syntax.Word, c context) interface{} {
 			return param.It
 		}
 	} else {
-		factorComs := make([]Com, len(factorResults))
+		factorRels := make([]Rel, len(factorResults))
 		for i, factorResult := range factorResults {
-			factorComs[i] = factorResult.Com()
+			factorRels[i] = factorResult.Rel()
 		}
-		return Composition(factorComs)
+		return Composition(factorRels)
 	}
 }
 
@@ -173,7 +173,7 @@ func evalWords(ws syntax.Words, c context) interface{} {
 				if len(ws.Compositions[0]) != 0 {
 					panic("Junction doesn't start with operator word")
 				}
-				var junctComs []Com
+				var junctRels []Rel
 				for i, operator := range ws.Operators {
 					// 0 < len(operator.Specials)
 					_, commented := operator.Specials[0].(syntax.WordSpecialCommentMarker)
@@ -196,13 +196,13 @@ func evalWords(ws syntax.Words, c context) interface{} {
 					}
 
 					if !commented {
-						junctComs = append(junctComs, EvalComposition(ws.Compositions[1:][i], c).Com())
+						junctRels = append(junctRels, EvalComposition(ws.Compositions[1:][i], c).Rel())
 					}
 				}
-				if len(junctComs) == 0 {
+				if len(junctRels) == 0 {
 					panic("Empty junction: " + ws.String())
 				}
-				return Junction(Junctive(firstSpecialPayload), junctComs)
+				return Junction(Junctive(firstSpecialPayload), junctRels)
 			case syntax.WordSpecialApplication:
 				val := EvalComposition(ws.Compositions[0], c)
 				for i, operator := range ws.Operators {

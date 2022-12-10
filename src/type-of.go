@@ -6,9 +6,9 @@ import (
 )
 
 import (
-	"don/com"
+	"don/rel"
 )
 
 func main() {
-	fmt.Println(com.TypePtrType(com.EvalFile(os.Args[1]).Com().Type()))
+	fmt.Println(rel.TypePtrType(rel.EvalFile(os.Args[1]).Rel().Type()))
 }

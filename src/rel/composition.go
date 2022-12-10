@@ -1,7 +1,7 @@
-package com
+package rel
 
-func Composition(factors []Com) Com {
-	pc := CompositionCom{
+func Composition(factors []Rel) Rel {
+	pc := CompositionRel{
 		Factors: factors,
 		T:       PairTypePtr(),
 	}
@@ -20,30 +20,30 @@ func Composition(factors []Com) Com {
 	return pc
 }
 
-type CompositionCom struct {
-	Factors []Com
+type CompositionRel struct {
+	Factors []Rel
 	T       *TypePtr
 }
 
-func (pc CompositionCom) Type() *TypePtr { return pc.T }
-func (pc CompositionCom) Copy(mapping map[*TypePtr]*TypePtr) Com {
-	factors := make([]Com, len(pc.Factors))
+func (pc CompositionRel) Type() *TypePtr { return pc.T }
+func (pc CompositionRel) Copy(mapping map[*TypePtr]*TypePtr) Rel {
+	factors := make([]Rel, len(pc.Factors))
 	for i, factor := range pc.Factors {
 		factors[i] = factor.Copy(mapping)
 	}
-	return CompositionCom{Factors: factors, T: CopyTypePtr(pc.T, mapping)}
+	return CompositionRel{Factors: factors, T: CopyTypePtr(pc.T, mapping)}
 }
-func (pc CompositionCom) Convert() Com {
-	factorConverses := make([]Com, len(pc.Factors))
+func (pc CompositionRel) Convert() Rel {
+	factorConverses := make([]Rel, len(pc.Factors))
 	for i, factor := range pc.Factors {
 		factorConverses[len(pc.Factors)-1-i] = factor.Convert()
 	}
-	return CompositionCom{
+	return CompositionRel{
 		Factors: factorConverses,
 		T:       ConvertTypePtr(pc.T),
 	}
 }
-func (pc CompositionCom) Syntax() Syntax {
+func (pc CompositionRel) Syntax() Syntax {
 	if len(pc.Factors) == 0 {
 		return NameSyntax("I")
 	} else {
@@ -54,4 +54,4 @@ func (pc CompositionCom) Syntax() Syntax {
 		return composition
 	}
 }
-func (pc CompositionCom) String() string { return pc.Syntax().String() }
+func (pc CompositionRel) String() string { return pc.Syntax().String() }

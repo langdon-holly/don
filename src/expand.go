@@ -6,7 +6,7 @@ import (
 )
 
 import (
-	"don/com"
+	"don/rel"
 )
 
-func main() { fmt.Println(com.EvalFile(os.Args[1]).Com()) }
+func main() { fmt.Println(rel.EvalFile(os.Args[1]).Rel()) }

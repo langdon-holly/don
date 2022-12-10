@@ -1,12 +1,12 @@
-package com
+package rel
 
 import (
 	. "don/junctive"
 	"don/syntax"
 )
 
-func Junction(junctive Junctive, juncts []Com) Com {
-	jc := JunctionCom{
+func Junction(junctive Junctive, juncts []Rel) Rel {
+	jc := JunctionRel{
 		Junctive: junctive,
 		Juncts:   juncts,
 		T:        AnyTypePtr(),
@@ -17,16 +17,16 @@ func Junction(junctive Junctive, juncts []Com) Com {
 	return jc
 }
 
-type JunctionCom struct {
+type JunctionRel struct {
 	Junctive
-	Juncts []Com
+	Juncts []Rel
 	T      *TypePtr
 }
 
-func (jc JunctionCom) Type() *TypePtr { return jc.T }
+func (jc JunctionRel) Type() *TypePtr { return jc.T }
 
-func (jc JunctionCom) Copy(mapping map[*TypePtr]*TypePtr) Com {
-	juncts := make([]Com, len(jc.Juncts))
+func (jc JunctionRel) Copy(mapping map[*TypePtr]*TypePtr) Rel {
+	juncts := make([]Rel, len(jc.Juncts))
 	for i, junct := range jc.Juncts {
 		juncts[i] = junct.Copy(mapping)
 	}
@@ -34,7 +34,7 @@ func (jc JunctionCom) Copy(mapping map[*TypePtr]*TypePtr) Com {
 	jc.T = CopyTypePtr(jc.T, mapping)
 	return jc
 }
-func (jc JunctionCom) Convert() Com {
+func (jc JunctionRel) Convert() Rel {
 	for i, junct := range jc.Juncts {
 		jc.Juncts[i] = junct.Convert()
 	}
@@ -62,11 +62,11 @@ func JunctionSyntax(junctive Junctive, juncts [][]syntax.Word) Syntax {
 		return SyntaxWords(syntax.Words{Compositions: junctCompositions, Operators: operators})
 	}
 }
-func (jc JunctionCom) Syntax() Syntax {
+func (jc JunctionRel) Syntax() Syntax {
 	junctWordses := make([][]syntax.Word, len(jc.Juncts))
 	for i, junct := range jc.Juncts {
 		junctWordses[i] = junct.Syntax().Composition()
 	}
 	return JunctionSyntax(jc.Junctive, junctWordses)
 }
-func (jc JunctionCom) String() string { return jc.Syntax().String() }
+func (jc JunctionRel) String() string { return jc.Syntax().String() }
