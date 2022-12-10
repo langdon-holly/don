@@ -38,20 +38,9 @@ func init() {
 	defContext.Entries["I"] = Composition(nil)
 	defContext.Entries["false"] = Junction(ConJunctive, nil)
 	defContext.Entries["true"] = Junction(DisJunctive, nil)
-	//defContext.Entries["swap"] = Swap()
 	defContext.Entries["~"] = func(param EvalResult) interface{} {
 		return param.Com().Convert()
 	}
-	//defContext.Entries["debug-type"] = DebugType
-	//defContext.Entries["sandwich"] = func(param0 EvalResult) interface{} {
-	//	return func(param1 EvalResult) interface{} {
-	//		return Composition([]Com{
-	//			param0.Com(),
-	//			param1.Com(),
-	//			param0.Com().Copy(make(map[*TypePtr]*TypePtr)).Convert(),
-	//		})
-	//	}
-	//}
 }
 
 func pathJoin(dir, file string) string { return dir + "/" + file }
@@ -240,11 +229,6 @@ func evalWords(ws syntax.Words, c context) interface{} {
 
 func EvalFile(srcPath string) EvalResult {
 	if file, err := os.Open(srcPath); err == nil {
-		//for _, p := range []string{"/home/lzh", "/home/lzh/", "/", ".", "..", "don"} {
-		//	dir, file := path.Split(p)
-		//	fmt.Printf("%s<\t>%s\n", dir, file)
-		//}
-
 		for {
 			if dest, err := os.Readlink(srcPath); err != nil {
 				break

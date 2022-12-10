@@ -121,62 +121,7 @@ func ConvertTypePtr(t *TypePtr) *TypePtr {
 	return u
 }
 
-//func (t Type) againstPath(pathType Type) Type {
-//	u := MakeNFieldsType(len(t.Fields))
-//	for fieldName, fieldType := range t.Fields {
-//		u.Fields[fieldName] = fieldType.againstPath(pathType)
-//	}
-//	if t.Unit {
-//		u.Joins(pathType)
-//	}
-//	return u
-//}
-//
-//func (t Type) AgainstPath(path []string) Type {
-//	pathType := UnitType
-//	for i := len(path) - 1; i >= 0; i-- {
-//		pathType = pathType.At(path[i])
-//	}
-//	return t.againstPath(pathType)
-//}
-
 // Other
-
-//func (t JunctiveType) ShallowCopy() JunctiveType {
-//	juncts := make(map[string]*TypePtr, len(t.Juncts))
-//	for fieldName, fieldTypePtr := range t.Juncts {
-//		juncts[fieldName] = fieldTypePtr
-//	}
-//	return JunctiveType{Junctive: t.Junctive, Juncts: juncts}
-//}
-
-//// Mutates
-//func (AnyType) LTE(Type) bool { return true }
-//func (j0 JunctiveType) LTE(t1 Type /* mutated */) bool {
-//	if j1, t1Junctive := t1.(JunctiveType); t1Junctive {
-//		if j0.Junctive != j1.Junctive {
-//			return false
-//		}
-//		for fieldName, fieldTypePtr0 := range j0.Juncts {
-//			if !TypePtrType(fieldTypePtr0).LTE(
-//				TypePtrType(j1.get(j1.Junctive, fieldName)),
-//			) {
-//				return false
-//			}
-//		}
-//	} else if _, t1No := t1.(NoType); true {
-//		return t1No
-//	}
-//	return true
-//}
-//func (NoType) LTE(t1 Type) bool { _, t1No := t1.(NoType); return t1No }
-
-//// Mutates
-//func (AnyType) Equal(t1 Type) bool { _, t1Any := t1.(AnyType); return t1Any }
-//func (t0 JunctiveType) Equal(t1 Type /* mutated */) bool {
-//	return t0.LTE(t1) && t1.LTE(t0)
-//}
-//func (NoType) Equal(t1 Type) bool { _, t1No := t1.(NoType); return t1No }
 
 func joinTypes(t0, t1 Type /* consumed in places where both are junctive */) Type {
 	if _, t0Any := t0.(AnyType); false {

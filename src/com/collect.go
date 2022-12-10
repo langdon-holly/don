@@ -22,7 +22,7 @@ type CollectCom struct {
 }
 
 func (cc CollectCom) Type() *TypePtr { return cc.T }
-func (cc CollectCom) Copy(mapping /* mutated */ map[*TypePtr]*TypePtr) Com {
+func (cc CollectCom) Copy(mapping map[*TypePtr]*TypePtr) Com {
 	cc.T = CopyTypePtr(cc.T, mapping)
 	return cc
 }

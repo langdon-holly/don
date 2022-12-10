@@ -135,17 +135,6 @@ func (w Word) String() string {
 	return Words{Compositions: [][]Word{{w}}}.String()
 }
 
-//func (w Word) HasOperator() (hasOperator bool) {
-//	for _, s := range w.Specials {
-//		_, isJunction := s.(WordSpecialJunction)
-//		_, isApplication := s.(WordSpecialApplication)
-//		hasOperator = hasOperator || isJunction || isApplication
-//	}
-//	return
-//}
-//
-//type Words []Word
-
 // len(Compositions) == len(Operators) + 1
 type Words struct {
 	Compositions [][]Word /* Each word has no operator byte */
