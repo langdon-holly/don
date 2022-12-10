@@ -7,23 +7,23 @@ space	  used : separator
 `	unused
 ~	unused
 !	  used : application
-@	unused
+@	unused : tuple
 #	  used : comment
 $	unused
 %	unused
 ^	unused
 &	unused
-*	unused
+*	unused : list
 (	  used : start
 )	  used : end
-_	unused : empty identifier
+_	unused : empty name
 -	unused
 =	unused
 +	unused
-[	unused : start delimitation
-]	unused : end delimitation
-{	  used : start quotation
-}	  used : end quotation
+[	unused : start
+]	unused : end
+{	  used : start
+}	  used : end
 \	unused
 |	unused
 ;	  used : disjunction
