@@ -7,7 +7,7 @@ space	  used : separator
 `	unused
 ~	unused
 !	  used : application
-@	unused : tuple
+@	  used : tuple
 #	  used : comment
 $	unused
 %	unused

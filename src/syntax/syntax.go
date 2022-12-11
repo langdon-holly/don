@@ -63,6 +63,7 @@ type WordSpecialDelimited struct {
 }
 type WordSpecialJunct Junctive
 type WordSpecialCommentMarker struct{}
+type WordSpecialTuple struct{}
 
 // Operator
 type WordSpecialJunction Junctive
@@ -105,6 +106,11 @@ func (wsj WordSpecialJunct) layout() (tokens int, ws writeString) {
 func (_ WordSpecialCommentMarker) layout() (tokens int, ws writeString) {
 	tokens = 1
 	ws = func(out *strings.Builder, _ []byte) { out.WriteByte(hash) }
+	return
+}
+func (_ WordSpecialTuple) layout() (tokens int, ws writeString) {
+	tokens = 1
+	ws = func(out *strings.Builder, _ []byte) { out.WriteByte(at) }
 	return
 }
 

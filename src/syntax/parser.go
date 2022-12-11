@@ -115,6 +115,8 @@ func (state *words) Next(b byte) {
 	case semicolon:
 		e = tokenWordSpecial(WordSpecialJunction(DisJunctive))
 		state.OperatorP = true
+	case at:
+		e = tokenWordSpecial(WordSpecialTuple{})
 	case leftBrace:
 		e = tokenLDelim(MaybeDelimBrace)
 	case rightBrace:

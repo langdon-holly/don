@@ -1,6 +1,7 @@
 package rel
 
 import (
+	"fmt"
 	"os"
 	"path"
 )
@@ -167,42 +168,88 @@ func EvalComposition(composition []syntax.Word, c context) EvalResult {
 // c may be shared
 func evalWords(ws syntax.Words, c context) interface{} {
 	if 0 < len(ws.Operators) {
-		for _, firstSpecial := range ws.Operators[0].Specials {
+		for j, firstSpecial := range ws.Operators[0].Specials {
 			switch firstSpecialPayload := firstSpecial.(type) {
 			case syntax.WordSpecialJunction:
+				firstLeftTuple := false
+				if j-1 < 0 {
+				} else if _, isTuple :=
+					ws.Operators[0].Specials[j-1].(syntax.WordSpecialTuple); isTuple {
+					firstLeftTuple = true
+				}
+
+				firstRightTuple := false
+				if j+1 >= len(ws.Operators[0].Specials) {
+				} else if _, isTuple :=
+					ws.Operators[0].Specials[j+1].(syntax.WordSpecialTuple); isTuple {
+					firstRightTuple = true
+				}
+
 				if len(ws.Compositions[0]) != 0 {
 					panic("Junction doesn't start with operator word")
 				}
+				junctive := Junctive(firstSpecialPayload)
 				var junctRels []Rel
 				for i, operator := range ws.Operators {
+					origOperator := operator
 					// 0 < len(operator.Specials)
 					_, commented := operator.Specials[0].(syntax.WordSpecialCommentMarker)
 					if commented {
 						if operator.Strings[0] != "" {
-							panic("Bad junction operator word: " + operator.String())
+							panic("Bad junction operator word: " + origOperator.String())
 						}
-						// There is at least one operator special in `operator`, but a comment marker isn't one;
-						// therefore, 1 < len(operator.Specials)
+						// There is at least one operator special in `operator`, but a comment
+						// marker isn't operative; therefore, 1 < len(operator.Specials)
 						operator = syntax.Word{Strings: operator.Strings[1:], Specials: operator.Specials[1:]}
 					}
 					// 0 < len(operator.Specials)
-					if operator.Strings[0] != "" || operator.Strings[1] != "" || 1 < len(operator.Specials) {
-						panic("Bad junction operator word: " + operator.String())
+					_, leftTuple := operator.Specials[0].(syntax.WordSpecialTuple)
+					if leftTuple {
+						if operator.Strings[0] != "" {
+							panic("Bad junction operator word: " + origOperator.String())
+						}
+						// There is at least one operator special in `operator`, but a tuple
+						// isn't operative; therefore, 1 < len(operator.Specials)
+						operator = syntax.Word{Strings: operator.Strings[1:], Specials: operator.Specials[1:]}
+					}
+					// 0 < len(operator.Specials)
+					if operator.Strings[0] != "" || operator.Strings[1] != "" || 2 < len(operator.Specials) {
+						panic("Bad junction operator word: " + origOperator.String())
 					}
 					if specialPayload, isWordSpecialJunction :=
 						operator.Specials[0].(syntax.WordSpecialJunction); !isWordSpecialJunction ||
 						specialPayload != firstSpecialPayload {
-						panic("Bad junction operator word: " + operator.String())
+						panic("Bad junction operator word: " + origOperator.String())
+					}
+					rightTuple := 2 == len(operator.Specials)
+					if !rightTuple {
+					} else if _, isTuple :=
+						operator.Specials[1].(syntax.WordSpecialTuple); false {
+					} else if !isTuple || operator.Strings[2] != "" {
+						panic("Bad junction operator word: " + origOperator.String())
+					}
+					if leftTuple != firstLeftTuple || rightTuple != firstRightTuple {
+						panic("Bad junction operator word: " + origOperator.String())
 					}
 
-					if !commented {
+					if commented {
+					} else if leftTuple || rightTuple {
+						rels := []Rel{EvalComposition(ws.Compositions[1:][i], c).Rel()}
+						if leftTuple {
+							rels = []Rel{Collect(junctive, fmt.Sprint(i)), rels[0]}
+						}
+						if rightTuple {
+							rels = append(rels, Select(junctive, fmt.Sprint(i)))
+						}
+						junctRels = append(junctRels, Composition(rels))
+					} else {
 						junctRels = append(junctRels, EvalComposition(ws.Compositions[1:][i], c).Rel())
 					}
 				}
 				if len(junctRels) == 0 {
 					panic("Empty junction: " + ws.String())
 				}
-				return Junction(Junctive(firstSpecialPayload), junctRels)
+				return Junction(junctive, junctRels)
 			case syntax.WordSpecialApplication:
 				val := EvalComposition(ws.Compositions[0], c)
 				for i, operator := range ws.Operators {

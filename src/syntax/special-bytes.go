@@ -12,6 +12,7 @@ const (
 	period     byte = 46
 	colon      byte = 58
 	semicolon  byte = 59
+	at         byte = 64
 	leftBrace  byte = 123
 	rightBrace byte = 125
 )
@@ -28,6 +29,7 @@ func byteIsSpecial(b byte) bool {
 		b == period ||
 		b == colon ||
 		b == semicolon ||
+		b == at ||
 		b == leftBrace ||
 		b == rightBrace
 }
