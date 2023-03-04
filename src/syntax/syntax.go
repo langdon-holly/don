@@ -53,7 +53,7 @@ func (delim MaybeDelim) String() string {
 }
 
 type WordSpecial interface {
-	layout() (tokens int, ws writeString)
+	layout() (intoMultiline bool, ws writeString)
 }
 
 // Not operator
@@ -69,10 +69,10 @@ type WordSpecialTuple struct{}
 type WordSpecialJunction Junctive
 type WordSpecialApplication struct{}
 
-func (wsd WordSpecialDelimited) layout() (tokens int, ws writeString) {
-	wordsTokens, wordsWriteString := wsd.Words.layout()
-	tokens = wordsTokens + 2 /* For simplicity, count MaybeDelimNone as a token */
-	if tokens > MAX_TOKENS_PER_LINE {
+func (wsd WordSpecialDelimited) layout() (intoMultiline bool, ws writeString) {
+	intoMultiline = true
+	wordsIntoMultiline, wordsWriteString := wsd.Words.layout()
+	if wordsIntoMultiline {
 		ws = func(out *strings.Builder, indent []byte) {
 			subIndent := append(indent, tab)
 			wsd.LeftDelim.writeLeftString(out)
@@ -93,8 +93,7 @@ func (wsd WordSpecialDelimited) layout() (tokens int, ws writeString) {
 	}
 	return
 }
-func (wsj WordSpecialJunct) layout() (tokens int, ws writeString) {
-	tokens = 1
+func (wsj WordSpecialJunct) layout() (intoMultiline bool, ws writeString) {
 	ws = func(out *strings.Builder, _ []byte) {
 		if Junctive(wsj) == ConJunctive {
 			out.WriteByte(period)
@@ -103,19 +102,16 @@ func (wsj WordSpecialJunct) layout() (tokens int, ws writeString) {
 	}
 	return
 }
-func (_ WordSpecialCommentMarker) layout() (tokens int, ws writeString) {
-	tokens = 1
+func (_ WordSpecialCommentMarker) layout() (intoMultiline bool, ws writeString) {
 	ws = func(out *strings.Builder, _ []byte) { out.WriteByte(hash) }
 	return
 }
-func (_ WordSpecialTuple) layout() (tokens int, ws writeString) {
-	tokens = 1
+func (_ WordSpecialTuple) layout() (intoMultiline bool, ws writeString) {
 	ws = func(out *strings.Builder, _ []byte) { out.WriteByte(at) }
 	return
 }
 
-func (wsj WordSpecialJunction) layout() (tokens int, ws writeString) {
-	tokens = 1
+func (wsj WordSpecialJunction) layout() (intoMultiline bool, ws writeString) {
 	ws = func(out *strings.Builder, _ []byte) {
 		if Junctive(wsj) == ConJunctive {
 			out.WriteByte(comma)
@@ -124,8 +120,7 @@ func (wsj WordSpecialJunction) layout() (tokens int, ws writeString) {
 	}
 	return
 }
-func (_ WordSpecialApplication) layout() (tokens int, ws writeString) {
-	tokens = 1
+func (_ WordSpecialApplication) layout() (intoMultiline bool, ws writeString) {
 	ws = func(out *strings.Builder, _ []byte) { out.WriteByte(bang) }
 	return
 }
@@ -163,28 +158,29 @@ func wordWriteString(
 		specialWriteStrings[j](out, indent)
 	}
 }
-func wordSliceLayout(tokens *int, wordSlice []Word) [][]writeString {
-	specialWriteStringses := make([][]writeString, len(wordSlice))
+func wordSliceLayout(wordSlice []Word) (
+	intoMultiline bool,
+	specialWriteStringses [][]writeString,
+) {
+	specialWriteStringses = make([][]writeString, len(wordSlice))
 	for i, word := range wordSlice {
 		specialWriteStrings := make([]writeString, len(word.Specials))
-		for j := 0; ; j++ {
-			if word.Strings[j] != "" {
-				*tokens++
-			}
-
-			if j >= len(word.Specials) {
-				break
-			}
-
-			var specialTokens int
-			specialTokens, specialWriteStrings[j] = word.Specials[j].layout()
-			*tokens += specialTokens
+		for j, special := range word.Specials {
+			var specialIntoMultiline bool
+			specialIntoMultiline, specialWriteStrings[j] = special.layout()
+			intoMultiline = intoMultiline || specialIntoMultiline
 		}
 		specialWriteStringses[i] = specialWriteStrings
 	}
-	return specialWriteStringses
+	return
 }
-func writeComposition(out *strings.Builder, indent []byte, wordAlready *bool, composition []Word, compositionSpecialWriteStringses [][]writeString) {
+func writeComposition(
+	out *strings.Builder,
+	indent []byte,
+	wordAlready *bool,
+	composition []Word,
+	compositionSpecialWriteStringses [][]writeString,
+) {
 	for i, factor := range composition {
 		if *wordAlready {
 			out.WriteByte(space)
@@ -200,18 +196,25 @@ func preOpWriteNewline(out *strings.Builder, indent []byte) {
 func preOpWriteSpace(out *strings.Builder, indent []byte) {
 	out.WriteByte(space)
 }
-func (words Words) layout() (tokens int, ws writeString) {
+func (words Words) layout() (intoMultiline bool, ws writeString) {
 	compositionSpecialWriteStringseses := make([][][]writeString, len(words.Compositions))
 	for i, composition := range words.Compositions {
-		compositionSpecialWriteStringseses[i] = wordSliceLayout(&tokens, composition)
+		var compositionIntoMultiline bool
+		compositionIntoMultiline, compositionSpecialWriteStringseses[i] =
+			wordSliceLayout(composition)
+		intoMultiline = intoMultiline || compositionIntoMultiline
 	}
-	operatorSpecialWriteStringses := wordSliceLayout(&tokens, words.Operators)
+
+	operatorsIntoMultiline, operatorSpecialWriteStringses := wordSliceLayout(words.Operators)
+	intoMultiline = intoMultiline || operatorsIntoMultiline
+
 	var preOpWriteString writeString
-	if tokens > MAX_TOKENS_PER_LINE {
+	if intoMultiline {
 		preOpWriteString = preOpWriteNewline
 	} else {
 		preOpWriteString = preOpWriteSpace
 	}
+
 	ws = func(out *strings.Builder, indent []byte) {
 		wordAlready := false
 		for i := 0; ; {
@@ -227,6 +230,7 @@ func (words Words) layout() (tokens int, ws writeString) {
 			i++
 		}
 	}
+
 	return
 }
 

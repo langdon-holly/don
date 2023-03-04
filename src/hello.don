@@ -1,39 +1,11 @@
 out. (
-	, (,@ .out .7 ,@ .out .8) full-adder (
-		@, 8. 0. in.
-		@, 8. 1. in.
-		@, 7. carry.
-	)
-	, (,@ .out .6 ,@ .carry .6) full-adder (
-		@, 7. 0. in.
-		@, 7. 1. in.
-		@, 6. carry.
-	)
-	, (,@ .out .5 ,@ .carry .5) full-adder (
-		@, 6. 0. in.
-		@, 6. 1. in.
-		@, 5. carry.
-	)
-	, (,@ .out .4 ,@ .carry .4) full-adder (
-		@, 5. 0. in.
-		@, 5. 1. in.
-		@, 4. carry.
-	)
-	, (,@ .out .3 ,@ .carry .3) full-adder (
-		@, 4. 0. in.
-		@, 4. 1. in.
-		@, 3. carry.
-	)
-	, (,@ .out .2 ,@ .carry .2) full-adder (
-		@, 2. 0. in.
-		@, 2. 1. in.
-		@, 1. carry.
-	)
-	, (,@ .out .1 ,@ .carry .1) full-adder (
-		@, 1. 0. in.
-		@, 1. 1. in.
-		@, 0. carry.
-	)
+	, (,@ .out .7 ,@ .out .8) full-adder (@, 8. 0. in. @, 8. 1. in. @, 7. carry.)
+	, (,@ .out .6 ,@ .carry .6) full-adder (@, 7. 0. in. @, 7. 1. in. @, 6. carry.)
+	, (,@ .out .5 ,@ .carry .5) full-adder (@, 6. 0. in. @, 6. 1. in. @, 5. carry.)
+	, (,@ .out .4 ,@ .carry .4) full-adder (@, 5. 0. in. @, 5. 1. in. @, 4. carry.)
+	, (,@ .out .3 ,@ .carry .3) full-adder (@, 4. 0. in. @, 4. 1. in. @, 3. carry.)
+	, (,@ .out .2 ,@ .carry .2) full-adder (@, 2. 0. in. @, 2. 1. in. @, 1. carry.)
+	, (,@ .out .1 ,@ .carry .1) full-adder (@, 1. 0. in. @, 1. 1. in. @, 0. carry.)
 	, (,@ .out .0 ,@ .carry .0) (
 		; (@, :0 @, :0) (,@ 0: ,@ 0:)
 		; (@, :1 @, :0) (
@@ -41,8 +13,6 @@ out. (
 			; (,@ 1: ,@ 0:)
 		)
 		; (@, :0 @, :1) (,@ 1: ,@ 1:)
-	) (
-		@, 0. 0. in. @, 0. 1. in.
-	)
+	) (@, 0. 0. in. @, 0. 1. in.)
 	, I
 ) .in
