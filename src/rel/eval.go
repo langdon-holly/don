@@ -232,18 +232,16 @@ func evalWords(ws syntax.Words, c context) interface{} {
 						panic("Bad junction operator word: " + origOperator.String())
 					}
 
-					if commented {
-					} else if leftTuple || rightTuple {
-						rels := []Rel{EvalComposition(ws.Compositions[1:][i], c).Rel()}
+					if !commented {
+						var factors []syntax.Word
 						if leftTuple {
-							rels = []Rel{Collect(junctive, fmt.Sprint(i)), rels[0]}
+							factors = append(factors, Collect(junctive, fmt.Sprint(i)).Syntax().Word())
 						}
+						factors = append(factors, ws.Compositions[1:][i]...)
 						if rightTuple {
-							rels = append(rels, Select(junctive, fmt.Sprint(i)))
+							factors = append(factors, Select(junctive, fmt.Sprint(i)).Syntax().Word())
 						}
-						junctRels = append(junctRels, Composition(rels))
-					} else {
-						junctRels = append(junctRels, EvalComposition(ws.Compositions[1:][i], c).Rel())
+						junctRels = append(junctRels, EvalComposition(factors, c).Rel())
 					}
 				}
 				if len(junctRels) == 0 {
