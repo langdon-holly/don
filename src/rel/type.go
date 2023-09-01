@@ -5,6 +5,78 @@ import (
 	"don/syntax"
 )
 
+// *VarPtr
+
+type VarPtr interface{}
+type varPtrRoot struct {
+	tp *TypePtr
+
+	// Subsets of TypePtrType(tp)'s juncts
+	conjuncts map[string]*VarPtr
+	disjuncts map[string]*VarPtr
+}
+type varPtrChild struct{ parent *VarPtr }
+
+func varPtrGetRoot(r *VarPtr /* mutated */) (*VarPtr /* varPtrRoot */, varPtrRoot) {
+	switch rAlt := (*r).(type) {
+	case varPtrRoot:
+		return r, rAlt
+	case varPtrChild:
+		vp, root := varPtrGetRoot(rAlt.parent)
+		*r = varPtrChild{vp}
+		return vp, root
+	default:
+		panic(*r)
+	}
+}
+func varPtrTo(tp *TypePtr) *VarPtr {
+	vp := VarPtr(varPtrRoot{
+		tp:        tp,
+		conjuncts: make(map[string]*VarPtr, 0),
+		disjuncts: make(map[string]*VarPtr, 0),
+	})
+	return &vp
+}
+func unifyVarPtrJuncts(rJuncts, sJuncts map[string]*VarPtr /* mutated */) map[string]*VarPtr {
+	for fieldName, fieldVarPtrS := range sJuncts {
+		if fieldVarPtrR, ok := rJuncts[fieldName]; ok {
+			fieldRVP, fieldRRoot := varPtrGetRoot(fieldVarPtrR)
+			fieldSVP, fieldSRoot := varPtrGetRoot(fieldVarPtrS)
+			if fieldRVP != fieldSVP {
+				*fieldRVP, *fieldSVP = unifyVarPtrRootsWithoutType(fieldRRoot, fieldSRoot)
+			}
+		}
+		rJuncts[fieldName] = fieldVarPtrS
+	}
+	return rJuncts
+}
+func unifyVarPtrRootsWithoutType(rRoot, sRoot varPtrRoot /* mutated */) (r, s VarPtr) {
+	rRoot.conjuncts = unifyVarPtrJuncts(rRoot.conjuncts, sRoot.conjuncts)
+	rRoot.disjuncts = unifyVarPtrJuncts(rRoot.disjuncts, sRoot.disjuncts)
+	union := VarPtr(rRoot)
+	return varPtrChild{&union}, varPtrChild{&union}
+}
+func UnifyVarPtrs(r, s *VarPtr /* mutated */) {
+	rVP, rRoot := varPtrGetRoot(r)
+	sVP, sRoot := varPtrGetRoot(s)
+	if rVP != sVP {
+		UnifyTypePtrs(rRoot.tp, sRoot.tp)
+		*rVP, *sVP = unifyVarPtrRootsWithoutType(rRoot, sRoot)
+	}
+}
+func VarPtrTypePtr(r *VarPtr /* mutated */) *TypePtr {
+	_, rRoot := varPtrGetRoot(r)
+	return rRoot.tp
+}
+
+//func CopyVarPtr(r *VarPtr, mapping map[*VarPtr]*VarPtr /* mutated */) *VarPtr {
+//	vp, root := varPtrGetRoot(r)
+//	if _, inMapping := mapping[vp]; !inMapping {
+//		mapping[vp] = varPtrTo(root.tp.copy(mapping))
+//	}
+//	return mapping[vp]
+//}
+
 // *TypePtr
 
 type TypePtr interface{}
@@ -31,9 +103,7 @@ func UnifyTypePtrs(r, s *TypePtr /* mutated */) {
 	rTP, rRoot := typePtrGetRoot(r)
 	sTP, sRoot := typePtrGetRoot(s)
 	if rTP != sTP {
-		t := joinTypes(rRoot.t, sRoot.t)
-		tp := TypePtr(typePtrRoot{t: t})
-		unionTP := &tp
+		unionTP := typePtrTo(joinTypes(rRoot.t, sRoot.t))
 		*rTP = typePtrChild{unionTP}
 		*sTP = typePtrChild{unionTP}
 	}
@@ -57,6 +127,50 @@ type Type struct {
 	Unit      bool
 	Conjuncts map[string]*TypePtr
 	Disjuncts map[string]*TypePtr
+}
+
+// Get Var
+
+func AnyVarPtr() *VarPtr { return varPtrTo(AnyTypePtr()) }
+
+func VarPtrAt(junctive Junctive, fieldName string, vp *VarPtr) *VarPtr {
+	return varPtrTo(TypePtrAt(junctive, fieldName, VarPtrTypePtr(vp)))
+}
+func VarAtLeft(t *VarPtr) *VarPtr  { return VarPtrAt(ConJunctive, "0", t) }
+func VarAtRight(t *VarPtr) *VarPtr { return VarPtrAt(ConJunctive, "1", t) }
+
+func VarGet(fieldName string, junctive Junctive, vp *VarPtr) *VarPtr {
+	_, root := varPtrGetRoot(vp)
+
+	var juncts map[string]*VarPtr
+	if junctive == ConJunctive {
+		juncts = root.conjuncts
+	} else /* junctive == DisJunctive */ {
+		juncts = root.disjuncts
+	}
+
+	if fieldVarPtr, ok := juncts[fieldName]; ok {
+		return fieldVarPtr
+	} else {
+		fieldVarPtr = varPtrTo(Get(fieldName, junctive, root.tp))
+		juncts[fieldName] = fieldVarPtr
+		return fieldVarPtr
+	}
+}
+func VarGetLeft(v *VarPtr) *VarPtr  { return VarGet("0", ConJunctive, v) }
+func VarGetRight(v *VarPtr) *VarPtr { return VarGet("1", ConJunctive, v) }
+
+func PairVarPtr() *VarPtr {
+	v := VarAtLeft(AnyVarPtr())
+	UnifyVarPtrs(v, VarAtRight(AnyVarPtr()))
+	return v
+}
+
+// May not round-trip
+func ConvertVarPtr(v *VarPtr) *VarPtr {
+	w := VarAtLeft(VarGetRight(v))
+	UnifyVarPtrs(w, VarAtRight(VarGetLeft(v)))
+	return w
 }
 
 // Get Type
@@ -118,20 +232,19 @@ func ConvertTypePtr(t *TypePtr) *TypePtr {
 
 // Other
 
+func joinTypeJuncts(juncts0, juncts1 map[string]*TypePtr /* mutated */) map[string]*TypePtr {
+	for fieldName, fieldTypePtr1 := range juncts1 {
+		if fieldTypePtr0, ok := juncts0[fieldName]; ok {
+			UnifyTypePtrs(fieldTypePtr0, fieldTypePtr1)
+		}
+		juncts0[fieldName] = fieldTypePtr1
+	}
+	return juncts0
+}
 func joinTypes(t0, t1 Type /* consumed in places where both are junctive */) Type {
 	t0.Unit = t0.Unit || t1.Unit
-	for fieldName, fieldTypePtr1 := range t1.Conjuncts {
-		if fieldTypePtr0, ok := t0.Conjuncts[fieldName]; ok {
-			UnifyTypePtrs(fieldTypePtr0, fieldTypePtr1)
-		}
-		t0.Conjuncts[fieldName] = fieldTypePtr1
-	}
-	for fieldName, fieldTypePtr1 := range t1.Disjuncts {
-		if fieldTypePtr0, ok := t0.Disjuncts[fieldName]; ok {
-			UnifyTypePtrs(fieldTypePtr0, fieldTypePtr1)
-		}
-		t0.Disjuncts[fieldName] = fieldTypePtr1
-	}
+	t0.Conjuncts = joinTypeJuncts(t0.Conjuncts, t1.Conjuncts)
+	t0.Disjuncts = joinTypeJuncts(t0.Disjuncts, t1.Disjuncts)
 	return t0
 }
 

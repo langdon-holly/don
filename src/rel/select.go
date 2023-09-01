@@ -6,31 +6,31 @@ import (
 )
 
 func Select(junctive Junctive, fieldName string) Rel {
-	t := PairTypePtr()
-	UnifyTypePtrs(TypePtrAt(junctive, fieldName, GetLeft(t)), GetRight(t))
+	v := PairVarPtr()
+	UnifyVarPtrs(VarPtrAt(junctive, fieldName, VarGetLeft(v)), VarGetRight(v))
 	return SelectRel{
 		FieldName: fieldName,
 		Junctive:  junctive,
-		T:         t,
+		V:         v,
 	}
 }
 
 type SelectRel struct {
 	FieldName string
 	Junctive
-	T *TypePtr
+	V *VarPtr
 }
 
-func (sc SelectRel) Type() *TypePtr { return sc.T }
+func (sc SelectRel) Type() *TypePtr { return VarPtrTypePtr(sc.V) }
 func (sc SelectRel) Copy(mapping map[*TypePtr]*TypePtr) Rel {
-	sc.T = CopyTypePtr(sc.T, mapping)
+	sc.V = varPtrTo(CopyTypePtr(VarPtrTypePtr(sc.V), mapping))
 	return sc
 }
 func (sc SelectRel) Convert() Rel {
 	return SelectRel{
 		FieldName: sc.FieldName,
 		Junctive:  sc.Junctive,
-		T:         ConvertTypePtr(sc.T),
+		V:         ConvertVarPtr(sc.V),
 	}
 }
 func SelectSyntax(fieldName string, junctive Junctive) syntax.Word {

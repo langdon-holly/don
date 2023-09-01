@@ -3,35 +3,35 @@ package rel
 func Composition(factors []Rel) Rel {
 	pc := CompositionRel{
 		Factors: factors,
-		T:       PairTypePtr(),
+		V:       PairVarPtr(),
 	}
 	for i, factor := range pc.Factors {
-		UnifyTypePtrs(factor.Type(), PairTypePtr())
+		UnifyVarPtrs(varPtrTo(factor.Type()), PairVarPtr())
 		if i >= 1 {
-			UnifyTypePtrs(GetRight(pc.Factors[i-1].Type()), GetLeft(factor.Type()))
+			UnifyVarPtrs(VarGetRight(varPtrTo(pc.Factors[i-1].Type())), VarGetLeft(varPtrTo(factor.Type())))
 		}
 	}
 	if len(factors) == 0 {
-		UnifyTypePtrs(GetLeft(pc.T), GetRight(pc.T))
+		UnifyVarPtrs(VarGetLeft(pc.V), VarGetRight(pc.V))
 	} else {
-		UnifyTypePtrs(GetLeft(pc.T), GetLeft(pc.Factors[0].Type()))
-		UnifyTypePtrs(GetRight(pc.T), GetRight(pc.Factors[len(pc.Factors)-1].Type()))
+		UnifyVarPtrs(VarGetLeft(pc.V), VarGetLeft(varPtrTo(pc.Factors[0].Type())))
+		UnifyVarPtrs(VarGetRight(pc.V), VarGetRight(varPtrTo(pc.Factors[len(pc.Factors)-1].Type())))
 	}
 	return pc
 }
 
 type CompositionRel struct {
 	Factors []Rel
-	T       *TypePtr
+	V       *VarPtr
 }
 
-func (pc CompositionRel) Type() *TypePtr { return pc.T }
+func (pc CompositionRel) Type() *TypePtr { return VarPtrTypePtr(pc.V) }
 func (pc CompositionRel) Copy(mapping map[*TypePtr]*TypePtr) Rel {
 	factors := make([]Rel, len(pc.Factors))
 	for i, factor := range pc.Factors {
 		factors[i] = factor.Copy(mapping)
 	}
-	return CompositionRel{Factors: factors, T: CopyTypePtr(pc.T, mapping)}
+	return CompositionRel{Factors: factors, V: varPtrTo(CopyTypePtr(VarPtrTypePtr(pc.V), mapping))}
 }
 func (pc CompositionRel) Convert() Rel {
 	factorConverses := make([]Rel, len(pc.Factors))
@@ -40,7 +40,7 @@ func (pc CompositionRel) Convert() Rel {
 	}
 	return CompositionRel{
 		Factors: factorConverses,
-		T:       ConvertTypePtr(pc.T),
+		V:       ConvertVarPtr(pc.V),
 	}
 }
 func (pc CompositionRel) Syntax() Syntax {

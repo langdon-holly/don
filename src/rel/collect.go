@@ -6,31 +6,31 @@ import (
 )
 
 func Collect(junctive Junctive, fieldName string) Rel {
-	t := PairTypePtr()
-	UnifyTypePtrs(GetLeft(t), TypePtrAt(junctive, fieldName, GetRight(t)))
+	v := PairVarPtr()
+	UnifyVarPtrs(VarGetLeft(v), VarPtrAt(junctive, fieldName, VarGetRight(v)))
 	return CollectRel{
 		FieldName: fieldName,
 		Junctive:  junctive,
-		T:         t,
+		V:         v,
 	}
 }
 
 type CollectRel struct {
 	FieldName string
 	Junctive
-	T *TypePtr
+	V *VarPtr
 }
 
-func (cc CollectRel) Type() *TypePtr { return cc.T }
+func (cc CollectRel) Type() *TypePtr { return VarPtrTypePtr(cc.V) }
 func (cc CollectRel) Copy(mapping map[*TypePtr]*TypePtr) Rel {
-	cc.T = CopyTypePtr(cc.T, mapping)
+	cc.V = varPtrTo(CopyTypePtr(VarPtrTypePtr(cc.V), mapping))
 	return cc
 }
 func (cc CollectRel) Convert() Rel {
 	return CollectRel{
 		FieldName: cc.FieldName,
 		Junctive:  cc.Junctive,
-		T:         ConvertTypePtr(cc.T),
+		V:         ConvertVarPtr(cc.V),
 	}
 }
 func CollectSyntax(fieldName string, junctive Junctive) syntax.Word {

@@ -9,10 +9,10 @@ func Junction(junctive Junctive, juncts []Rel) Rel {
 	jc := JunctionRel{
 		Junctive: junctive,
 		Juncts:   juncts,
-		T:        AnyTypePtr(),
+		V:        AnyVarPtr(),
 	}
 	for _, junct := range juncts {
-		UnifyTypePtrs(jc.T, junct.Type())
+		UnifyTypePtrs(VarPtrTypePtr(jc.V), junct.Type())
 	}
 	return jc
 }
@@ -20,10 +20,10 @@ func Junction(junctive Junctive, juncts []Rel) Rel {
 type JunctionRel struct {
 	Junctive
 	Juncts []Rel
-	T      *TypePtr
+	V      *VarPtr
 }
 
-func (jc JunctionRel) Type() *TypePtr { return jc.T }
+func (jc JunctionRel) Type() *TypePtr { return VarPtrTypePtr(jc.V) }
 
 func (jc JunctionRel) Copy(mapping map[*TypePtr]*TypePtr) Rel {
 	juncts := make([]Rel, len(jc.Juncts))
@@ -31,14 +31,14 @@ func (jc JunctionRel) Copy(mapping map[*TypePtr]*TypePtr) Rel {
 		juncts[i] = junct.Copy(mapping)
 	}
 	jc.Juncts = juncts
-	jc.T = CopyTypePtr(jc.T, mapping)
+	jc.V = varPtrTo(CopyTypePtr(VarPtrTypePtr(jc.V), mapping))
 	return jc
 }
 func (jc JunctionRel) Convert() Rel {
 	for i, junct := range jc.Juncts {
 		jc.Juncts[i] = junct.Convert()
 	}
-	jc.T = ConvertTypePtr(jc.T)
+	jc.V = ConvertVarPtr(jc.V)
 	return jc
 }
 func JunctionSyntax(junctive Junctive, juncts [][]syntax.Word) Syntax {
