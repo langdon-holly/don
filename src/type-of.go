@@ -10,5 +10,5 @@ import (
 )
 
 func main() {
-	fmt.Println(rel.TypePtrType(rel.EvalFile(os.Args[1]).Rel().Type()))
+	fmt.Println(rel.TypePtrType(rel.VarPtrTypePtr(rel.EvalFile(os.Args[1]).Rel().Var())))
 }

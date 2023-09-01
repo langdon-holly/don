@@ -12,7 +12,7 @@ func Junction(junctive Junctive, juncts []Rel) Rel {
 		V:        AnyVarPtr(),
 	}
 	for _, junct := range juncts {
-		UnifyTypePtrs(VarPtrTypePtr(jc.V), junct.Type())
+		UnifyTypePtrs(VarPtrTypePtr(jc.V), VarPtrTypePtr(junct.Var()))
 	}
 	return jc
 }
@@ -23,15 +23,15 @@ type JunctionRel struct {
 	V      *VarPtr
 }
 
-func (jc JunctionRel) Type() *TypePtr { return VarPtrTypePtr(jc.V) }
+func (jc JunctionRel) Var() *VarPtr { return jc.V }
 
-func (jc JunctionRel) Copy(mapping map[*TypePtr]*TypePtr) Rel {
+func (jc JunctionRel) Copy(varMap map[*VarPtr]*VarPtr, typeMap map[*TypePtr]*TypePtr) Rel {
 	juncts := make([]Rel, len(jc.Juncts))
 	for i, junct := range jc.Juncts {
-		juncts[i] = junct.Copy(mapping)
+		juncts[i] = junct.Copy(varMap, typeMap)
 	}
 	jc.Juncts = juncts
-	jc.V = varPtrTo(CopyTypePtr(VarPtrTypePtr(jc.V), mapping))
+	jc.V = CopyVarPtr(jc.V, varMap, typeMap)
 	return jc
 }
 func (jc JunctionRel) Convert() Rel {

@@ -69,13 +69,13 @@ func VarPtrTypePtr(r *VarPtr /* mutated */) *TypePtr {
 	return rRoot.tp
 }
 
-//func CopyVarPtr(r *VarPtr, mapping map[*VarPtr]*VarPtr /* mutated */) *VarPtr {
-//	vp, root := varPtrGetRoot(r)
-//	if _, inMapping := mapping[vp]; !inMapping {
-//		mapping[vp] = varPtrTo(root.tp.copy(mapping))
-//	}
-//	return mapping[vp]
-//}
+func CopyVarPtr(r *VarPtr, varMap map[*VarPtr]*VarPtr /* mutated */, typeMap map[*TypePtr]*TypePtr /* mutated */) *VarPtr {
+	vp, root := varPtrGetRoot(r)
+	if _, inMapping := varMap[vp]; !inMapping {
+		varMap[vp] = varPtrTo(CopyTypePtr(root.tp, typeMap))
+	}
+	return varMap[vp]
+}
 
 // *TypePtr
 

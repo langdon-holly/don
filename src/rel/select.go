@@ -21,9 +21,9 @@ type SelectRel struct {
 	V *VarPtr
 }
 
-func (sc SelectRel) Type() *TypePtr { return VarPtrTypePtr(sc.V) }
-func (sc SelectRel) Copy(mapping map[*TypePtr]*TypePtr) Rel {
-	sc.V = varPtrTo(CopyTypePtr(VarPtrTypePtr(sc.V), mapping))
+func (sc SelectRel) Var() *VarPtr { return sc.V }
+func (sc SelectRel) Copy(varMap map[*VarPtr]*VarPtr, typeMap map[*TypePtr]*TypePtr) Rel {
+	sc.V = CopyVarPtr(sc.V, varMap, typeMap)
 	return sc
 }
 func (sc SelectRel) Convert() Rel {

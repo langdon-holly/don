@@ -53,7 +53,7 @@ func evalWord(w syntax.Word, c context) interface{} {
 		for cNow := c; cNow != nil; cNow = cNow.Parent {
 			if entry, ok := cNow.Entries[name]; !ok {
 			} else if rel, isRel := entry.(Rel); isRel {
-				return rel.Copy(make(map[*TypePtr]*TypePtr))
+				return rel.Copy(make(map[*VarPtr]*VarPtr), make(map[*TypePtr]*TypePtr))
 			} else {
 				return entry
 			}
@@ -72,7 +72,7 @@ func evalWord(w syntax.Word, c context) interface{} {
 		}
 		c.Entries[name] = val
 		if rel, isRel := val.(Rel); isRel {
-			return rel.Copy(make(map[*TypePtr]*TypePtr))
+			return rel.Copy(make(map[*VarPtr]*VarPtr), make(map[*TypePtr]*TypePtr))
 		} else {
 			return val
 		}

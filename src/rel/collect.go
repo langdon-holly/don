@@ -21,9 +21,9 @@ type CollectRel struct {
 	V *VarPtr
 }
 
-func (cc CollectRel) Type() *TypePtr { return VarPtrTypePtr(cc.V) }
-func (cc CollectRel) Copy(mapping map[*TypePtr]*TypePtr) Rel {
-	cc.V = varPtrTo(CopyTypePtr(VarPtrTypePtr(cc.V), mapping))
+func (cc CollectRel) Var() *VarPtr { return cc.V }
+func (cc CollectRel) Copy(varMap map[*VarPtr]*VarPtr, typeMap map[*TypePtr]*TypePtr) Rel {
+	cc.V = CopyVarPtr(cc.V, varMap, typeMap)
 	return cc
 }
 func (cc CollectRel) Convert() Rel {
