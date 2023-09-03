@@ -1,13 +1,13 @@
 Byte	Status : Purpose
 ----	----------------
 tab	  used : separator
-LF	  used : separator
+LF	  used : line separator
 CR	unused
 space	  used : separator
 `	unused
 ~	unused
-!	  used : application
-@	  used : tuple
+!	unused : application
+@	unused : tuple
 #	  used : comment
 $	unused
 %	unused
@@ -25,12 +25,12 @@ _	unused : empty name
 {	  used : start
 }	  used : end
 \	unused
-|	unused
-;	  used : disjunction
+|	  used : line separator
+;	unused : disjunction
 :	  used : disjunct selection/collection
 '	unused
 "	unused
-,	  used : conjunction
+,	unused : conjunction
 <	unused
 .	  used : conjunct selection/collection
 >	unused

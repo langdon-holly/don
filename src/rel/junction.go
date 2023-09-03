@@ -41,7 +41,7 @@ func (jc JunctionRel) Convert() Rel {
 	jc.V = ConvertVarPtr(jc.V)
 	return jc
 }
-func JunctionSyntax(junctive Junctive, juncts [][]syntax.Word) Syntax {
+func JunctionSyntax(junctive Junctive, juncts [][]syntax.Word /* each []Word non-nil */) Syntax {
 	if len(juncts) == 0 {
 		if junctive == ConJunctive {
 			return NameSyntax("true")
@@ -49,21 +49,19 @@ func JunctionSyntax(junctive Junctive, juncts [][]syntax.Word) Syntax {
 			return NameSyntax("false")
 		}
 	} else {
-		operator := syntax.Word{
-			Strings:  []string{"", ""},
-			Specials: []syntax.WordSpecial{syntax.WordSpecialJunction(junctive)},
+		var opName string
+		if junctive == ConJunctive {
+			opName = ","
+		} else {
+			opName = ";"
 		}
-
-		junctCompositions := append([][]syntax.Word{nil}, juncts...)
-		operators := make([]syntax.Word, len(juncts))
-		for i := range operators {
-			operators[i] = operator
-		}
-		return SyntaxWords(syntax.Words{Compositions: junctCompositions, Operators: operators})
+		return SyntaxWords(syntax.Words{
+			Compositions: append([][]syntax.Word{NameSyntax(opName).Composition()}, juncts...),
+		})
 	}
 }
 func (jc JunctionRel) Syntax() Syntax {
-	junctWordses := make([][]syntax.Word, len(jc.Juncts))
+	junctWordses := make([][]syntax.Word, len(jc.Juncts)) /* each []Word non-nil */
 	for i, junct := range jc.Juncts {
 		junctWordses[i] = junct.Syntax().Composition()
 	}

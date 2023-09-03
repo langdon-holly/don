@@ -26,20 +26,18 @@ type wordsParent struct {
 type words struct {
 	Parent *wordsParent
 
-	// len(Compositions) == len(Operators)
-	Compositions [][]Word
-	Operators    []Word
+	Compositions [][]Word /* Each []Word non-nil */
 	Composition  []Word
 
 	// len(Strings) == len(Specials)
-	Strings   []string
-	Specials  []WordSpecial
-	OperatorP bool
-	String    strings.Builder
+	Strings  []string
+	Specials []WordSpecial
+	String   strings.Builder
 }
 
 type token interface{}
 
+type tokenNL struct{}
 type tokenWS struct{}
 type tokenWordSpecial WordSpecial
 type tokenLDelim MaybeDelim
@@ -52,29 +50,25 @@ func (state *words) nextSpecial(ws WordSpecial) {
 }
 func (state *words) endWord() {
 	if len(state.Strings) >= 1 || state.String.Len() >= 1 {
-		w := Word{
+		state.Composition = append(state.Composition, Word{
 			Strings:  append(state.Strings, state.String.String()),
 			Specials: state.Specials,
-		}
-		if state.OperatorP {
-			state.Compositions = append(state.Compositions, state.Composition)
-			state.Operators = append(state.Operators, w)
-			state.Composition = nil
-		} else {
-			state.Composition = append(state.Composition, w)
-		}
+		})
 		state.Strings = nil
 		state.Specials = nil
-		state.OperatorP = false
 		state.String = strings.Builder{}
 	}
 }
-func (state *words) doneSelf() Words {
+func (state *words) endComposition() {
 	state.endWord()
-	return Words{
-		Compositions: append(state.Compositions, state.Composition),
-		Operators:    state.Operators,
+	if 0 < len(state.Composition) {
+		state.Compositions = append(state.Compositions, state.Composition)
+		state.Composition = nil
 	}
+}
+func (state *words) doneSelf() Words {
+	state.endComposition()
+	return Words{Compositions: state.Compositions}
 }
 
 // Non-nil state.Parent
@@ -93,36 +87,29 @@ func (state *words) Next(b byte) {
 	case tab:
 		e = tokenWS{}
 	case lf:
-		e = tokenWS{}
+		e = tokenNL{}
 	case space:
 		e = tokenWS{}
-	case bang:
-		e = tokenWordSpecial(WordSpecialApplication{})
-		state.OperatorP = true
 	case hash:
 		e = tokenWordSpecial(WordSpecialCommentMarker{})
 	case leftParen:
 		e = tokenLDelim(MaybeDelimParen)
 	case rightParen:
 		e = tokenRDelim(MaybeDelimParen)
-	case comma:
-		e = tokenWordSpecial(WordSpecialJunction(ConJunctive))
-		state.OperatorP = true
 	case period:
 		e = tokenWordSpecial(WordSpecialJunct(ConJunctive))
 	case colon:
 		e = tokenWordSpecial(WordSpecialJunct(DisJunctive))
-	case semicolon:
-		e = tokenWordSpecial(WordSpecialJunction(DisJunctive))
-		state.OperatorP = true
-	case at:
-		e = tokenWordSpecial(WordSpecialTuple{})
 	case leftBrace:
 		e = tokenLDelim(MaybeDelimBrace)
+	case pipe:
+		e = tokenNL{}
 	case rightBrace:
 		e = tokenRDelim(MaybeDelimBrace)
 	}
 	switch eVal := e.(type) {
+	case tokenNL:
+		state.endComposition()
 	case tokenWS:
 		state.endWord()
 	case tokenWordSpecial:

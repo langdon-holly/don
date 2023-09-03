@@ -47,7 +47,7 @@ func (pc CompositionRel) Syntax() Syntax {
 	if len(pc.Factors) == 0 {
 		return NameSyntax("I")
 	} else {
-		composition := make(SyntaxComposition, len(pc.Factors))
+		composition := make(SyntaxComposition, len(pc.Factors)) /* non-nil */
 		for i, factor := range pc.Factors {
 			composition[i] = factor.Syntax().Word()
 		}

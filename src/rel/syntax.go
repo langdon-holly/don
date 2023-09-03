@@ -3,45 +3,45 @@ package rel
 import "don/syntax"
 
 type Syntax interface {
-	Word() syntax.Word          /* Has no operator byte */
-	Composition() []syntax.Word /* Each word has no operator byte */
+	Word() syntax.Word
+	Composition() []syntax.Word
 	Words() syntax.Words
 	String() string
 }
 
-type SyntaxWord syntax.Word          /* Has no operator byte */
-type SyntaxComposition []syntax.Word /* Each word has no operator byte */
+type SyntaxWord syntax.Word
+type SyntaxComposition []syntax.Word /* non-nil */
 type SyntaxWords syntax.Words
 
-func (w SyntaxWord) Word() syntax.Word /* Has no operator byte */ {
+func (w SyntaxWord) Word() syntax.Word {
 	return syntax.Word(w)
 }
-func (w SyntaxWord) Composition() []syntax.Word /* Each word has no operator byte */ {
+func (w SyntaxWord) Composition() []syntax.Word /* non-nil */ {
 	return []syntax.Word{syntax.Word(w)}
 }
 func (w SyntaxWord) Words() syntax.Words {
 	return SyntaxComposition(w.Composition()).Words()
 }
 
-func (c SyntaxComposition) Composition() []syntax.Word /* Each word has no operator byte */ {
+func (c SyntaxComposition) Composition() []syntax.Word /* non-nil */ {
 	return c
 }
 func (c SyntaxComposition) Words() syntax.Words {
-	return syntax.Words{Compositions: [][]syntax.Word{c}, Operators: nil}
+	return syntax.Words{Compositions: [][]syntax.Word{NameSyntax("!").Composition(), c}}
 }
-func (c SyntaxComposition) Word() syntax.Word /* Has no operator byte */ {
+func (c SyntaxComposition) Word() syntax.Word {
 	return SyntaxWords(c.Words()).Word()
 }
 
 func (ws SyntaxWords) Words() syntax.Words { return syntax.Words(ws) }
-func (ws SyntaxWords) Word() syntax.Word /* Has no operator byte */ {
+func (ws SyntaxWords) Word() syntax.Word {
 	return syntax.Word{Strings: []string{"", ""}, Specials: []syntax.WordSpecial{syntax.WordSpecialDelimited{
 		LeftDelim:  syntax.MaybeDelimParen,
 		RightDelim: syntax.MaybeDelimParen,
 		Words:      syntax.Words(ws),
 	}}}
 }
-func (ws SyntaxWords) Composition() []syntax.Word /* Each word has no operator byte */ {
+func (ws SyntaxWords) Composition() []syntax.Word /* non-nil */ {
 	return SyntaxWord(ws.Word()).Composition()
 }
 

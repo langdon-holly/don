@@ -56,18 +56,12 @@ type WordSpecial interface {
 	layout() (intoMultiline bool, ws writeString)
 }
 
-// Not operator
 type WordSpecialDelimited struct {
 	LeftDelim, RightDelim MaybeDelim
 	Words
 }
 type WordSpecialJunct Junctive
 type WordSpecialCommentMarker struct{}
-type WordSpecialTuple struct{}
-
-// Operator
-type WordSpecialJunction Junctive
-type WordSpecialApplication struct{}
 
 func (wsd WordSpecialDelimited) layout() (intoMultiline bool, ws writeString) {
 	intoMultiline = true
@@ -76,8 +70,8 @@ func (wsd WordSpecialDelimited) layout() (intoMultiline bool, ws writeString) {
 		ws = func(out *strings.Builder, indent []byte) {
 			subIndent := append(indent, tab)
 			wsd.LeftDelim.writeLeftString(out)
-			out.WriteByte(lf)
-			out.Write(subIndent)
+			//out.WriteByte(lf)
+			//out.Write(subIndent)
 			wordsWriteString(out, subIndent)
 			out.WriteByte(lf)
 			out.Write(indent)
@@ -106,24 +100,6 @@ func (_ WordSpecialCommentMarker) layout() (intoMultiline bool, ws writeString) 
 	ws = func(out *strings.Builder, _ []byte) { out.WriteByte(hash) }
 	return
 }
-func (_ WordSpecialTuple) layout() (intoMultiline bool, ws writeString) {
-	ws = func(out *strings.Builder, _ []byte) { out.WriteByte(at) }
-	return
-}
-
-func (wsj WordSpecialJunction) layout() (intoMultiline bool, ws writeString) {
-	ws = func(out *strings.Builder, _ []byte) {
-		if Junctive(wsj) == ConJunctive {
-			out.WriteByte(comma)
-		} else if out.WriteByte(semicolon); true {
-		}
-	}
-	return
-}
-func (_ WordSpecialApplication) layout() (intoMultiline bool, ws writeString) {
-	ws = func(out *strings.Builder, _ []byte) { out.WriteByte(bang) }
-	return
-}
 
 // len(Strings) == len(Specials) + 1
 // Strings != []string{""}
@@ -136,101 +112,88 @@ func (w Word) String() string {
 	return Words{Compositions: [][]Word{{w}}}.String()
 }
 
-// len(Compositions) == len(Operators) + 1
-type Words struct {
-	Compositions [][]Word /* Each word has no operator byte */
-	Operators    []Word   /* Each word has an operator byte */
-}
+// Each []Word != nil
+type Words struct{ Compositions [][]Word }
 
-func wordWriteString(
-	out *strings.Builder,
-	indent []byte,
-	theStrings []string,
-	specialWriteStrings []writeString,
-) {
-	for j := 0; ; j++ {
-		out.WriteString(theStrings[j])
-
-		if j >= len(specialWriteStrings) {
-			break
-		}
-
-		specialWriteStrings[j](out, indent)
-	}
-}
-func wordSliceLayout(wordSlice []Word) (
-	intoMultiline bool,
-	specialWriteStringses [][]writeString,
-) {
-	specialWriteStringses = make([][]writeString, len(wordSlice))
-	for i, word := range wordSlice {
-		specialWriteStrings := make([]writeString, len(word.Specials))
-		for j, special := range word.Specials {
-			var specialIntoMultiline bool
-			specialIntoMultiline, specialWriteStrings[j] = special.layout()
-			intoMultiline = intoMultiline || specialIntoMultiline
-		}
-		specialWriteStringses[i] = specialWriteStrings
-	}
-	return
-}
-func writeComposition(
-	out *strings.Builder,
-	indent []byte,
-	wordAlready *bool,
-	composition []Word,
-	compositionSpecialWriteStringses [][]writeString,
-) {
-	for i, factor := range composition {
-		if *wordAlready {
-			out.WriteByte(space)
-		}
-		wordWriteString(out, indent, factor.Strings, compositionSpecialWriteStringses[i])
-		*wordAlready = true
-	}
-}
-func preOpWriteNewline(out *strings.Builder, indent []byte) {
+func interCompositionWriteNewline(out *strings.Builder, indent []byte) {
 	out.WriteByte(lf)
 	out.Write(indent)
 }
-func preOpWriteSpace(out *strings.Builder, indent []byte) {
+func interCompositionWriteSpace(out *strings.Builder, indent []byte) {
 	out.WriteByte(space)
+	out.WriteByte(pipe)
+	//out.WriteByte(space)
 }
+func noopWriteString(out *strings.Builder, indent []byte) {}
 func (words Words) layout() (intoMultiline bool, ws writeString) {
-	compositionSpecialWriteStringseses := make([][][]writeString, len(words.Compositions))
-	for i, composition := range words.Compositions {
-		var compositionIntoMultiline bool
-		compositionIntoMultiline, compositionSpecialWriteStringseses[i] =
-			wordSliceLayout(composition)
-		intoMultiline = intoMultiline || compositionIntoMultiline
-	}
-
-	operatorsIntoMultiline, operatorSpecialWriteStringses := wordSliceLayout(words.Operators)
-	intoMultiline = intoMultiline || operatorsIntoMultiline
-
-	var preOpWriteString writeString
-	if intoMultiline {
-		preOpWriteString = preOpWriteNewline
-	} else {
-		preOpWriteString = preOpWriteSpace
-	}
-
-	ws = func(out *strings.Builder, indent []byte) {
-		wordAlready := false
-		for i := 0; ; {
-			writeComposition(out, indent, &wordAlready, words.Compositions[i], compositionSpecialWriteStringseses[i])
-			if i >= len(words.Operators) {
-				break
+	if 0 < len(words.Compositions) {
+		specialWriteStringseses := make([][][]writeString, len(words.Compositions)) /* Each [][]writeString non-nil */
+		for i, composition := range words.Compositions {
+			specialWriteStringses := make([][]writeString, len(composition))
+			// 0 < len(specialWriteStringses) == len(composition)
+			for j, word := range composition {
+				specialWriteStrings := make([]writeString, len(word.Specials))
+				// len(specialWriteStrings) == len(word.Specials)
+				for k, special := range word.Specials {
+					var specialIntoMultiline bool
+					specialIntoMultiline, specialWriteStrings[k] = special.layout()
+					intoMultiline = intoMultiline || specialIntoMultiline
+				}
+				specialWriteStringses[j] = specialWriteStrings
 			}
-			if wordAlready {
-				preOpWriteString(out, indent)
-			}
-			wordWriteString(out, indent, words.Operators[i].Strings, operatorSpecialWriteStringses[i])
-			wordAlready = true
-			i++
+			// In specialWriteStringses,
+			// 	each len([]writeString) == len(the corresponding Word.Specials in composition)
+			specialWriteStringseses[i] = specialWriteStringses
 		}
-	}
+		// In specialWriteStringseses, each len([]writeString)
+		// 	== len(the corresponding Word.Specials in words.Compositions)
 
+		var interCompositionWriteString writeString
+		if intoMultiline {
+			interCompositionWriteString = interCompositionWriteNewline
+		} else {
+			interCompositionWriteString = interCompositionWriteSpace
+		}
+
+		ws = func(out *strings.Builder, indent []byte) {
+			for i := 0; ; {
+				// 0 < len(words.Compositions)
+				// 0 < len(specialWriteStringseses) == len(words.Compositions)
+				composition := words.Compositions[i]
+				specialWriteStringses := specialWriteStringseses[i] /* non-nil */
+				// In specialWriteStringses,
+				// 	each len([]writeString) == len(the corresponding Word.Specials in composition)
+				for j := 0; ; {
+					// 0 < len(composition) (by def.)
+					// 0 < len(specialWriteStringses)
+					theStrings := composition[j].Strings
+					specialWriteStrings := specialWriteStringses[j]
+					// len(specialWriteStringses[j] == len(composition[j].Specials), and
+					// len(composition[j].Strings) == len(composition[j].Specials) + 1 (by def.), so
+					// 	len(theStrings) == len(specialWriteStrings) + 1
+					for k := 0; ; k++ {
+						out.WriteString(theStrings[k])
+						if k >= len(specialWriteStrings) {
+							break
+						}
+						specialWriteStrings[k](out, indent)
+					}
+					j++
+					if j >= len(composition) {
+						break
+					}
+					out.WriteByte(space)
+				}
+				i++
+				if i >= len(words.Compositions) {
+					break
+				}
+				interCompositionWriteString(out, indent)
+			}
+		}
+	} else {
+		ws = noopWriteString
+	}
 	return
 }
 

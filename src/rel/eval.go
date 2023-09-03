@@ -19,7 +19,8 @@ func (r EvalResult) Syntax() syntax.Words { return r.It.(syntax.Words) }
 func (r EvalResult) Apply(param EvalResult) EvalResult {
 	return EvalResult{r.It.(func(EvalResult) interface{})(param)}
 }
-func (r EvalResult) IsComment() bool { _, isComment := r.It.(Comment); return isComment }
+func (r EvalResult) IsComment() bool    { _, isComment := r.It.(Comment); return isComment }
+func (r EvalResult) List() []EvalResult { return r.It.([]EvalResult) }
 
 type context *struct {
 	Entries map[string]interface{}
@@ -33,6 +34,35 @@ var defContext = new(struct {
 	Dir     string
 })
 
+func junction(junctive Junctive) func(EvalResult) interface{} {
+	return func(param EvalResult) interface{} {
+		junctReses := param.List()
+		junctRels := make([]Rel, len(junctReses))
+		for i, junctRes := range junctReses {
+			junctRels[i] = junctRes.Rel()
+		}
+		return Junction(junctive, junctRels)
+	}
+}
+func tupleJunction(junctive Junctive, leftTuple, rightTuple bool) func(EvalResult) interface{} {
+	return func(param EvalResult) interface{} {
+		junctReses := param.List()
+		junctRels := make([]Rel, len(junctReses))
+		for i, junctRes := range junctReses {
+			var factorRels []Rel
+			if leftTuple {
+				factorRels = append(factorRels, Collect(junctive, fmt.Sprint(i)))
+			}
+			factorRels = append(factorRels, junctRes.Rel())
+			if rightTuple {
+				factorRels = append(factorRels, Select(junctive, fmt.Sprint(i)))
+			}
+			junctRels[i] = Composition(factorRels)
+		}
+		return Junction(junctive, junctRels)
+	}
+}
+
 func init() {
 	defContext.Entries = make(map[string]interface{})
 
@@ -42,6 +72,25 @@ func init() {
 	defContext.Entries["~"] = func(param EvalResult) interface{} {
 		return param.Rel().Convert()
 	}
+	defContext.Entries["!"] = func(param EvalResult) interface{} {
+		if reses := param.List(); 0 < len(reses) {
+			val := reses[0]
+			for _, res := range reses[1:] {
+				val = val.Apply(res)
+			}
+			return val.It
+		} else {
+			panic("Empty application")
+		}
+	}
+	defContext.Entries[","] = junction(ConJunctive)
+	defContext.Entries[",@"] = tupleJunction(ConJunctive, false, true)
+	defContext.Entries["@,"] = tupleJunction(ConJunctive, true, false)
+	defContext.Entries["@,@"] = tupleJunction(ConJunctive, true, true)
+	defContext.Entries[";"] = junction(DisJunctive)
+	defContext.Entries[";@"] = tupleJunction(DisJunctive, false, true)
+	defContext.Entries["@;"] = tupleJunction(DisJunctive, true, false)
+	defContext.Entries["@;@"] = tupleJunction(DisJunctive, true, true)
 }
 
 func pathJoin(dir, file string) string { return dir + "/" + file }
@@ -134,7 +183,7 @@ func evalWord(w syntax.Word, c context) interface{} {
 }
 
 // c may be shared
-func evalComposition(composition []syntax.Word, c context) interface{} {
+func evalComposition(composition []syntax.Word /* non-nil */, c context) interface{} {
 	var factorResults []EvalResult // No Comments
 	for _, factor := range composition {
 		if er := (EvalResult{evalWord(factor, c)}); !er.IsComment() {
@@ -146,8 +195,12 @@ func evalComposition(composition []syntax.Word, c context) interface{} {
 	}
 	if _, macrosp := factorResults[0].It.(func(EvalResult) interface{}); macrosp {
 		return func(param EvalResult) interface{} {
-			for _, factorResult := range factorResults {
-				param = factorResult.Apply(param)
+			for i := len(factorResults) - 1; ; {
+				param = factorResults[i].Apply(param)
+				i--
+				if i < 0 {
+					break
+				}
 			}
 			return param.It
 		}
@@ -161,114 +214,23 @@ func evalComposition(composition []syntax.Word, c context) interface{} {
 }
 
 // c may be shared
-func EvalComposition(composition []syntax.Word, c context) EvalResult {
+func EvalComposition(composition []syntax.Word /* non-nil */, c context) EvalResult {
 	return EvalResult{evalComposition(composition, c)}
 }
 
 // c may be shared
 func evalWords(ws syntax.Words, c context) interface{} {
-	if 0 < len(ws.Operators) {
-		for j, firstSpecial := range ws.Operators[0].Specials {
-			switch firstSpecialPayload := firstSpecial.(type) {
-			case syntax.WordSpecialJunction:
-				firstLeftTuple := false
-				if j-1 < 0 {
-				} else if _, isTuple :=
-					ws.Operators[0].Specials[j-1].(syntax.WordSpecialTuple); isTuple {
-					firstLeftTuple = true
-				}
-
-				firstRightTuple := false
-				if j+1 >= len(ws.Operators[0].Specials) {
-				} else if _, isTuple :=
-					ws.Operators[0].Specials[j+1].(syntax.WordSpecialTuple); isTuple {
-					firstRightTuple = true
-				}
-
-				if len(ws.Compositions[0]) != 0 {
-					panic("Junction doesn't start with operator word")
-				}
-				junctive := Junctive(firstSpecialPayload)
-				var junctRels []Rel
-				for i, operator := range ws.Operators {
-					origOperator := operator
-					// 0 < len(operator.Specials)
-					_, commented := operator.Specials[0].(syntax.WordSpecialCommentMarker)
-					if commented {
-						if operator.Strings[0] != "" {
-							panic("Bad junction operator word: " + origOperator.String())
-						}
-						// There is at least one operator special in `operator`, but a comment
-						// marker isn't operative; therefore, 1 < len(operator.Specials)
-						operator = syntax.Word{Strings: operator.Strings[1:], Specials: operator.Specials[1:]}
-					}
-					// 0 < len(operator.Specials)
-					_, leftTuple := operator.Specials[0].(syntax.WordSpecialTuple)
-					if leftTuple {
-						if operator.Strings[0] != "" {
-							panic("Bad junction operator word: " + origOperator.String())
-						}
-						// There is at least one operator special in `operator`, but a tuple
-						// isn't operative; therefore, 1 < len(operator.Specials)
-						operator = syntax.Word{Strings: operator.Strings[1:], Specials: operator.Specials[1:]}
-					}
-					// 0 < len(operator.Specials)
-					if operator.Strings[0] != "" || operator.Strings[1] != "" || 2 < len(operator.Specials) {
-						panic("Bad junction operator word: " + origOperator.String())
-					}
-					if specialPayload, isWordSpecialJunction :=
-						operator.Specials[0].(syntax.WordSpecialJunction); !isWordSpecialJunction ||
-						specialPayload != firstSpecialPayload {
-						panic("Bad junction operator word: " + origOperator.String())
-					}
-					rightTuple := 2 == len(operator.Specials)
-					if !rightTuple {
-					} else if _, isTuple :=
-						operator.Specials[1].(syntax.WordSpecialTuple); false {
-					} else if !isTuple || operator.Strings[2] != "" {
-						panic("Bad junction operator word: " + origOperator.String())
-					}
-					if leftTuple != firstLeftTuple || rightTuple != firstRightTuple {
-						panic("Bad junction operator word: " + origOperator.String())
-					}
-
-					if !commented {
-						var factors []syntax.Word
-						if leftTuple {
-							factors = append(factors, Collect(junctive, fmt.Sprint(i)).Syntax().Word())
-						}
-						factors = append(factors, ws.Compositions[1:][i]...)
-						if rightTuple {
-							factors = append(factors, Select(junctive, fmt.Sprint(i)).Syntax().Word())
-						}
-						junctRels = append(junctRels, EvalComposition(factors, c).Rel())
-					}
-				}
-				if len(junctRels) == 0 {
-					panic("Empty junction: " + ws.String())
-				}
-				return Junction(junctive, junctRels)
-			case syntax.WordSpecialApplication:
-				val := EvalComposition(ws.Compositions[0], c)
-				for i, operator := range ws.Operators {
-					if len(operator.Specials) != 1 ||
-						operator.Strings[0] != "" ||
-						operator.Strings[1] != "" {
-						panic("Bad application operator word: " + operator.String())
-					}
-					if _, isWordSpecialApplication :=
-						operator.Specials[0].(syntax.WordSpecialApplication); !isWordSpecialApplication {
-						panic("Bad application operator word: " + operator.String())
-					}
-
-					val = val.Apply(EvalComposition(ws.Compositions[1:][i], c))
-				}
-				return val.It
-			}
+	if 0 < len(ws.Compositions) {
+		compositions := ws.Compositions[1:]
+		reses := make([]EvalResult, len(compositions))
+		for i, composition := range compositions {
+			// 0 < len(composition) (by def.)
+			reses[i] = EvalComposition(composition, c)
 		}
-		panic("Unreachable")
+		// 0 < len(ws.Compositions[0]) (by def.)
+		return EvalComposition(ws.Compositions[0], c).Apply(EvalResult{reses}).It
 	} else {
-		return evalComposition(ws.Compositions[0], c)
+		panic("No words")
 	}
 }
 

@@ -267,7 +267,7 @@ func (t Type) Syntax() Syntax {
 		typeConjuncts = append(typeConjuncts, NameSyntax("unit"))
 	}
 	if len(t.Conjuncts) > 0 {
-		var conjunctWordses [][]syntax.Word
+		var conjunctWordses [][]syntax.Word /* each []Word non-nil */
 		for fieldName, fieldTypePtr := range t.Conjuncts {
 			conjunctWordses = append(
 				conjunctWordses,
@@ -281,7 +281,7 @@ func (t Type) Syntax() Syntax {
 		typeConjuncts = append(typeConjuncts, JunctionSyntax(ConJunctive, conjunctWordses))
 	}
 	if len(t.Disjuncts) > 0 {
-		var disjunctWordses [][]syntax.Word
+		var disjunctWordses [][]syntax.Word /* each []Word non-nil */
 		for fieldName, fieldTypePtr := range t.Disjuncts {
 			disjunctWordses = append(
 				disjunctWordses,
@@ -300,6 +300,7 @@ func (t Type) Syntax() Syntax {
 		return typeConjuncts[0]
 	} else {
 		typeConjunctWordses := make([][]syntax.Word, len(typeConjuncts))
+		// Each []Word in typeConjunctWordses non-nil
 		for i, typeConjunct := range typeConjuncts {
 			typeConjunctWordses[i] = typeConjunct.Composition()
 		}
