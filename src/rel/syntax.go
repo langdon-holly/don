@@ -27,7 +27,7 @@ func (c SyntaxComposition) Composition() []syntax.Word /* non-nil */ {
 	return c
 }
 func (c SyntaxComposition) Words() syntax.Words {
-	return syntax.Words{Compositions: [][]syntax.Word{NameSyntax("!").Composition(), c}}
+	return syntax.Words{Compositions: [][]syntax.Word{NameSyntax("1param").Composition(), c}}
 }
 func (c SyntaxComposition) Word() syntax.Word {
 	return SyntaxWords(c.Words()).Word()

@@ -1,4 +1,4 @@
-!
+1param
 out. (,
 	(,@ |.out .7 |.out .8) full-adder (@, |7. 0. in. |7. 1. in. |7. carry.)
 	(,@ |.out .6 |.carry .7) full-adder (@, |6. 0. in. |6. 1. in. |6. carry.)

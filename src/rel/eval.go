@@ -83,6 +83,13 @@ func init() {
 			panic("Empty application")
 		}
 	}
+	defContext.Entries["1param"] = func(param EvalResult) interface{} {
+		if reses := param.List(); len(reses) == 1 {
+			return reses[0].It
+		} else {
+			panic("Non-one 1param param")
+		}
+	}
 	defContext.Entries[","] = junction(ConJunctive)
 	defContext.Entries[",@"] = tupleJunction(ConJunctive, false, true)
 	defContext.Entries["@,"] = tupleJunction(ConJunctive, true, false)
